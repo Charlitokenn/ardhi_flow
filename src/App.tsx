@@ -9,8 +9,7 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
           <header>
               <Show when="signed-out">
-                  <SignInButton />
-                  <SignUpButton />
+                  <SignInButton withSignUp={true} mode="modal" oauthFlow="popup"/>
               </Show>
               <Show when="signed-in">
                   <UserButton />

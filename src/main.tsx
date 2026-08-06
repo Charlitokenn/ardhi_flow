@@ -12,8 +12,7 @@ createRoot(document.getElementById('root')!).render(
               options: {
                   socialButtonsPlacement: 'bottom',
                   socialButtonsVariant: 'iconButton',
-                  termsPageUrl: 'https://clerk.com/terms',
-                  logoImageUrl: '/assets/vite.svg',
+                  logoImageUrl: 'src/assets/vite.svg',
                   logoLinkUrl: '/',
                   logoPlacement: 'outside'
               },
