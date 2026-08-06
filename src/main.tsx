@@ -14,7 +14,7 @@ createRoot(document.getElementById('root')!).render(
                   socialButtonsVariant: 'iconButton',
                   logoImageUrl: 'src/assets/vite.svg',
                   logoLinkUrl: '/',
-                  logoPlacement: 'outside'
+                  logoPlacement: 'inside',
               },
               theme: shadcn,
           }}
