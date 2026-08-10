@@ -1,0 +1,63 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ardhi-flow",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The Vite build emits the React app here. `not_found_handling` gives us
+  // SPA fallback (unmatched, non-asset routes resolve to index.html) so
+  // client-side routing works without a catch-all Worker route.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+
+  // KV cache for resolved tenant connection info, keyed by Clerk org_id.
+  // Avoids a catalog-DB round trip on every request. Create with:
+  //   wrangler kv namespace create TENANT_CACHE
+  "kv_namespaces": [
+    {
+      "binding": "TENANT_CACHE",
+      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+    }
+  ],
+
+  // R2 bucket for tenant file storage (see chat notes on why R2 over Neon
+  // Object Storage for now — region lock during beta). Create with:
+  //   wrangler r2 bucket create ardhi-flow-tenant-files
+  "r2_buckets": [
+    {
+      "binding": "TENANT_FILES",
+      "bucket_name": "ardhi-flow-tenant-files"
+    }
+  ],
+
+  // Async tenant provisioning: the Clerk webhook enqueues, a consumer does
+  // the actual Neon project creation + migration off the request path.
+  "queues": {
+    "producers": [
+      {
+        "queue": "tenant-provisioning",
+        "binding": "TENANT_PROVISION_QUEUE"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "tenant-provisioning",
+        "max_batch_size": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "tenant-provisioning-dlq"
+      }
+    ]
+  },
+
+  // Non-secret config. Secrets (CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET,
+  // CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY) are set
+  // via `wrangler secret put <NAME>` in production and `.dev.vars` locally
+  // — never committed here.
+  "vars": {
+    "DEFAULT_TENANT_REGION": "aws-eu-central-1"
+  }
+}
