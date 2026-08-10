@@ -168,7 +168,7 @@ function ArdhiFlowMark() {
         <circle cx="7" cy="20" r="1.3" fill="currentColor" />
         <circle cx="4" cy="15" r="1.3" fill="currentColor" />
       </svg>
-      <span className="text-sm font-semibold tracking-tight">ArdhiFlow</span>
+      <span className="text-sm font-semibold tracking-tight">{appConfig.name}</span>
     </div>
   )
 }

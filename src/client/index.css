@@ -1,14 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import url('https://googleapis.com');
+/*@import "@fontsource-variable/geist";*/
 @import '@clerk/ui/themes/shadcn.css';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    /*--font-sans: 'Geist Variable', sans-serif;*/
+    --font-ubuntu: "Ubuntu", sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
