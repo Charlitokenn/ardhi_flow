@@ -58,5 +58,21 @@
 	"vars": {
 		"DEFAULT_TENANT_REGION": "aws-eu-central-1",
 		"VITE_CLERK_PUBLISHABLE_KEY": "pk_test_cHJlY2lzZS10aXRtb3VzZS00My5jbGVyay5hY2NvdW50cy5kZXYk"
+	},
+
+	"observability": {
+		"enabled": false,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": false,
+			"persist": true,
+			"head_sampling_rate": 1
+		}
 	}
 }
