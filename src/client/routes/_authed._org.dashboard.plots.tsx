@@ -6,6 +6,7 @@ import { LandPlot } from 'lucide-react'
 import { apiClient } from '@/lib/api.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { Input } from '@/components/ui/input.tsx'
+import { usePostHog } from 'posthog-js/react'
 
 export const Route = createFileRoute('/_authed/_org/dashboard/plots')({
   component: PlotsPage,
@@ -25,14 +26,22 @@ function PlotsPage() {
     },
   })
 
+  const posthog = usePostHog()
+
   const createPlot = useMutation({
     mutationFn: async (input: { reference: string; location: string; priceTotal: string }) => {
       const res = await api.api.plots.$post({ json: input })
       if (!res.ok) throw new Error('Failed to create plot')
       return res.json()
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['plots'] })
+      posthog.capture('plot_created', {
+        has_location: Boolean(variables.location),
+      })
+    },
+    onError: () => {
+      posthog.capture('plot_creation_failed')
     },
   })
 

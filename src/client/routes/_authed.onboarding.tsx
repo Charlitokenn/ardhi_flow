@@ -1,5 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { OrganizationList } from '@clerk/react'
+import { useEffect } from 'react'
+import { usePostHog } from 'posthog-js/react'
 
 export const Route = createFileRoute('/_authed/onboarding')({
   beforeLoad: ({ context }) => {
@@ -12,6 +14,12 @@ export const Route = createFileRoute('/_authed/onboarding')({
 })
 
 function OnboardingPage() {
+  const posthog = usePostHog()
+
+  useEffect(() => {
+    posthog.capture('onboarding_viewed')
+  }, [posthog])
+
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 p-4">
       <div className="text-center">

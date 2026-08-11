@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ardhi-flow-marketing",
+  "compatibility_date": "2026-08-01",
+
+  // Pure static site — Astro's build output, no Worker script needed. If
+  // this site ever needs server-rendered pages (a blog, a contact form
+  // handler, etc.), add the @astrojs/cloudflare adapter and a `main` entry
+  // here — same pattern as the app's Worker.
+  "assets": {
+    "directory": "./dist"
+  }
+}

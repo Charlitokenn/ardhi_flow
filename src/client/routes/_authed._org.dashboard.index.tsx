@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { LandPlot } from 'lucide-react'
 import { Button } from '@/components/ui/button.tsx'
+import { usePostHog } from 'posthog-js/react'
 
 export const Route = createFileRoute('/_authed/_org/dashboard/')({
   component: DashboardHome,
 })
 
 function DashboardHome() {
+  const posthog = usePostHog()
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -24,7 +27,7 @@ function DashboardHome() {
             Record a plot and its buyer to start tracking installments.
           </p>
         </div>
-        <Button asChild size="sm">
+        <Button asChild size="sm" onClick={() => posthog.capture('add_plot_clicked')}>
           <Link to="/dashboard/plots">Add a plot</Link>
         </Button>
       </div>

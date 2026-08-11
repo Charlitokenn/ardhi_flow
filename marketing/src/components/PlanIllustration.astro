@@ -1,0 +1,62 @@
+---
+---
+
+<svg
+  viewBox="0 0 480 320"
+  class="w-full h-auto"
+  role="img"
+  aria-label="A survey plan showing six adjoining plots, one marked as under an installment plan"
+>
+  <!-- Corner registration marks, like a real plan sheet -->
+  <g stroke="var(--ink-line)" stroke-width="1" opacity="0.6">
+    <path d="M8 24 V8 H24" fill="none" />
+    <path d="M456 8 H472 V24" fill="none" />
+    <path d="M472 296 V312 H456" fill="none" />
+    <path d="M24 312 H8 V296" fill="none" />
+  </g>
+
+  <!-- Plot boundaries -->
+  <g fill="none" stroke="var(--ink-line)" stroke-width="1.25" stroke-linejoin="round">
+    <polygon points="46,44 208,40 212,168 44,172" />
+    <polygon points="208,40 344,52 340,164 212,168" />
+    <polygon points="344,52 436,64 430,158 340,164" />
+    <polygon points="44,172 212,168 216,276 40,280" />
+    <polygon points="212,168 340,164 336,272 216,276" />
+    <polygon points="340,164 430,158 424,266 336,272" />
+  </g>
+
+  <!-- The one plot under an installment plan -->
+  <polygon points="208,40 344,52 340,164 212,168" fill="var(--primary)" fill-opacity="0.12" stroke="var(--primary)" stroke-width="1.5" />
+
+  <!-- Survey pins at each vertex -->
+  <g fill="var(--ink-line)">
+    <circle cx="46" cy="44" r="2.5" /><circle cx="208" cy="40" r="2.5" />
+    <circle cx="344" cy="52" r="2.5" /><circle cx="436" cy="64" r="2.5" />
+    <circle cx="430" cy="158" r="2.5" /><circle cx="340" cy="164" r="2.5" />
+    <circle cx="212" cy="168" r="2.5" /><circle cx="44" cy="172" r="2.5" />
+    <circle cx="424" cy="266" r="2.5" /><circle cx="336" cy="272" r="2.5" />
+    <circle cx="216" cy="276" r="2.5" /><circle cx="40" cy="280" r="2.5" />
+  </g>
+
+  <!-- Plot reference labels -->
+  <g font-family="Ubuntu, sans-serif" font-size="11" fill="var(--ink-muted)" letter-spacing="0.5">
+    <text x="104" y="112">PLOT-011</text>
+    <text x="252" y="108">PLOT-012</text>
+    <text x="368" y="112">PLOT-013</text>
+    <text x="100" y="230">PLOT-014</text>
+    <text x="250" y="224">PLOT-015</text>
+    <text x="358" y="216">PLOT-016</text>
+  </g>
+
+  <!-- Status tag on the sold plot -->
+  <g transform="translate(232, 92)">
+    <rect width="88" height="20" rx="3" fill="var(--stamp)" />
+    <text x="44" y="14" font-family="Ubuntu, sans-serif" font-size="10" font-weight="500" fill="var(--stamp-foreground)" text-anchor="middle" letter-spacing="0.5">6/12 PAID</text>
+  </g>
+
+  <!-- Title block, bottom right -->
+  <g font-family="Ubuntu, sans-serif" fill="var(--ink-muted)">
+    <line x1="330" y1="292" x2="472" y2="292" stroke="var(--ink-line)" stroke-width="0.75" opacity="0.6" />
+    <text x="330" y="304" font-size="9" letter-spacing="1">ARDHIFLOW — PLOT REGISTER — N.T.S.</text>
+  </g>
+</svg>
