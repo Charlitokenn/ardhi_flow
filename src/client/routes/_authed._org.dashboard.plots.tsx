@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@clerk/react'
 import { useState } from 'react'
 import { LandPlot } from 'lucide-react'
-import { apiClient } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { apiClient } from '../../../../../Downloads/ardhi_flow-scaffold(1)/ardhi_flow-main/src/client/lib/api.ts'
+import { Button } from '../../../../../Downloads/ardhi_flow-scaffold(1)/ardhi_flow-main/src/client/components/ui/button.tsx'
+import { Input } from '../../../../../Downloads/ardhi_flow-scaffold(1)/ardhi_flow-main/src/client/components/ui/input.tsx'
 
 export const Route = createFileRoute('/_authed/_org/dashboard/plots')({
   component: PlotsPage,

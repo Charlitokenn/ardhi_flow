@@ -12,11 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedOrgRouteImport } from './routes/_authed._org'
-import { Route as AuthedLayoutRouteImport } from './routes/_authed/layout'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
 import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as SignUpSplatRouteImport } from './routes/sign-up.$'
-import { Route as AuthedOrgDashboardIndexRouteImport } from './routes/_authed/_org/dashboard/index'
+import { Route as AuthedOrgDashboardIndexRouteImport } from './routes/_authed._org.dashboard.index'
 import { Route as AuthedOrgDashboardPlotsRouteImport } from './routes/_authed._org.dashboard.plots'
 
 const IndexRoute = IndexRouteImport.update({
@@ -30,11 +29,6 @@ const AuthedRoute = AuthedRouteImport.update({
 } as any)
 const AuthedOrgRoute = AuthedOrgRouteImport.update({
   id: '/_org',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedLayoutRoute = AuthedLayoutRouteImport.update({
-  id: '/layout',
-  path: '/layout',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
@@ -65,7 +59,6 @@ const AuthedOrgDashboardPlotsRoute = AuthedOrgDashboardPlotsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/layout': typeof AuthedLayoutRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
@@ -74,7 +67,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/layout': typeof AuthedLayoutRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
@@ -86,7 +78,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/_authed/_org': typeof AuthedOrgRouteWithChildren
-  '/_authed/layout': typeof AuthedLayoutRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
@@ -97,7 +88,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/layout'
     | '/onboarding'
     | '/sign-in/$'
     | '/sign-up/$'
@@ -106,7 +96,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/layout'
     | '/onboarding'
     | '/sign-in/$'
     | '/sign-up/$'
@@ -117,7 +106,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_authed'
     | '/_authed/_org'
-    | '/_authed/layout'
     | '/_authed/onboarding'
     | '/sign-in/$'
     | '/sign-up/$'
@@ -153,13 +141,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedOrgRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/layout': {
-      id: '/_authed/layout'
-      path: '/layout'
-      fullPath: '/layout'
-      preLoaderRoute: typeof AuthedLayoutRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/onboarding': {
@@ -216,13 +197,11 @@ const AuthedOrgRouteWithChildren = AuthedOrgRoute._addFileChildren(
 
 interface AuthedRouteChildren {
   AuthedOrgRoute: typeof AuthedOrgRouteWithChildren
-  AuthedLayoutRoute: typeof AuthedLayoutRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedOrgRoute: AuthedOrgRouteWithChildren,
-  AuthedLayoutRoute: AuthedLayoutRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
 }
 
