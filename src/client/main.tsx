@@ -7,8 +7,6 @@ import { RouterProvider } from '@tanstack/react-router'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { router, queryClient } from './router'
 import {TooltipProvider} from "@/components/ui/tooltip.tsx";
-import { appConfig } from "@/constants/index.ts"
-import ParticleText from "@/components/ParticleText.tsx"
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 

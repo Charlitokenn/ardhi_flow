@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { LandPlot } from 'lucide-react'
-import { Button } from '../../../../../Downloads/ardhi_flow-scaffold(1)/ardhi_flow-main/src/client/components/ui/button.tsx'
+import { Button } from '@/components/ui/button.tsx'
 
 export const Route = createFileRoute('/_authed/_org/dashboard/')({
   component: DashboardHome,
