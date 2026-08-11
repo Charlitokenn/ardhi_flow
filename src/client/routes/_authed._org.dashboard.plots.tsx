@@ -40,7 +40,7 @@ function PlotsPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold">Plots</h1>
-        <p className="text-sm text-muted-foreground">Every plot you're selling, and what it's worth.</p>
+        <p className="text-sm text-muted-foreground">Every plot you're selling, and what it's worth now.</p>
       </div>
 
       <NewPlotForm
