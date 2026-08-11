@@ -56,6 +56,7 @@
 	// via `wrangler secret put <NAME>` in production and `.dev.vars` locally
 	// — never committed here.
 	"vars": {
-		"DEFAULT_TENANT_REGION": "aws-eu-central-1"
+		"DEFAULT_TENANT_REGION": "aws-eu-central-1",
+		"VITE_CLERK_PUBLISHABLE_KEY": "pk_test_cHJlY2lzZS10aXRtb3VzZS00My5jbGVyay5hY2NvdW50cy5kZXYk"
 	}
 }
