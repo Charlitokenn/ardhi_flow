@@ -7,6 +7,8 @@ import { RouterProvider } from '@tanstack/react-router'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { router, queryClient } from './router'
 import {TooltipProvider} from "@/components/ui/tooltip.tsx";
+import {Toaster} from "sonner";
+import Loader from "@/components/loader.tsx";
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
@@ -24,7 +26,7 @@ function InnerApp() {
   if (!auth.isLoaded) {
     return (
       <div className="flex min-h-svh items-center justify-center text-sm text-muted-foreground">
-          Loading..
+          <Loader />
       </div>
     )
   }
@@ -48,6 +50,7 @@ createRoot(document.getElementById('root')!).render(
           socialButtonsPlacement: 'bottom',
           socialButtonsVariant: 'iconButton',
           logoLinkUrl: '/',
+            logoImageUrl: '/logo-alt.svg',
           logoPlacement: 'inside',
         },
         theme: shadcn,
@@ -56,6 +59,7 @@ createRoot(document.getElementById('root')!).render(
         <TooltipProvider>
           <QueryClientProvider client={queryClient}>
             <InnerApp />
+              <Toaster />
           </QueryClientProvider>
         </TooltipProvider>
     </ClerkProvider>

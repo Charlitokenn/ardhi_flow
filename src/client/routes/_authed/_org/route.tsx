@@ -35,6 +35,7 @@ function OrgLayout() {
         .map((match) => ({
             label: match.staticData.breadcrumb,
             path: match.pathname,
+            link: match.staticData.breadcrumbLink !== false,
         }))
 
     return (
@@ -42,13 +43,13 @@ function OrgLayout() {
             <AppSidebar />
 
             <SidebarInset>
-                <header className="flex shrink-0 items-center py-2 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+                <header className="flex border-b shrink-0 items-center py-2 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
                     <div className="flex font-sans items-center gap-2 px-4">
                         <SidebarTrigger className="-ml-1" />
 
                         <Separator
                             orientation="vertical"
-                            className="mr-2 data-[orientation=vertical]:h-4"
+                            className="mr-2 self-center"
                         />
 
                         <Breadcrumb>
@@ -65,7 +66,7 @@ function OrgLayout() {
                                             <BreadcrumbItem
                                                 className={index === 0 ? "hidden md:block" : ""}
                                             >
-                                                {isLast ? (
+                                                {isLast || !crumb.link ? (
                                                     <BreadcrumbPage>
                                                         {crumb.label}
                                                     </BreadcrumbPage>

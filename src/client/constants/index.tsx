@@ -1,4 +1,11 @@
-import {BotIcon, TerminalSquareIcon} from "lucide-react";
+import {
+    ArchiveIcon,
+    LayoutPanelLeftIcon,
+    MessagesSquareIcon,
+    ShoppingCartIcon,
+    UsersIcon,
+    WalletIcon
+} from "lucide-react";
 
 export const appConfig = {
     name: "ArdhiFlow",
@@ -9,21 +16,30 @@ export const appConfig = {
         {
             title: "Dashboard",
             url: "/dashboard",
-            icon: (
-                <TerminalSquareIcon />
-            ),
+            icon: <LayoutPanelLeftIcon />,
+        },
+        {
+            title: "Contacts",
+            url: "/contacts",
+            icon: <UsersIcon />,
+        },
+        {
+            title: "Daily Sales",
+            url: "/sales",
+            icon: <ShoppingCartIcon />,
         },
         {
             title: "Finance",
             url: "",
-            icon: (
-                <BotIcon
-                />
-            ),
+            icon: <WalletIcon />,
             items: [
                 {
                     title: "Transactions",
                     url: "/finance/transactions",
+                },
+                {
+                    title: "Reminder",
+                    url: "/finance/reminder",
                 },
                 {
                     title: "Reconciliation",
@@ -31,5 +47,26 @@ export const appConfig = {
                 },
             ],
         },
+        {
+            title: "Projects",
+            url: "",
+            icon: <ArchiveIcon/> ,
+            items: [
+                {
+                    title: "Projects List",
+                    url: "/projects/projects-list",
+                },
+                {
+                    title: "Payments",
+                    url: "/projects/payments",
+                },
+            ],
+        },
+        {
+            title: "Messaging",
+            url: "/messaging",
+            icon: <MessagesSquareIcon />,
+        },
+
     ]
 }

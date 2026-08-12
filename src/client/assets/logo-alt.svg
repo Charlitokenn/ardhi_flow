@@ -1,0 +1,22 @@
+<svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 304 76"
+        role="img"
+        aria-labelledby="title"
+>
+    <title id="title">ardhiFlow</title>
+
+    <!-- Logo mark -->
+    <g fill="#2020FF">
+        <rect
+                x="28"
+                y="7"
+                width="24"
+                height="64"
+                rx="14"
+                transform="rotate(28 42 41)"
+        />
+        <circle cx="67" cy="58" r="14" />
+    </g>
+
+</svg>
