@@ -2,127 +2,44 @@
 import '../styles/global.css';
 import PlanIllustration from '../components/PlanIllustration.astro';
 import Mark from '../components/Mark.astro';
-
+import Navbar from "@components/Navbar.astro"
+import Hero from "@components/Hero.astro"
+import Comparison from "@components/Comparison.astro"
+import HowItWorks from "@components/HowItWorks.astro"
+import Stats from "@components/Stats.astro"
+import Guarantee from "@components/Guarantee.astro"
+import Pricing from "@components/Pricing.astro"
+import CallToAction from "@components/CallToAction.astro"
+import Footer from "@components/Footer.astro"
+import Layout from "../layouts/Layout.astro"
+import TrialLicenseModal from "@components/TrialLicenseModal.astro";
+import DesktopPaymentModal from "@components/DesktopPaymentModal.astro";
+import ContactUsModal from "@components/ContactUsModal.astro";
 const appUrl = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173';
+
+export const prerender = false;
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>ArdhiFlow — Track every plot, every buyer, every installment</title>
-    <meta
-      name="description"
-      content="ArdhiFlow keeps a plain-language register of the plots you've sold, who bought them, and what's still owed — so nothing slips through when payments are spread over months."
-    />
-  </head>
-  <body>
-    <header class="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-      <a href="/" class="flex items-center gap-2 text-primary">
-        <Mark />
-        <span class="text-sm font-medium tracking-tight text-foreground">ArdhiFlow</span>
-      </a>
-      <a
-        href={`${appUrl}/sign-in`}
-        class="rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
-      >
-        Sign in
-      </a>
-    </header>
+<Layout>
+  <Navbar />
+  <main>
+    <Hero />
+    <Comparison />
+    <!--<HowItWorks />-->
+    <!--<Stats />-->
+    <Guarantee />
+    <!--<Pricing />-->
+    <CallToAction />
+  </main>
+  <Footer />
+</Layout>
 
-    <!-- Hero — the one bold moment on the page -->
-    <section class="bg-ink text-ink-foreground">
-      <div class="mx-auto grid max-w-5xl gap-10 px-6 py-16 md:grid-cols-2 md:items-center md:py-24">
-        <div>
-          <p class="text-xs font-medium tracking-[0.2em] text-ink-muted uppercase">
-            Plot & receivables register
-          </p>
-          <h1 class="mt-4 text-4xl font-bold leading-tight tracking-tight md:text-5xl">
-            Know exactly who owes what, on which plot.
-          </h1>
-          <p class="mt-5 max-w-md text-base leading-relaxed text-ink-muted md:text-lg">
-            ArdhiFlow tracks every plot you've sold, every buyer, and every installment —
-            so nothing slips through when payments are spread over months.
-          </p>
-          <div class="mt-8 flex items-center gap-4">
-            <a
-              href={`${appUrl}/sign-up`}
-              class="rounded-md bg-stamp px-5 py-2.5 text-sm font-medium text-stamp-foreground transition-opacity hover:opacity-90"
-            >
-              Get started
-            </a>
-            <a href={`${appUrl}/sign-in`} class="text-sm text-ink-line underline underline-offset-4">
-              Sign in
-            </a>
-          </div>
-        </div>
-        <div class="rounded-lg border border-ink-line/30 bg-white/[0.02] p-4">
-          <PlanIllustration />
-        </div>
-      </div>
-    </section>
+<!-- Modal instance -->
+<!--<TrialLicenseModal id="trial-modal" title="Start your free trial" />-->
 
-    <!-- Features — calm, quiet, information-forward -->
-    <section class="mx-auto max-w-5xl px-6 py-16 md:py-24">
-      <div class="grid gap-10 md:grid-cols-3">
-        <div>
-          <div class="flex size-9 items-center justify-center rounded-md border border-border text-primary">
-            <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <path d="M4 8 L11 4 L20 7 L18 17 L7 20 L4 15 Z" stroke-linejoin="round" />
-            </svg>
-          </div>
-          <h2 class="mt-4 text-base font-medium">Every plot and buyer in one place</h2>
-          <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Record plots as you sell them, with location, price, and the buyer attached.
-            No more spreadsheets that only one person knows how to read.
-          </p>
-        </div>
-        <div>
-          <div class="flex size-9 items-center justify-center rounded-md border border-border text-primary">
-            <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <path d="M4 6h16M4 12h10M4 18h7" stroke-linecap="round" />
-            </svg>
-          </div>
-          <h2 class="mt-4 text-base font-medium">Installments that don't slip</h2>
-          <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-            See what's due, what's paid, and what's overdue at a glance —
-            for one plot or across your whole register.
-          </p>
-        </div>
-        <div>
-          <div class="flex size-9 items-center justify-center rounded-md border border-border text-primary">
-            <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <rect x="4" y="10" width="16" height="10" rx="1.5" /><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke-linecap="round" />
-            </svg>
-          </div>
-          <h2 class="mt-4 text-base font-medium">Your own workspace, your own data</h2>
-          <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Every organization on ArdhiFlow runs on its own isolated database —
-            never pooled or shared with anyone else's records.
-          </p>
-        </div>
-      </div>
-    </section>
+<!-- Modal instance -->
+<!--<ContactUsModal id="contact-us-modal" title="Contact Us" />-->
 
-    <!-- Closing CTA — bookends the hero -->
-    <section class="bg-ink text-ink-foreground">
-      <div class="mx-auto max-w-5xl px-6 py-16 text-center md:py-20">
-        <h2 class="text-2xl font-bold tracking-tight md:text-3xl">Start your plot register today</h2>
-        <p class="mx-auto mt-3 max-w-md text-sm text-ink-muted">
-          Set up your organization and add your first plot in a few minutes.
-        </p>
-        <a
-          href={`${appUrl}/sign-up`}
-          class="mt-7 inline-block rounded-md bg-stamp px-5 py-2.5 text-sm font-medium text-stamp-foreground transition-opacity hover:opacity-90"
-        >
-          Get started
-        </a>
-      </div>
-    </section>
+<!-- Modal instance -->
+<!--<DesktopPaymentModal id="desktop-payment-modal" title="Complete Your Purchase" />-->
 
-    <footer class="mx-auto max-w-5xl px-6 py-8 text-xs text-muted-foreground">
-      <p>&copy; {new Date().getFullYear()} ArdhiFlow.</p>
-    </footer>
-  </body>
-</html>

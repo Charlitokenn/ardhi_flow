@@ -1,0 +1,60 @@
+---
+import { Link, Sparkles, FileCheck } from "@lucide/astro"
+import { AppConfig } from "../constants"
+
+const steps = [
+  {
+    num: "1",
+    icon: Link,
+    title: "Connect",
+    summary: "Securely link your bank, cards, and payment tools in a couple of clicks.",
+    detail:
+      `${AppConfig.appName} uses bank-grade encryption to sync every account. Historical transactions import automatically, so your books are caught up from day one.`,
+  },
+  {
+    num: "2",
+    icon: Sparkles,
+    title: "Categorize",
+    summary: "AI sorts and reconciles every transaction the moment it lands.",
+    detail:
+      "Our engine learns your business and labels income, expenses, and transfers with the right categories — flagging only the handful that genuinely need your review.",
+  },
+  {
+    num: "3",
+    icon: FileCheck,
+    title: "Report",
+    summary: "Get tax-ready statements and live dashboards, always up to date.",
+    detail:
+      "P&L, balance sheet, and cash flow refresh in real time. Export clean reports for investors or hand your accountant access in a single click at tax time.",
+  },
+]
+---
+
+<section id="how" class="relative overflow-hidden bg-ink py-24 text-white">
+  <div class="absolute inset-0 dotted-bg opacity-[0.06]"></div>
+  <div class="relative mx-auto max-w-6xl px-4">
+    <div class="mx-auto mb-16 max-w-2xl text-center">
+      <h2 class="text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl">
+        Here's how {AppConfig.appName} closes your books in 3 steps:
+      </h2>
+    </div>
+
+    <div class="grid gap-6 md:grid-cols-3">
+      {
+        steps.map((step) => (
+          <div class="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur">
+            <div class="mb-6 flex items-center justify-between">
+              <span class="font-display text-5xl font-extrabold text-white/15">{step.num}</span>
+              <span class="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white">
+                <step.icon size={20} />
+              </span>
+            </div>
+            <h3 class="mb-2 font-display text-2xl font-bold">{step.title}</h3>
+            <p class="mb-4 text-lg font-medium text-white/80">{step.summary}</p>
+            <p class="text-sm leading-relaxed text-white/55">{step.detail}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

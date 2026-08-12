@@ -1,0 +1,66 @@
+---
+import { Check, X } from "@lucide/astro"
+import { AppConfig } from "../constants"
+
+const appNameItems = [
+  "See current status of all stock items any time",
+  "Know your Profit/Loss instantly",
+  "Stock out notifications to your mobile",
+  "Always tax-ready, no scramble each quarter",
+  "Product best sellers at your fingertips",
+  "Live dashboards you actually understand",
+  "Instant Tax ready financials",
+]
+
+const oldWay = [
+  "Counting stock everytime to know stock levels",
+  "Profit/Loss calculated manually and when needed",
+  "Surprise finished stocks when customers needs them",
+  "Frantic shoebox of receipts at tax time",
+  "Guesswork in best sellers and top movers",
+  "Manual records on notebooks and excel sheets",
+  "Wait until auditor finalizes financials",
+]
+---
+
+<section id="features" class="relative mx-auto max-w-6xl px-4 py-24">
+  <div class="mx-auto mb-14 max-w-2xl text-center">
+    <h2 class="text-balance font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+      We're breaking all the rules of old-school bookkeeping.
+    </h2>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <div class="rounded-3xl border-2 border-brand/20 bg-brand-soft/40 p-8 shadow-card sm:p-10">
+      <h3 class="mb-6 font-display text-2xl font-bold text-ink">Bookkeeping with {AppConfig.appName}</h3>
+      <ul class="flex flex-col gap-4">
+        {
+          appNameItems.map((item) => (
+            <li class="flex items-start gap-3">
+              <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                <Check size={15} />
+              </span>
+              <span class="text-base text-ink">{item}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="rounded-3xl border border-black/5 bg-white p-8 sm:p-10">
+      <h3 class="mb-6 font-display text-2xl font-bold text-muted">The traditional way</h3>
+      <ul class="flex flex-col gap-4">
+        {
+          oldWay.map((item) => (
+            <li class="flex items-start gap-3">
+              <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-coral/15 text-accent-coral">
+                <X size={15} />
+              </span>
+              <span class="text-base text-muted">{item}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,15 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Footer from "@components/Footer.astro";
+---
+
+<Layout>
+    <main class="flex flex-col items-center justify-center gap-4 h-screen dotted-bg">
+            <h1 class="text-5xl font-extrabold">404</h1>
+            <p class="text-md text-primary">Page not found. Check the URL.</p>
+        <div class="flex gap-4 mt-8">
+            <a href="/" class="bg-brand py-2.5 px-4 rounded-3xl text-brand-soft font-bold">← Go Home</a>
+            <a href="/getting-started/getting-started-with-rarebooks" class="bg-brand py-2.5 px-4 rounded-3xl text-brand-soft font-bold">View Documentation</a>
+        </div>
+    </main>
+</Layout>

@@ -1,0 +1,29 @@
+---
+export const prerender = false;
+
+import { Check } from "@lucide/astro";
+import { AppConfig } from "../constants";
+import { getPrice, getCurrencySymbol, isTanzania } from "../constants/pricing.ts";
+import { Button } from "src/components/components/ui/button"
+import {Subscriptions} from "./components/subscriptionToggle"
+
+const countryCode = Astro.locals.countryCode || "US";
+const plans = AppConfig.pricingPlans;
+const isLocal =  isTanzania(countryCode);
+const props = { plans, isLocal, countryCode }
+---
+
+<section id="pricing" class="mx-auto max-w-6xl px-4 py-24">
+  <div class="mx-auto mb-14 max-w-2xl text-center">
+    <h2 class="text-balance font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+      Simple, transparent pricing.
+    </h2>
+    <p class="mt-4 text-lg text-muted">
+     No surprises. Cancel anytime.
+    </p>
+  </div>
+
+  <div class="mb-8 w-full">
+    <Subscriptions {...props} client:load/>
+  </div>
+</section>

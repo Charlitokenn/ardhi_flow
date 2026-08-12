@@ -1,0 +1,156 @@
+---
+import { Notebook, Store, GraduationCap, CalendarClock, FileSpreadsheet, ShieldCheck } from "@lucide/astro"
+import { AppConfig } from "../constants"
+import {isTanzania} from "../constants/pricing.ts";
+
+const countryCode = Astro.locals.countryCode || "US";
+const isLocal =  isTanzania(countryCode);
+
+const steps = [
+  {
+    num: "1",
+    label: "Digitize",
+    icon: Notebook,
+    title: "We digitize your notebooks.",
+    body: `Hand us your handwritten ledgers and Excel sheets. We turn years of stock, sales, and expense records into clean, structured data inside ${AppConfig.appName}.`,
+    bullet: "Your notebooks & spreadsheets, transcribed for you — nothing left behind.",
+  },
+  {
+    num: "2",
+    label: "Set up",
+    icon: Store,
+    title: `We set up your business on ${AppConfig.appName}.`,
+    body: "Your business, products, suppliers, and pricing are configured to match how you actually operate — so the system fits your business from day one.",
+    bullet: "A fully structured digital system, tailored to your real workflow.",
+  },
+  {
+    num: "3",
+    label: "Train",
+    icon: GraduationCap,
+    title: `We train you how to use ${AppConfig.appName}.`,
+    body: "A specialist walks you and your team through tracking sales, managing stock, and recording expenses until everyone is confident and self-sufficient.",
+    bullet: "Hands-on guidance — no technical experience required.",
+  },
+  {
+    num: "4",
+    label: "Try free",
+    icon: CalendarClock,
+    title: `You get a full ${isLocal ? AppConfig.trial.localDuration : AppConfig.trial.abroadDuration} Days FREE trial.`,
+    body: `Run your real business operations in ${AppConfig.appName} — track live sales, stock, and expenses — with zero commitment and nothing to pay upfront.`,
+    bullet: "Try out every feature on your actual data. No commitment.",
+  },
+  {
+    num: "5",
+    label: "Your choice",
+    icon: FileSpreadsheet,
+    title: `Continue with ${AppConfig.appName} — or take your data elsewhere.`,
+    body: "If it works for you, purchase the annual license key and keep going without interruption. If not, we export all your records into a clean, structured Excel file — ready to use anywhere.",
+    bullet: "Not satisfied? We hand over your digitized data. No questions asked.",
+  },
+]
+---
+
+<section id="guarantee" class="relative overflow-hidden bg-background py-24 scroll-mt-24">
+  <div class="absolute inset-0 dotted-bg opacity-50"></div>
+
+  <div class="relative mx-auto max-w-6xl px-4">
+    <div class="mx-auto mb-6 max-w-3xl text-center">
+      <h2 class="text-balance font-display text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+        Get started with our <br/>{isLocal ? `${AppConfig.trial.localDuration}`: `${AppConfig.trial.abroadDuration}` } Days - Risk Free Trial
+      </h2>
+      <p class="mx-auto mt-5 max-w-2xl text-pretty text-lg leading-relaxed text-muted">
+        Try out all features — no commitment. We get your entire business records digitized,
+        for you. Here's exactly how it works, start to finish.
+      </p>
+    </div>
+
+    <div class="relative mt-20">
+      <!-- center vertical dotted timeline line -->
+      <div
+        class="absolute left-1/2 top-0 hidden h-full -translate-x-1/2 border-l-2 border-dashed border-black/20 md:block"
+        aria-hidden="true"
+      >
+      </div>
+      <!-- mobile dotted line -->
+      <div
+        class="absolute left-6 top-0 h-full border-l-2 border-dashed border-black/20 md:hidden"
+        aria-hidden="true"
+      >
+      </div>
+
+      <div class="space-y-16 md:space-y-0">
+        {
+          steps.map((step, i) => {
+            const isLeft = i % 2 === 0
+            return (
+              <div class="relative">
+                {/* number pill on the line */}
+                <div class="absolute left-6 top-0 z-10 -translate-x-1/2 md:left-1/2">
+                  <span class="inline-flex items-center gap-1.5 rounded-pill border border-black/5 bg-white px-3 py-1 text-sm font-semibold text-ink shadow-card">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+                      {step.num}
+                    </span>
+                    {step.label}
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-8 pt-12 md:grid-cols-2 md:gap-16 md:pb-12 md:pt-16">
+                  {/* TEXT SIDE */}
+                  <div
+                    class:list={[
+                      "pl-16 md:pl-0",
+                      isLeft ? "md:col-start-1 md:pr-8 md:text-right" : "md:col-start-2 md:order-2 md:pl-8",
+                    ]}
+                  >
+                    <h3 class="text-balance font-display text-3xl font-bold leading-tight text-ink sm:text-4xl">
+                      {step.title}
+                    </h3>
+                    <p class="mt-5 text-base leading-relaxed text-muted">{step.body}</p>
+                    <p
+                      class:list={[
+                        "mt-6 flex items-start gap-2 text-sm font-semibold text-ink",
+                        isLeft ? "md:flex-row-reverse md:text-right" : "",
+                      ]}
+                    >
+                      <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"></span>
+                      {step.bullet}
+                    </p>
+                  </div>
+
+                  {/* VISUAL SIDE */}
+                  <div
+                    class:list={[
+                      "pl-16 md:pl-0",
+                      isLeft ? "md:col-start-2 md:pl-8" : "md:col-start-1 md:order-1 md:pr-8",
+                    ]}
+                  >
+                    <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-3xl border border-black/5 bg-gradient-to-br from-brand-soft via-white to-brand-soft/60 shadow-card">
+                      <div class="absolute inset-0 dotted-bg opacity-40"></div>
+                      <span class="relative flex h-24 w-24 items-center justify-center rounded-2xl bg-white text-brand shadow-card">
+                        <step.icon size={44} />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        }
+      </div>
+    </div>
+
+    <div class="mx-auto mt-16 max-w-2xl text-center">
+      <button
+          type="button"
+          data-open-modal="trial-modal"
+          data-cta-location="guarantee_section"
+          class="inline-flex cursor-pointer items-center rounded-pill bg-brand px-8 py-4 text-base font-semibold text-white shadow-soft transition-transform "
+      >
+        Start free trial
+      </button>
+      <p class="mt-4 text-sm font-medium text-muted">
+        {isLocal ? `${AppConfig.trial.localDuration}`: `${AppConfig.trial.abroadDuration}` } Days free · No payment required · Your data, your choice
+      </p>
+    </div>
+  </div>
+</section>

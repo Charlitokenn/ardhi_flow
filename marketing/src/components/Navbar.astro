@@ -1,0 +1,43 @@
+---
+import { UserKey } from "@lucide/astro"
+import { Show } from '@clerk/astro/components'
+import AppLogo from "@components/AppLogo.tsx";
+const appUrl = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173';
+
+const links = [
+  { label: "Demo", href: "/#demo" },
+  { label: "Features", href: "/#features" },
+  { label: "Free Trial", href: "/#guarantee" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Compare", href: "/compare" },
+]
+---
+
+<header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+  <nav
+    class="mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-pill border border-black/5 bg-white/80 px-4 py-2.5 shadow-card backdrop-blur-md"
+  >
+    <!--<AppLogo link="/#top" client:load/>-->
+    <div class="hidden items-center gap-8 md:flex">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            class="text-sm font-medium text-muted transition-colors hover:text-ink"
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </div>
+
+    <div class="flex items-center gap-2">
+      <a
+        href={appUrl+`/dashboard`}
+        class="inline-flex items-center rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5"
+      >
+        Sign In | Sign Up
+      </a>
+    </div>
+  </nav>
+</header>

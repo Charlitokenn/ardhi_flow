@@ -1,0 +1,178 @@
+---
+import Layout from "./Layout.astro";
+import Navbar from "@components/Navbar.astro";
+import Footer from "@components/Footer.astro";
+import TrialLicenseModal from "@components/TrialLicenseModal.astro";
+import ContactUsModal from "@components/ContactUsModal.astro";
+import { AppConfig } from "../constants";
+import type { CompetitorEntry } from "../data/competitors";
+
+interface Props {
+  entry: CompetitorEntry;
+}
+
+const { entry } = Astro.props;
+const pageTitle = `Best ${entry.shortName} Alternative for SMEs | ${AppConfig.appName}`;
+---
+
+<Layout
+  title={pageTitle}
+  description={entry.metaDescription}
+  canonicalPath={`/alternatives/${entry.slug}`}
+>
+  <Navbar />
+  <main>
+    <!-- Breadcrumb + Header -->
+    <section class="relative overflow-hidden">
+      <div class="absolute inset-0 dotted-bg opacity-70"></div>
+      <div class="relative mx-auto max-w-4xl px-4 pb-14 pt-36 text-center sm:pt-40">
+        <nav class="mb-6 flex items-center justify-center gap-1.5 text-sm text-muted" aria-label="Breadcrumb">
+          <a href="/" class="transition-colors hover:text-ink">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href="/alternatives" class="transition-colors hover:text-ink">Alternatives</a>
+          <span aria-hidden="true">/</span>
+          <span class="text-ink">{entry.shortName} Alternative</span>
+        </nav>
+
+        <div class="mx-auto mb-6 inline-flex items-center gap-2 rounded-pill border border-black/5 bg-white/70 px-4 py-1.5 text-sm font-medium text-muted backdrop-blur">
+          <span class="h-2 w-2 rounded-full bg-brand"></span>
+          Alternative Guide
+        </div>
+
+        <h1 class="text-balance font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-ink sm:text-5xl md:text-6xl">
+          Looking for a {entry.shortName} alternative?
+        </h1>
+        <p class="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted">
+          Meet {AppConfig.appName}. Offline-first accounting, POS, and inventory built for growth-focused SMEs.
+        </p>
+
+        <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            data-open-modal="trial-modal"
+            data-cta-location="alternatives_page_header"
+            class="inline-flex cursor-pointer items-center rounded-pill bg-brand px-8 py-4 text-base font-semibold text-white shadow-soft transition-transform"
+          >
+            Get Started Free
+          </button>
+          <a
+            href={`/compare/${entry.slug}`}
+            class="inline-flex cursor-pointer items-center rounded-pill border border-black/10 bg-white px-8 py-4 text-base font-semibold text-ink transition-colors hover:bg-black/5"
+          >
+            Detailed vs Comparison
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- When to choose competitor / Why switch -->
+    <section class="mx-auto max-w-5xl px-4 py-8">
+      <div class="grid gap-6 md:grid-cols-2">
+        <div class="rounded-3xl border border-black/5 bg-white p-8">
+          <h2 class="mb-3 font-display text-xl font-bold text-muted">When to choose {entry.shortName}</h2>
+          <p class="text-base leading-relaxed text-muted">{entry.whenToChooseCompetitor}</p>
+        </div>
+        <div class="rounded-3xl border-2 border-brand/20 bg-brand-soft/40 p-8 shadow-card">
+          <h2 class="mb-3 font-display text-xl font-bold text-ink">Why businesses switch to {AppConfig.appName}</h2>
+          <p class="text-base leading-relaxed text-ink/80">{entry.whySwitchToRareBooks}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Side by side comparison -->
+    <section class="mx-auto max-w-5xl px-4 py-12">
+      <h2 class="mb-2 font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+        Side-by-Side Comparison
+      </h2>
+      <p class="mb-8 text-base text-muted">How {AppConfig.appName} compares to {entry.shortName} on core capabilities.</p>
+      <div class="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-card">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-black/5 bg-brand-soft/40">
+                <th class="px-5 py-4 font-display font-bold text-ink">Capability</th>
+                <th class="px-5 py-4 font-display font-bold text-brand">{AppConfig.appName}</th>
+                <th class="px-5 py-4 font-display font-bold text-muted">{entry.shortName}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entry.featureMatrix.map((row, i) => (
+                <tr class={i % 2 === 1 ? "bg-background/60" : ""}>
+                  <td class="border-t border-black/5 px-5 py-4 font-medium text-ink">{row.capability}</td>
+                  <td class="border-t border-black/5 px-5 py-4 text-ink/80">{row.rarebooks}</td>
+                  <td class="border-t border-black/5 px-5 py-4 text-muted">{row.competitor}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Migration steps -->
+    <section class="mx-auto max-w-5xl px-4 py-12">
+      <h2 class="mb-2 font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+        Migrating from {entry.shortName} to {AppConfig.appName}
+      </h2>
+      <p class="mb-10 max-w-2xl text-base text-muted">
+        Moving your books over is straightforward. Here's the process from start to finish.
+      </p>
+      <div class="grid gap-6 sm:grid-cols-2">
+        {entry.migrationSteps.map((step, i) => (
+          <div class="flex gap-4 rounded-3xl border border-black/5 bg-white p-6">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-white">
+              {i + 1}
+            </span>
+            <p class="text-base leading-relaxed text-ink/80">{step}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="mx-auto max-w-4xl px-4 py-12">
+      <h2 class="mb-2 font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+        Frequently Asked Questions
+      </h2>
+      <p class="mb-8 text-base text-muted">Common questions from businesses considering the switch.</p>
+      <div class="space-y-4">
+        {entry.faqs.map((faq) => (
+          <div class="rounded-3xl border border-black/5 bg-white p-6">
+            <h3 class="font-display text-base font-bold text-ink">{faq.q}</h3>
+            <p class="mt-2 text-base leading-relaxed text-muted">{faq.a}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section id="cta" class="mx-auto max-w-6xl px-4 pb-24 pt-8">
+      <div class="relative overflow-hidden rounded-[2.5rem] bg-ink px-6 py-20 text-center text-white">
+        <div class="absolute inset-0 hero-glow opacity-60"></div>
+        <div class="absolute inset-0 dotted-bg opacity-[0.05]"></div>
+        <div class="relative mx-auto max-w-2xl">
+          <h2 class="text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl">
+            Ready to make the switch?
+          </h2>
+          <p class="mx-auto mt-5 max-w-lg text-pretty text-lg text-white/70">
+            Start a free trial of {AppConfig.appName} — no credit card required.
+          </p>
+          <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button
+              type="button"
+              data-open-modal="trial-modal"
+              data-cta-location="alternatives_page_footer"
+              class="inline-flex cursor-pointer items-center rounded-pill bg-brand px-8 py-4 text-base font-semibold text-white shadow-soft transition-transform"
+            >
+              Create Free Account
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Layout>
+
+<TrialLicenseModal id="trial-modal" title="Start your free trial" />
+<ContactUsModal id="contact-us-modal" title="Contact Us" />

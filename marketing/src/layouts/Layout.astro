@@ -1,0 +1,290 @@
+---
+import {AppConfig} from "../constants";
+interface Props {
+  title?: string
+  description?: string
+  canonicalPath?: string
+  ogType?: string
+}
+
+const {
+  title = AppConfig.appName,
+  description = AppConfig.description,
+  canonicalPath,
+  ogType = "website",
+} = Astro.props
+
+import "../styles/global.css"
+// import { ClientRouter } from 'astro:transitions';
+import TawkWidget from "@components/TawkWidget.astro";
+
+const canonicalUrl = canonicalPath ? new URL(canonicalPath, AppConfig.urls.rootUrl).toString() : undefined
+---
+
+<!doctype html>
+<html lang="en" class="bg-background">
+  <head>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+          new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-W4VTMZRK');</script>
+    <!-- End Google Tag Manager -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fbfafc" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    <meta property="og:site_name" content={AppConfig.appName} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <link rel="preconnect" href="https://challenges.cloudflare.com" />
+    <script
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        async
+        defer
+    ></script>
+    <title>{title}</title>
+    <!--<ClientRouter />-->
+  </head>
+  <body class="min-h-screen overflow-x-hidden">
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W4VTMZRK"
+                    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+    <slot />
+    <TawkWidget />
+  </body>
+</html>
+
+<script is:inline>
+  (function onTurnstileError(errorCode) {
+      console.error("Turnstile error:", errorCode);
+      document.getElementById("send-free-license").disabled = true;
+    }
+  )();
+  (function onTurnstileSuccess() {
+    document.getElementById("turnstile-container").hidden = true;
+  })()
+</script>
+
+<!--
+  Centralized "open modal" handler for every [data-open-modal] trigger on the
+  site (Hero, Guarantee, CallToAction, Pricing plans, Compare/Alternatives
+  pages). This replaces the near-identical copies that used to live in
+  index.astro, CompareLayout.astro, and AlternativesLayout.astro.
+
+  It also doubles as the trial conversion-intent tracker: whenever the
+  trial-modal is opened, it pushes a `trial_interest` event to the GTM
+  dataLayer, and - if the trigger button carries plan info (only the
+  pricing-plan buttons do) - remembers that plan in sessionStorage so
+  TrialLicenseForm.tsx can attach it to the `trial_signup` event once the
+  form is actually submitted successfully.
+-->
+<script is:inline>
+  (function () {
+    window.dataLayer = window.dataLayer || [];
+
+    document.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-open-modal]");
+      if (!btn) return;
+
+      const modalId = btn.getAttribute("data-open-modal");
+      const dialog = document.getElementById(modalId);
+
+      if (modalId === "trial-modal") {
+        const planName = btn.getAttribute("data-plan-name");
+        const planPrice = btn.getAttribute("data-plan-price");
+        const billingPeriod = btn.getAttribute("data-billing-period");
+        const currency = btn.getAttribute("data-currency");
+        const ctaLocation = btn.getAttribute("data-cta-location") || "unknown";
+
+        if (planName) {
+          // Clicked a pricing-plan CTA - remember the choice for the
+          // eventual trial_signup event.
+          sessionStorage.setItem(
+            "rb_trial_plan",
+            JSON.stringify({
+              plan_name: planName,
+              plan_price: planPrice || null,
+              billing_period: billingPeriod || null,
+              currency: currency || null,
+            })
+          );
+        } else {
+          // Opened from a generic CTA (Hero/Guarantee/etc.) - clear any
+          // stale plan choice from an earlier click so it isn't
+          // misattributed to this signup.
+          sessionStorage.removeItem("rb_trial_plan");
+        }
+
+        window.dataLayer.push({
+          event: "trial_interest",
+          cta_location: ctaLocation,
+          plan_name: planName || null,
+          plan_price: planPrice || null,
+          billing_period: billingPeriod || null,
+          currency: currency || null,
+        });
+      }
+
+      if (modalId === "desktop-payment-modal") {
+        const planName = btn.getAttribute("data-plan-name");
+        const planPrice = btn.getAttribute("data-plan-price");
+        const currency = btn.getAttribute("data-currency");
+        const ctaLocation = btn.getAttribute("data-cta-location") || "unknown";
+
+        // Mirrors rb_trial_plan below - lets a future purchase-completed
+        // step (once payments are automated) attribute back to this click
+        // without re-deriving it.
+        sessionStorage.setItem(
+          "rb_purchase_plan",
+          JSON.stringify({
+            plan_name: planName,
+            plan_price: planPrice || null,
+            currency: currency || null,
+          })
+        );
+
+        window.dataLayer.push({
+          event: "purchase_interest",
+          cta_location: ctaLocation,
+          plan_name: planName || null,
+          plan_price: planPrice || null,
+          billing_period: "one_time",
+          currency: currency || null,
+        });
+      }
+
+      if (dialog && typeof dialog.showModal === "function") {
+        dialog.showModal();
+      }
+    });
+  })();
+</script>
+
+<!--
+  "Send payment confirmation via chat" handler for the desktop payment
+  modal (DesktopPaymentModal.astro). Mirrors the [data-gtm-download]
+  pattern below: opts in via [data-gtm-payment-confirm], fires a
+  `payment_confirmation_started` event - the step after `purchase_interest`
+  in the manual Lipa Namba funnel - copies a pre-filled confirmation
+  message to the clipboard, opens the Tawk chat widget, and closes the
+  modal so the visitor can paste the message straight into the chat.
+-->
+<script is:inline>
+  (function () {
+    window.dataLayer = window.dataLayer || [];
+
+    document.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-gtm-payment-confirm]");
+      if (!btn) return;
+
+      const planName = btn.getAttribute("data-plan-name");
+      const planPrice = btn.getAttribute("data-plan-price");
+      const currency = btn.getAttribute("data-currency");
+      const paymentMethod = btn.getAttribute("data-payment-method") || "unknown";
+      const ctaLocation = btn.getAttribute("data-cta-location") || "unknown";
+      const message = btn.getAttribute("data-confirmation-message") || "";
+
+      window.dataLayer.push({
+        event: "payment_confirmation_started",
+        cta_location: ctaLocation,
+        plan_name: planName || null,
+        plan_price: planPrice || null,
+        currency: currency || null,
+        payment_method: paymentMethod,
+      });
+
+      if (message && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(message).catch(function () {});
+      }
+
+      const note = document.getElementById("payment-confirm-note");
+      if (note) {
+        note.classList.remove("hidden");
+        setTimeout(function () {
+          note.classList.add("hidden");
+        }, 6000);
+      }
+
+      const dialog = btn.closest("dialog.modal-dialog");
+      if (dialog && typeof dialog.close === "function") {
+        dialog.close();
+      }
+
+      if (window.Tawk_API && typeof window.Tawk_API.maximize === "function") {
+        window.Tawk_API.maximize();
+      }
+    });
+  })();
+</script>
+
+<!--
+  "Buy Lifetime License" PayPal button click, from the international-buyer
+  branch of DesktopPaymentModal.astro. Since the PayPal button is a real
+  <form> that submits to PayPal in a new tab (target="_blank"), this just
+  records the click before the browser follows through - it does not
+  intercept or delay the submission. Fires `payment_checkout_started`, one
+  step before `payment_confirmation_started` above in the PayPal funnel.
+-->
+<script is:inline>
+  (function () {
+    window.dataLayer = window.dataLayer || [];
+
+    document.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-gtm-payment-interest]");
+      if (!btn) return;
+
+      window.dataLayer.push({
+        event: "payment_checkout_started",
+        cta_location: btn.getAttribute("data-cta-location") || "unknown",
+        plan_name: btn.getAttribute("data-plan-name") || null,
+        plan_price: btn.getAttribute("data-plan-price") || null,
+        currency: btn.getAttribute("data-currency") || null,
+        payment_method: "paypal",
+      });
+    });
+  })();
+</script>
+
+<!--
+  Centralized "software download" click tracker for every
+  [data-gtm-download] link on the site (the /trial/download page, the
+  dashboard's post-signup WelcomeModal, and anywhere else a Microsoft
+  Store link is added later). Fires a `software_download` event to the
+  GTM dataLayer - the final step in the trial_interest -> trial_signup
+  -> software_download conversion funnel.
+
+  Elements opt in with `data-gtm-download`, and can optionally carry:
+    data-download-source  e.g. "trial_download_page", "dashboard_welcome_modal"
+    data-license-type     e.g. "trial", "lifetime"
+    data-country
+  This is a separate listener (not folded into the modal-open handler
+  above) since download links aren't modal triggers - same pattern used
+  for the backdrop-close vs modal-close listeners in TrialLicenseModal.astro.
+-->
+<script is:inline>
+  (function () {
+    window.dataLayer = window.dataLayer || [];
+
+    document.addEventListener("click", function (e) {
+      const link = e.target.closest("[data-gtm-download]");
+      if (!link) return;
+
+      window.dataLayer.push({
+        event: "software_download",
+        download_source: link.getAttribute("data-download-source") || "unknown",
+        license_type: link.getAttribute("data-license-type") || null,
+        country: link.getAttribute("data-country") || null,
+      });
+    });
+  })();
+</script>

@@ -4,23 +4,56 @@
 @import "@fontsource/ubuntu/500.css";
 @import "@fontsource/ubuntu/700.css";
 
-@theme inline {
+@theme {
     --font-sans: "Ubuntu", sans-serif;
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
+
+    /* Colors */
+    --color-background: #fbfafc;
+    --color-foreground: #0e0c12;
+    --color-muted: #6b6776;
+    --color-brand: #5b3df5;
+    --color-brand-soft: #efeafe;
+    --color-accent-pink: #f7a8d8;
+    --color-accent-coral: #f78a8a;
+    --color-ink: #15131c;
+
+    /* Border radius */
+    --radius-pill: 999px;
+
+    /* Box shadows */
+    --shadow-soft: 0 20px 60px -20px rgba(40, 20, 90, 0.18);
+    --shadow-card: 0 10px 40px -12px rgba(40, 20, 90, 0.12);
+
+    /* Shadcn compatible variables */
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
     --color-primary: var(--primary);
     --color-primary-foreground: var(--primary-foreground);
-    --color-muted: var(--muted);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-border: var(--border);
-    --color-ink: var(--ink);
-    --color-ink-foreground: var(--ink-foreground);
-    --color-ink-line: var(--ink-line);
-    --color-ink-muted: var(--ink-muted);
-    --color-stamp: var(--stamp);
-    --color-stamp-foreground: var(--stamp-foreground);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
 }
 
 :root {
@@ -51,10 +84,48 @@
     * {
         @apply border-border;
     }
+    html {
+        scroll-behavior: smooth;
+    }
     body {
-        @apply bg-background text-foreground font-sans;
+        @apply bg-background text-foreground font-sans antialiased;
     }
     button:not(:disabled), [role="button"]:not(:disabled) {
         cursor: pointer;
+    }
+}
+
+@layer utilities {
+    .dotted-bg {
+        background-image: radial-gradient(
+                circle,
+                rgba(91, 61, 245, 0.12) 1px,
+                transparent 1px
+        );
+        background-size: 22px 22px;
+    }
+    .hero-glow {
+        background:
+                radial-gradient(
+                        60% 50% at 75% 18%,
+                        rgba(247, 168, 216, 0.35) 0%,
+                        transparent 60%
+                ),
+                radial-gradient(
+                        55% 45% at 90% 5%,
+                        rgba(91, 61, 245, 0.18) 0%,
+                        transparent 55%
+                ),
+                radial-gradient(
+                        45% 40% at 10% 10%,
+                        rgba(247, 138, 138, 0.14) 0%,
+                        transparent 60%
+                );
+    }
+    .text-gradient {
+        background: linear-gradient(100deg, #f78a8a 0%, #f7a8d8 38%, #5b3df5 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 }

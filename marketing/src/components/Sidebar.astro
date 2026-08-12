@@ -1,0 +1,294 @@
+---
+// Use Astro.locals.starlightRoute for sidebar data (new Starlight API)
+const { sidebar } = Astro.locals.starlightRoute;
+
+// Helper to check if a group contains the current page
+function containsCurrentPage(entry: any): boolean {
+    if (entry.type === 'link') {
+        return entry.isCurrent;
+    }
+    if (entry.type === 'group' && entry.entries) {
+        return entry.entries.some((item: any) => containsCurrentPage(item));
+    }
+    return false;
+}
+
+// Determine initially open group based on current page
+const openIndex = sidebar.findIndex((entry: any) =>
+    entry.type === 'group' && containsCurrentPage(entry)
+);
+
+// Recursive function to render nested entries - defined at top level
+function renderEntry(entry: any): string {
+    if (entry.type === 'link') {
+        const isCurrent = entry.isCurrent ? 'current' : '';
+        const ariaCurrent = entry.isCurrent ? 'aria-current="page"' : '';
+        const badgeHtml = entry.badge
+            ? `<span class="sidebar-badge" data-variant="${entry.badge.variant || 'default'}">${entry.badge.text}</span>`
+            : '';
+
+        return `
+      <li class="sidebar-item">
+        <a 
+          href="${entry.href}" 
+          class="sidebar-link ${isCurrent}"
+          ${ariaCurrent}
+        >
+          ${entry.label}
+          ${badgeHtml}
+        </a>
+      </li>
+    `;
+    }
+
+    if (entry.type === 'group') {
+        const nestedItems = entry.entries?.map((item: any) => renderEntry(item)).join('') || '';
+        return `
+      <li class="sidebar-item sidebar-subgroup">
+        <span class="sidebar-subheader">${entry.label}</span>
+        <ul class="sidebar-sublist">
+          ${nestedItems}
+        </ul>
+      </li>
+    `;
+    }
+
+    return '';
+}
+---
+
+<aside class="custom-sidebar js-accordion" data-open-index={openIndex} data-total-groups={sidebar.length}>
+    <div class="sidebar-content">
+        {sidebar.map((entry: any, index: number) => {
+            if (entry.type === 'group') {
+                const isOpen = index === openIndex;
+                const panelItems = entry.entries?.map((item: any) => renderEntry(item)).join('') || '';
+
+                return (
+                        <div class="sidebar-group" data-group-index={index}>
+                            <button
+                                    type="button"
+                                    class="sidebar-header"
+                                    aria-expanded={isOpen ? 'true' : 'false'}
+                                    aria-controls={`panel-${index}`}
+                            >
+                                <span class="sidebar-label">{entry.label}</span>
+                                {entry.badge && (
+                                        <span class="sidebar-badge" data-variant={entry.badge.variant || 'default'}>
+                  {entry.badge.text}
+                </span>
+                                )}
+                                <svg
+                                        class="sidebar-caret"
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                >
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </button>
+                            <div
+                                    id={`panel-${index}`}
+                                    class="sidebar-panel"
+                                    hidden={!isOpen}
+                            >
+                                <ul class="sidebar-list" set:html={panelItems} />
+                            </div>
+                        </div>
+                );
+            }
+
+            if (entry.type === 'link') {
+                return (
+                        <div class="sidebar-top-link">
+                            <a
+                                    href={entry.href}
+                                    class:list={['sidebar-link', { 'current': entry.isCurrent }]}
+                                    aria-current={entry.isCurrent ? 'page' : undefined}
+                            >
+                                {entry.label}
+                                {entry.badge && (
+                                        <span class="sidebar-badge" data-variant={entry.badge.variant || 'default'}>
+                  {entry.badge.text}
+                </span>
+                                )}
+                            </a>
+                        </div>
+                );
+            }
+
+            return null;
+        })}
+    </div>
+</aside>
+
+<script>
+    // Client-side accordion logic with sessionStorage persistence
+    class SidebarAccordion {
+        private groups: NodeListOf<HTMLElement>;
+        private currentOpen: number = -1;
+        private container: HTMLElement;
+        private storageKey: string = 'starlight-sidebar-open-group';
+
+        constructor(container: HTMLElement) {
+            this.container = container;
+            this.groups = container.querySelectorAll('[data-group-index]');
+            const serverOpenIndex = parseInt(container.dataset.openIndex || '-1');
+            const totalGroups = parseInt(container.dataset.totalGroups || '0');
+
+            // Check if there's a manually persisted open group
+            const persistedIndex = this.getPersistedIndex(totalGroups);
+
+            // Use persisted index if valid, otherwise fall back to server-calculated index
+            this.currentOpen = (persistedIndex !== -1) ? persistedIndex : serverOpenIndex;
+
+            // Apply initial state
+            this.applyInitialState();
+            this.bindEvents();
+        }
+
+        private getPersistedIndex(totalGroups: number): number {
+            try {
+                const stored = sessionStorage.getItem(this.storageKey);
+                if (stored !== null) {
+                    const index = parseInt(stored);
+                    // Validate the stored index is still valid
+                    if (index >= -1 && index < totalGroups) {
+                        return index;
+                    }
+                }
+            } catch (e) {
+                // sessionStorage not available
+            }
+            return -1;
+        }
+
+        private persistIndex(index: number) {
+            try {
+                if (index === -1) {
+                    sessionStorage.removeItem(this.storageKey);
+                } else {
+                    sessionStorage.setItem(this.storageKey, index.toString());
+                }
+            } catch (e) {
+                // sessionStorage not available
+            }
+        }
+
+        private applyInitialState() {
+            this.groups.forEach((group, index) => {
+                const button = group.querySelector('.sidebar-header') as HTMLElement | null;
+                const panel = group.querySelector('.sidebar-panel') as HTMLElement | null;
+
+                if (index === this.currentOpen) {
+                    if (button) button.setAttribute('aria-expanded', 'true');
+                    if (panel) panel.removeAttribute('hidden');
+                    group.classList.add('is-open');
+                    if (panel) {
+                        panel.style.maxHeight = panel.scrollHeight + 'px';
+                        panel.style.opacity = '1';
+                    }
+                } else {
+                    if (button) button.setAttribute('aria-expanded', 'false');
+                    if (panel) panel.setAttribute('hidden', '');
+                    group.classList.remove('is-open');
+                    if (panel) {
+                        panel.style.maxHeight = '0px';
+                        panel.style.opacity = '0';
+                    }
+                }
+            });
+        }
+
+        private bindEvents() {
+            this.groups.forEach((group) => {
+                const button = group.querySelector('.sidebar-header');
+                if (!button) return;
+
+                button.addEventListener('click', () => {
+                    const index = parseInt(group.dataset.groupIndex || '-1');
+                    this.toggleGroup(index);
+                });
+            });
+        }
+
+        private toggleGroup(index: number) {
+            if (this.currentOpen === index) {
+                this.closeGroup(index);
+                this.currentOpen = -1;
+                this.persistIndex(-1);
+                return;
+            }
+
+            if (this.currentOpen !== -1) {
+                this.closeGroup(this.currentOpen);
+            }
+
+            this.openGroup(index);
+            this.currentOpen = index;
+            this.persistIndex(index);
+        }
+
+        private openGroup(index: number) {
+            const group = this.groups[index];
+            if (!group) return;
+
+            const button = group.querySelector('.sidebar-header') as HTMLElement | null;
+            const panel = group.querySelector('.sidebar-panel') as HTMLElement | null;
+
+            if (button) button.setAttribute('aria-expanded', 'true');
+            if (panel) panel.removeAttribute('hidden');
+            group.classList.add('is-open');
+
+            if (panel) {
+                panel.style.maxHeight = '0px';
+                panel.style.opacity = '0';
+                requestAnimationFrame(() => {
+                    if (panel) {
+                        panel.style.maxHeight = panel.scrollHeight + 'px';
+                        panel.style.opacity = '1';
+                    }
+                });
+            }
+        }
+
+        private closeGroup(index: number) {
+            const group = this.groups[index];
+            if (!group) return;
+
+            const button = group.querySelector('.sidebar-header') as HTMLElement | null;
+            const panel = group.querySelector('.sidebar-panel') as HTMLElement | null;
+
+            if (button) button.setAttribute('aria-expanded', 'false');
+            group.classList.remove('is-open');
+
+            if (panel) {
+                panel.style.maxHeight = panel.scrollHeight + 'px';
+                panel.style.opacity = '1';
+                requestAnimationFrame(() => {
+                    if (panel) {
+                        panel.style.maxHeight = '0px';
+                        panel.style.opacity = '0';
+                    }
+                });
+
+                setTimeout(() => {
+                    if (panel) panel.setAttribute('hidden', '');
+                }, 300);
+            }
+        }
+    }
+
+    function initSidebars() {
+        const sidebars = document.querySelectorAll('.js-accordion');
+        sidebars.forEach((sidebar) => new SidebarAccordion(sidebar as HTMLElement));
+    }
+
+    document.addEventListener('DOMContentLoaded', initSidebars);
+    document.addEventListener('astro:page-load', initSidebars);
+</script>

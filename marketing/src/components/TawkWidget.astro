@@ -1,0 +1,135 @@
+---
+// import { env } from "cloudflare:workers";
+
+const userDetails = await Astro.locals.currentUser?.();
+const email = userDetails?.emailAddresses?.[0]?.emailAddress ?? "";
+const userId = userDetails?.id ?? "";
+const fullName = userDetails?.fullName ?? "";
+
+async function hmacSha256(message: string, secret: string): Promise<string> {
+    const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+    );
+    const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+    return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// const tawkKey = env.TAWK_API_KEY;
+let tawkKey: string | undefined = undefined;
+try {
+    const { env } = await import("cloudflare:workers");
+    tawkKey = (env as any).TAWK_API_KEY;
+} catch {
+    // Not available during prerender - OK, hashes won't be generated
+}
+
+let visitorHash = "";
+let loginHash = "";
+
+if (tawkKey) {
+    if (email) visitorHash = await hmacSha256(email, tawkKey);
+    if (userId) loginHash = await hmacSha256(userId, tawkKey);
+} else if (userId) {
+    console.warn("[TawkWidget] TAWK_API_KEY is not set — skipping Secure Mode hashes.");
+}
+
+const hasIdentifiedVisitor = Boolean(email && visitorHash);
+const canLogin = Boolean(userId && loginHash);
+---
+
+<!--
+  FIX: Remove transition:persist div entirely.
+  Astro docs confirm iframe reloads cannot be avoided with transition:persist.
+  Moving tawk.to nodes in the DOM causes flickering and state corruption.
+-->
+
+<style is:global>
+    /*
+      FIX: Override tawk.to's widget-hidden class that incorrectly hides
+      the bubble after closing chat or welcome message.
+      Source: tawk.to community forums (confirmed fix).
+    */
+    .widget-hidden {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /* More specific selector for tawk.to generated containers */
+    [id*="tawk"].widget-hidden,
+    [class*="tawk"][class*="widget-hidden"] {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+</style>
+
+<script is:inline define:vars={{ fullName, email, visitorHash, loginHash, userId, hasIdentifiedVisitor, canLogin }}>
+    (function () {
+        // FIX: Remove all DOM relocation logic.
+        // Relocating tawk.to nodes breaks its internal tracking and causes iframe reloads.
+
+        // Stop Astro's ClientRouter from hijacking clicks inside the widget
+        if (!window.__tawkClickGuardAdded) {
+            document.body.addEventListener(
+                "click",
+                function (event) {
+                    if (event.target.closest('[id^="tawk"], iframe[title*="chat" i], iframe[title*="tawk" i]')) {
+                        event.stopPropagation();
+                    }
+                }
+            );
+            window.__tawkClickGuardAdded = true;
+        }
+
+        window.Tawk_API = window.Tawk_API || {};
+
+        if (hasIdentifiedVisitor) {
+            window.Tawk_API.visitor = {
+                name: fullName || "",
+                email: email,
+                hash: visitorHash
+            };
+        }
+
+        // Guard: only load the embed script once per full page load
+        if (window.__tawkInitialized) {
+            if (canLogin && window.Tawk_API.login) {
+                window.Tawk_API.login(
+                    { hash: loginHash, userId: userId },
+                    function (error) {
+                        if (error) console.error("Tawk.to login error:", error);
+                    }
+                );
+            }
+            return;
+        }
+        window.__tawkInitialized = true;
+
+        window.Tawk_API.onLoad = function () {
+            if (canLogin) {
+                window.Tawk_API.login(
+                    { hash: loginHash, userId: userId },
+                    function (error) {
+                        if (error) console.error("Tawk.to login error:", error);
+                    }
+                );
+            }
+        };
+
+        window.Tawk_LoadStart = new Date();
+
+        var s1 = document.createElement("script"),
+            s0 = document.getElementsByTagName("script")[0];
+        s1.async = true;
+        s1.src = "https://embed.tawk.to/6a43b438854f801d4378af24/1jsc7fva2";
+        s1.charset = "UTF-8";
+        s1.setAttribute("data-cfasync", "false");
+        s1.setAttribute("crossorigin", "*");
+        s0.parentNode.insertBefore(s1, s0);
+    })();
+</script>
