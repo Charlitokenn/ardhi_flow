@@ -1,6 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authed/_org/messaging/')({
+  staticData: {
+    breadcrumb: 'Messaging',
+  },
   component: RouteComponent,
 })
 

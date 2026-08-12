@@ -15,9 +15,11 @@ import { Route as AuthedOrgRouteRouteImport } from './routes/_authed/_org/route'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as SignUpSplatRouteImport } from './routes/sign-up.$'
+import { Route as AuthedOrgFinanceRouteRouteImport } from './routes/_authed/_org/finance/route'
 import { Route as AuthedOrgDashboardIndexRouteImport } from './routes/_authed/_org/dashboard/index'
 import { Route as AuthedOrgDashboardPlotsRouteImport } from './routes/_authed/_org/dashboard/plots'
 import { Route as AuthedOrgFinanceIndexRouteImport } from './routes/_authed/_org/finance/index'
+import { Route as AuthedOrgFinanceReconciliationRouteImport } from './routes/_authed/_org/finance/reconciliation'
 import { Route as AuthedOrgFinanceTransactionsRouteImport } from './routes/_authed/_org/finance/transactions'
 import { Route as AuthedOrgMessagingIndexRouteImport } from './routes/_authed/_org/messaging/index'
 import { Route as AuthedOrgProjectsIndexRouteImport } from './routes/_authed/_org/projects/index'
@@ -50,6 +52,11 @@ const SignUpSplatRoute = SignUpSplatRouteImport.update({
   path: '/sign-up/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedOrgFinanceRouteRoute = AuthedOrgFinanceRouteRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AuthedOrgRouteRoute,
+} as any)
 const AuthedOrgDashboardIndexRoute = AuthedOrgDashboardIndexRouteImport.update({
   id: '/dashboard/',
   path: '/dashboard/',
@@ -61,15 +68,21 @@ const AuthedOrgDashboardPlotsRoute = AuthedOrgDashboardPlotsRouteImport.update({
   getParentRoute: () => AuthedOrgRouteRoute,
 } as any)
 const AuthedOrgFinanceIndexRoute = AuthedOrgFinanceIndexRouteImport.update({
-  id: '/finance/',
-  path: '/finance/',
-  getParentRoute: () => AuthedOrgRouteRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedOrgFinanceRouteRoute,
 } as any)
+const AuthedOrgFinanceReconciliationRoute =
+  AuthedOrgFinanceReconciliationRouteImport.update({
+    id: '/reconciliation',
+    path: '/reconciliation',
+    getParentRoute: () => AuthedOrgFinanceRouteRoute,
+  } as any)
 const AuthedOrgFinanceTransactionsRoute =
   AuthedOrgFinanceTransactionsRouteImport.update({
-    id: '/finance/transactions',
-    path: '/finance/transactions',
-    getParentRoute: () => AuthedOrgRouteRoute,
+    id: '/transactions',
+    path: '/transactions',
+    getParentRoute: () => AuthedOrgFinanceRouteRoute,
   } as any)
 const AuthedOrgMessagingIndexRoute = AuthedOrgMessagingIndexRouteImport.update({
   id: '/messaging/',
@@ -87,7 +100,9 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthedOnboardingRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
+  '/finance': typeof AuthedOrgFinanceRouteRouteWithChildren
   '/dashboard/plots': typeof AuthedOrgDashboardPlotsRoute
+  '/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
   '/dashboard/': typeof AuthedOrgDashboardIndexRoute
   '/finance/': typeof AuthedOrgFinanceIndexRoute
@@ -100,6 +115,7 @@ export interface FileRoutesByTo {
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/dashboard/plots': typeof AuthedOrgDashboardPlotsRoute
+  '/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
   '/dashboard': typeof AuthedOrgDashboardIndexRoute
   '/finance': typeof AuthedOrgFinanceIndexRoute
@@ -114,7 +130,9 @@ export interface FileRoutesById {
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
+  '/_authed/_org/finance': typeof AuthedOrgFinanceRouteRouteWithChildren
   '/_authed/_org/dashboard/plots': typeof AuthedOrgDashboardPlotsRoute
+  '/_authed/_org/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/_authed/_org/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
   '/_authed/_org/dashboard/': typeof AuthedOrgDashboardIndexRoute
   '/_authed/_org/finance/': typeof AuthedOrgFinanceIndexRoute
@@ -128,7 +146,9 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/sign-in/$'
     | '/sign-up/$'
+    | '/finance'
     | '/dashboard/plots'
+    | '/finance/reconciliation'
     | '/finance/transactions'
     | '/dashboard/'
     | '/finance/'
@@ -141,6 +161,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/sign-up/$'
     | '/dashboard/plots'
+    | '/finance/reconciliation'
     | '/finance/transactions'
     | '/dashboard'
     | '/finance'
@@ -154,7 +175,9 @@ export interface FileRouteTypes {
     | '/_authed/onboarding'
     | '/sign-in/$'
     | '/sign-up/$'
+    | '/_authed/_org/finance'
     | '/_authed/_org/dashboard/plots'
+    | '/_authed/_org/finance/reconciliation'
     | '/_authed/_org/finance/transactions'
     | '/_authed/_org/dashboard/'
     | '/_authed/_org/finance/'
@@ -213,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignUpSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/_org/finance': {
+      id: '/_authed/_org/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AuthedOrgFinanceRouteRouteImport
+      parentRoute: typeof AuthedOrgRouteRoute
+    }
     '/_authed/_org/dashboard/': {
       id: '/_authed/_org/dashboard/'
       path: '/dashboard'
@@ -229,17 +259,24 @@ declare module '@tanstack/react-router' {
     }
     '/_authed/_org/finance/': {
       id: '/_authed/_org/finance/'
-      path: '/finance'
+      path: '/'
       fullPath: '/finance/'
       preLoaderRoute: typeof AuthedOrgFinanceIndexRouteImport
-      parentRoute: typeof AuthedOrgRouteRoute
+      parentRoute: typeof AuthedOrgFinanceRouteRoute
+    }
+    '/_authed/_org/finance/reconciliation': {
+      id: '/_authed/_org/finance/reconciliation'
+      path: '/reconciliation'
+      fullPath: '/finance/reconciliation'
+      preLoaderRoute: typeof AuthedOrgFinanceReconciliationRouteImport
+      parentRoute: typeof AuthedOrgFinanceRouteRoute
     }
     '/_authed/_org/finance/transactions': {
       id: '/_authed/_org/finance/transactions'
-      path: '/finance/transactions'
+      path: '/transactions'
       fullPath: '/finance/transactions'
       preLoaderRoute: typeof AuthedOrgFinanceTransactionsRouteImport
-      parentRoute: typeof AuthedOrgRouteRoute
+      parentRoute: typeof AuthedOrgFinanceRouteRoute
     }
     '/_authed/_org/messaging/': {
       id: '/_authed/_org/messaging/'
@@ -258,20 +295,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthedOrgRouteRouteChildren {
-  AuthedOrgDashboardPlotsRoute: typeof AuthedOrgDashboardPlotsRoute
+interface AuthedOrgFinanceRouteRouteChildren {
+  AuthedOrgFinanceReconciliationRoute: typeof AuthedOrgFinanceReconciliationRoute
   AuthedOrgFinanceTransactionsRoute: typeof AuthedOrgFinanceTransactionsRoute
-  AuthedOrgDashboardIndexRoute: typeof AuthedOrgDashboardIndexRoute
   AuthedOrgFinanceIndexRoute: typeof AuthedOrgFinanceIndexRoute
+}
+
+const AuthedOrgFinanceRouteRouteChildren: AuthedOrgFinanceRouteRouteChildren = {
+  AuthedOrgFinanceReconciliationRoute: AuthedOrgFinanceReconciliationRoute,
+  AuthedOrgFinanceTransactionsRoute: AuthedOrgFinanceTransactionsRoute,
+  AuthedOrgFinanceIndexRoute: AuthedOrgFinanceIndexRoute,
+}
+
+const AuthedOrgFinanceRouteRouteWithChildren =
+  AuthedOrgFinanceRouteRoute._addFileChildren(
+    AuthedOrgFinanceRouteRouteChildren,
+  )
+
+interface AuthedOrgRouteRouteChildren {
+  AuthedOrgFinanceRouteRoute: typeof AuthedOrgFinanceRouteRouteWithChildren
+  AuthedOrgDashboardPlotsRoute: typeof AuthedOrgDashboardPlotsRoute
+  AuthedOrgDashboardIndexRoute: typeof AuthedOrgDashboardIndexRoute
   AuthedOrgMessagingIndexRoute: typeof AuthedOrgMessagingIndexRoute
   AuthedOrgProjectsIndexRoute: typeof AuthedOrgProjectsIndexRoute
 }
 
 const AuthedOrgRouteRouteChildren: AuthedOrgRouteRouteChildren = {
+  AuthedOrgFinanceRouteRoute: AuthedOrgFinanceRouteRouteWithChildren,
   AuthedOrgDashboardPlotsRoute: AuthedOrgDashboardPlotsRoute,
-  AuthedOrgFinanceTransactionsRoute: AuthedOrgFinanceTransactionsRoute,
   AuthedOrgDashboardIndexRoute: AuthedOrgDashboardIndexRoute,
-  AuthedOrgFinanceIndexRoute: AuthedOrgFinanceIndexRoute,
   AuthedOrgMessagingIndexRoute: AuthedOrgMessagingIndexRoute,
   AuthedOrgProjectsIndexRoute: AuthedOrgProjectsIndexRoute,
 }

@@ -23,7 +23,7 @@ src/
     routes/            # TanStack Router file routes (see below)
     router.tsx          # router instance + Clerk auth context type
   worker/     # Hono app — the Cloudflare Worker
-    index.ts          # exports { fetch, queue } — the actual Worker entry
+    index.tsx          # exports { fetch, queue } — the actual Worker entry
     types.ts           # Env bindings + Hono context Variables
     middleware/
       clerk-auth.ts     # verifies Clerk session JWT, requires org_id claim

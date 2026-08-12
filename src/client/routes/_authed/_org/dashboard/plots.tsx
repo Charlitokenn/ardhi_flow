@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input.tsx'
 import { usePostHog } from 'posthog-js/react'
 
 export const Route = createFileRoute('/_authed/_org/dashboard/plots')({
+    staticData: {
+        breadcrumb: 'Plots',
+    },
     component: PlotsPage,
 })
 

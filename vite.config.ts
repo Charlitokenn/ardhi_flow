@@ -9,7 +9,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-  // `cloudflare()` reads wrangler.jsonc and runs src/worker/index.ts inside
+  // `cloudflare()` reads wrangler.jsonc and runs src/worker/index.tsx inside
   // the real Workers runtime (via Miniflare) as part of the same dev server
   // as the React app — no separate `wrangler dev` process needed, and
   // `vite build` produces both the client assets and the Worker bundle.

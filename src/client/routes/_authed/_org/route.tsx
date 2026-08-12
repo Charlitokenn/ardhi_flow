@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import * as React from 'react'
+import {createFileRoute, Outlet, redirect, useMatches, Link} from '@tanstack/react-router'
 import { AppSidebar } from "@/components/app-sidebar"
 import {
     Breadcrumb,
@@ -27,36 +28,68 @@ export const Route = createFileRoute('/_authed/_org')({
 })
 
 function OrgLayout() {
+    const matches = useMatches()
+
+    const breadcrumbs = matches
+        .filter((match) => match.staticData?.breadcrumb)
+        .map((match) => ({
+            label: match.staticData.breadcrumb,
+            path: match.pathname,
+        }))
+
     return (
         <SidebarProvider>
             <AppSidebar />
+
             <SidebarInset>
                 <header className="flex shrink-0 items-center py-2 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
                     <div className="flex font-sans items-center gap-2 px-4">
                         <SidebarTrigger className="-ml-1" />
+
                         <Separator
                             orientation="vertical"
                             className="mr-2 data-[orientation=vertical]:h-4"
                         />
+
                         <Breadcrumb>
                             <BreadcrumbList>
-                                <BreadcrumbItem className="hidden md:block">
-                                    <BreadcrumbLink href="#">
-                                        Build Your Application
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator className="hidden md:block" />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-                                </BreadcrumbItem>
+                                {breadcrumbs.map((crumb, index) => {
+                                    const isLast = index === breadcrumbs.length - 1
+
+                                    return (
+                                        <React.Fragment key={crumb.path}>
+                                            {index > 0 && (
+                                                <BreadcrumbSeparator className="hidden md:block" />
+                                            )}
+
+                                            <BreadcrumbItem
+                                                className={index === 0 ? "hidden md:block" : ""}
+                                            >
+                                                {isLast ? (
+                                                    <BreadcrumbPage>
+                                                        {crumb.label}
+                                                    </BreadcrumbPage>
+                                                ) : (
+                                                    <BreadcrumbLink asChild>
+                                                        <Link to={crumb.path}>
+                                                            {crumb.label}
+                                                        </Link>
+                                                    </BreadcrumbLink>
+                                                )}
+                                            </BreadcrumbItem>
+                                        </React.Fragment>
+                                    )
+                                })}
                             </BreadcrumbList>
                         </Breadcrumb>
                     </div>
+
                     <div className="ml-auto flex items-center gap-3 mr-6">
                         <ModeToggle />
                         <UserButton />
                     </div>
                 </header>
+
                 <main className="flex-1 overflow-y-auto p-6">
                     <Outlet />
                 </main>

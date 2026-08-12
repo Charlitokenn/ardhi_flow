@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button.tsx'
 import { usePostHog } from 'posthog-js/react'
 
 export const Route = createFileRoute('/_authed/_org/dashboard/')({
+    staticData: {
+        breadcrumb: 'Dashboard',
+    },
     component: DashboardHome,
 })
 
