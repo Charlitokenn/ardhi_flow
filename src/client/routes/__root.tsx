@@ -57,6 +57,7 @@ function RootComponent() {
         defaults: '2026-01-30',
         capture_exceptions: true,
         debug: import.meta.env.DEV,
+        before_send: (event) => (import.meta.env.DEV ? null : event),
       }}
     >
       <PostHogIdentifier />
