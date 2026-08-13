@@ -38,13 +38,10 @@ function DashboardHome() {
             <PageHero
                 type="greeting"
                 title={greeting + user?.firstName + ","}
-                subtitle="testing about things that are here"
-                showButton={true}
-                buttonText="New Project"
-                buttonIcon={<UserPlusIcon/>}
-                showBulkUploader={true}
+                subtitle="Here's the sales performance, cash collections, and receivables overview"
+                showActionDropdown={true}
             />
-            <div className="flex justify-end w-full">
+            <div className="flex justify-end w-full mt-4">
                 <DateRangePickerAlt value={dateRange} onChange={handleDateChange} />
             </div>
             <div className="grid grid-cols-4 gap-4 mt-4">

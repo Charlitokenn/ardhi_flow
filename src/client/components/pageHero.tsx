@@ -1,16 +1,32 @@
-import { FilesIcon, Moon, Sun, Sunset } from 'lucide-react'
+import {
+    ArchiveIcon,
+    CalendarSyncIcon,
+    CreditCardIcon,
+    FilesIcon, HandCoinsIcon, MoonIcon,
+    ShoppingCartIcon, SunIcon, SunsetIcon,
+    UserPlusIcon, ZapIcon
+} from 'lucide-react'
 import React, {type JSX } from 'react'
 import ReusableSheet from '@/components-reusable/reusable-sheet'
 import ReusableTooltip from '@/components-reusable/reusable-tooltip'
 import {Button} from "@/components/ui/button.tsx";
+import {
+    DropdownMenu,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu.tsx";
+import {QuickActionsMenu} from "@/components-reusable/reusable-quick-actions.tsx";
 
 type PageHeroProps = {
     title?: string
     subtitle?: string
     type: 'greeting' | 'hero'
+
     buttonText?: string
     buttonIcon?: React.ReactNode
     showButton?: boolean
+
+    showActionDropdown?: boolean
+
     showBulkUploader?: boolean
     bulkUploader?: React.ReactNode
     bulkUploaderClass?: string
@@ -30,6 +46,66 @@ type PageHeroProps = {
     sheetSizeClass?: string
 }
 
+const quickActionGroups = [
+    {
+        label: "Actions",
+        items: [
+            {
+                label: "Add Contact",
+                icon: UserPlusIcon,
+                onClick: () => {
+                    // navigate or open modal
+                },
+            },
+            {
+                label: "Add Sales Contract",
+                icon: ShoppingCartIcon,
+                onClick: () => {
+                    // navigate or open modal
+                },
+            },
+        ],
+    },
+    {
+        label: "Finance",
+        items: [
+            {
+                label: "Add Transaction",
+                icon: CreditCardIcon,
+                onClick: () => {
+                    // navigate or open modal
+                },
+            },
+            {
+                label: "Create Reconciliation",
+                icon: CalendarSyncIcon,
+                onClick: () => {
+                    // navigate or open modal
+                },
+            },
+        ],
+    },
+    {
+        label: "Projects",
+        items: [
+            {
+                label: "New Project",
+                icon: ArchiveIcon,
+                onClick: () => {
+                    // navigate or open modal
+                },
+            },
+            {
+                label: "Record Payment",
+                icon: HandCoinsIcon,
+                onClick: () => {
+                    // navigate or open modal
+                },
+            },
+        ],
+    },
+];
+
 export const PageHero = ({
                              title,
                              subtitle,
@@ -37,6 +113,7 @@ export const PageHero = ({
                              buttonText,
                              buttonIcon,
                              showButton = false,
+                             showActionDropdown = false,
                              showBulkUploader = false,
                              bulkUploader,
                              bulkUploaderClass,
@@ -100,6 +177,16 @@ export const PageHero = ({
                         popupClass={bulkUploaderClass}
                     />
                 )}
+                { showActionDropdown && (
+                    <div className="flex items-center justify-center">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger>
+                                <Button variant="outline" className="w-fit"><ZapIcon/>Quick Actions</Button>
+                            </DropdownMenuTrigger>
+                            <QuickActionsMenu groups={quickActionGroups} />
+                        </DropdownMenu>
+                    </div>
+                )}
             </div>
         </div>
     )
@@ -110,7 +197,7 @@ export function getTimeBasedIcon(date: Date = new Date()): JSX.Element {
 
     // 🌙 Night: 19 → 04
     if (hour >= 19 || hour < 5) {
-        return <Moon className="size-5" />
+        return <MoonIcon className="size-5" />
     }
 
     // 🌅 Sunrise: 05 → 08
@@ -120,9 +207,9 @@ export function getTimeBasedIcon(date: Date = new Date()): JSX.Element {
 
     // ☀️ Day: 05 → 16
     if (hour >= 5 && hour < 17) {
-        return <Sun className="size-5" />
+        return <SunIcon className="size-5" />
     }
 
     // 🌇 Sunset: 17 → 18
-    return <Sunset className="size-5" />
+    return <SunsetIcon className="size-5" />
 }

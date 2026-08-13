@@ -1,4 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
+import {PageHero} from "@/components/pageHero.tsx";
+import {WalletIcon} from "lucide-react";
 
 export const Route = createFileRoute('/_authed/_org/finance/transactions')({
   staticData: {
@@ -8,5 +10,16 @@ export const Route = createFileRoute('/_authed/_org/finance/transactions')({
 })
 
 function RouteComponent() {
-  return <div>Hello "/_authed/_org/finance/transactions"!</div>
+  return (
+      <section className="-mt-4 -ml-1">
+        <PageHero
+            type="hero"
+            title="Transactions"
+            subtitle="Manage all transactions here"
+            showButton={true}
+            buttonText="Record Transaction"
+            buttonIcon={<WalletIcon/>}
+        />
+      </section>
+  )
 }

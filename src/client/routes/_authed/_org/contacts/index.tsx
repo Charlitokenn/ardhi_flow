@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {toast} from "sonner";
-import {Button} from "@/components/ui/button.tsx";
+import {PageHero} from "@/components/pageHero.tsx";
+import {UserPlusIcon} from "lucide-react";
 
 export const Route = createFileRoute('/_authed/_org/contacts/')({
     staticData: {
@@ -10,12 +10,17 @@ export const Route = createFileRoute('/_authed/_org/contacts/')({
 })
 
 function RouteComponent() {
-  return       <Button
-                  variant="outline"
-                  onClick={() =>
-                    toast("Event has been created", { position: "top-right" })
-                  }
-                >
-                Top Right
-                </Button>
+  return (
+      <section className="-mt-4 -ml-1">
+          <PageHero
+              type="hero"
+              title="Contacts"
+              subtitle="Manage all contacts i.e. clients and suppliers"
+              showButton={true}
+              buttonText="New Contact"
+              buttonIcon={<UserPlusIcon/>}
+              showBulkUploader={true}
+          />
+      </section>
+  )
 }

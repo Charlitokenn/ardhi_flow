@@ -1,4 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
+import {PageHero} from "@/components/pageHero.tsx";
+import {ShoppingCartIcon} from "lucide-react";
 
 export const Route = createFileRoute('/_authed/_org/sales/')({
     staticData: {
@@ -8,5 +10,17 @@ export const Route = createFileRoute('/_authed/_org/sales/')({
 })
 
 function RouteComponent() {
-  return <div>Hello "/_authed/_org/sales/sales"!</div>
+  return (
+      <section className="-mt-4 -ml-1">
+          <PageHero
+              type="hero"
+              title="Sales"
+              subtitle="Manage all sales contracts"
+              showButton={true}
+              buttonText="New Contract"
+              buttonIcon={<ShoppingCartIcon/>}
+              showBulkUploader={true}
+          />
+      </section>
+  )
 }
