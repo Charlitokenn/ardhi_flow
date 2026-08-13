@@ -1,3 +1,4 @@
+import {useState} from "react";
 import {
     ArchiveIcon,
     CalendarSyncIcon,
@@ -15,12 +16,31 @@ import {
     DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button.tsx";
+import ReusableSheet from "@/components-reusable/reusable-sheet";
 
 interface QuickActionsMenuProps {
     side?: "top" | "right" | "bottom" | "left";
     className?: string;
 }
 
+/**
+ * ============================================================================
+ * ADAPTING THIS TEMPLATE
+ * ============================================================================
+ * Each item below declares its own `sheetTitle`/`sheetDescription`, which are
+ * used to render a `ReusableSheet` when the item is clicked (instead of the
+ * previous no-op `onClick`). The sheet's `formContent` is currently a simple
+ * placeholder — once the real forms for each action exist (e.g. an
+ * `AddContactForm`, `AddTransactionForm`, ...), swap the placeholder for the
+ * actual form component and wire `onSubmit` to its submit handler.
+ *
+ * To add a new quick action:
+ * 1. Add an entry to the relevant group in `actionGroups` with a unique
+ *    `label`, `icon`, `sheetTitle`, and `sheetDescription`.
+ * 2. Once its form component is ready, render it in place of the
+ *    placeholder inside `renderSheetFormContent` (switch on `label`).
+ * ============================================================================
+ */
 const actionGroups = [
     {
         label: "Actions",
@@ -28,16 +48,14 @@ const actionGroups = [
             {
                 label: "Add Contact",
                 icon: UserPlusIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
+                sheetTitle: "Add Contact",
+                sheetDescription: "Create a new contact record.",
             },
             {
                 label: "Add Sales Contract",
                 icon: ShoppingCartIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
+                sheetTitle: "Add Sales Contract",
+                sheetDescription: "Create a new sales contract.",
             },
         ],
     },
@@ -47,16 +65,14 @@ const actionGroups = [
             {
                 label: "Add Transaction",
                 icon: CreditCardIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
+                sheetTitle: "Add Transaction",
+                sheetDescription: "Record a new financial transaction.",
             },
             {
                 label: "Create Reconciliation",
                 icon: CalendarSyncIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
+                sheetTitle: "Create Reconciliation",
+                sheetDescription: "Start a new reconciliation.",
             },
         ],
     },
@@ -66,25 +82,34 @@ const actionGroups = [
             {
                 label: "New Project",
                 icon: ArchiveIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
+                sheetTitle: "New Project",
+                sheetDescription: "Create a new project.",
             },
             {
                 label: "Record Payment",
                 icon: HandCoinsIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
+                sheetTitle: "Record Payment",
+                sheetDescription: "Record a payment.",
             },
         ],
     },
 ];
 
+// Flat lookup of all items (across groups) by label, used to find the
+// active item's `sheetTitle`/`sheetDescription` when rendering the sheet.
+const allItems = actionGroups.flatMap((group) => group.items);
+
 export function QuickActionsMenu({
                                      side = "left",
                                      className = "w-auto",
                                  }: QuickActionsMenuProps) {
+    // Label of the item whose sheet is currently open, or `null` when no
+    // sheet should be shown. Using a single piece of state (instead of one
+    // boolean per item) keeps only one quick-action sheet open at a time.
+    const [activeLabel, setActiveLabel] = useState<string | null>(null);
+
+    const activeItem = allItems.find((item) => item.label === activeLabel);
+
     return (
         <div className="flex items-center justify-center">
             <DropdownMenu>
@@ -105,7 +130,7 @@ export function QuickActionsMenu({
                                     return (
                                         <DropdownMenuItem
                                             key={item.label}
-                                            onClick={item.onClick}
+                                            onClick={() => setActiveLabel(item.label)}
                                             className="cursor-pointer"
                                         >
                                             <Icon />
@@ -118,6 +143,38 @@ export function QuickActionsMenu({
                     ))}
                 </DropdownMenuContent>
             </DropdownMenu>
+
+            {/*
+              A single controlled `ReusableSheet` shared by every quick
+              action — `open`/`onOpenChange` are driven by `activeLabel`
+              instead of the sheet's own `trigger`, since the trigger here is
+              a `DropdownMenuItem` rather than the sheet itself. Once real
+              forms exist per action, replace the placeholder `formContent`
+              below with the matching form component (and give `onSubmit`
+              a real submit handler that calls the form's submit logic
+              before closing the sheet).
+            */}
+            <ReusableSheet
+                open={activeItem !== undefined}
+                onOpenChange={(open) => {
+                    if (!open) setActiveLabel(null);
+                }}
+                title={activeItem?.sheetTitle ?? ""}
+                description={activeItem?.sheetDescription}
+                formContent={
+                    <div className="text-sm text-muted-foreground">
+                        {/* TODO: replace with the real form for "{activeItem?.label}" once it exists. */}
+                        Form for &quot;{activeItem?.label}&quot; goes here.
+                    </div>
+                }
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    // TODO: hook up the real submit handler for the active
+                    // action's form (e.g. create contact/transaction/etc.)
+                    // once it's implemented, then close the sheet.
+                    setActiveLabel(null);
+                }}
+            />
         </div>
 
     );

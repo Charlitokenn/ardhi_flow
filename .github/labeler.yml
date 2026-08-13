@@ -1,0 +1,16 @@
+# Adds 'client' label if files in the client directory change
+client:
+  - changed-files:
+      - any-glob-to-any-file: 'src/client/**/*'
+
+# Adds 'worker' label if files in the worker directory change
+worker:
+  - changed-files:
+      - any-glob-to-any-file: 'src/worker/**/*'
+
+# Adds 'marketing' label if markdown files OR marketing directory files change
+marketing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.md'
+          - 'marketing/**/*'

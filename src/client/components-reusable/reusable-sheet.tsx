@@ -12,7 +12,13 @@ import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 
 interface Props {
-    trigger: React.ReactNode
+    /**
+     * Element that opens the sheet when clicked (e.g. a Button).
+     * Optional — omit it when you want to open the sheet programmatically
+     * via the controlled `open`/`onOpenChange` props instead (e.g. from a
+     * row's "Edit" dropdown item in a data grid).
+     */
+    trigger?: React.ReactNode
     title: string
     description?: string
     formContent: React.ReactNode
@@ -31,12 +37,29 @@ interface Props {
     /**
      * Optional submit handler for the sheet form.
      */
-    onSubmit?: (event: React.SubmitEvent<HTMLFormElement>) => void
+    // Bug fix: `React.SubmitEvent` does not exist — the correct React type
+    // for a <form onSubmit> handler is `React.FormEvent<HTMLFormElement>`.
+    onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void
 
     /**
      * Optional side of the screen where the sheet appears.
      */
     side?: 'left' | 'right'
+
+    /**
+     * Controlled open state. Provide this together with `onOpenChange` when
+     * the sheet needs to be opened from outside (e.g. an "Edit" row action
+     * in a data grid) instead of from the built-in `trigger`.
+     * When omitted, the sheet manages its own open state internally.
+     */
+    open?: boolean
+
+    /**
+     * Called whenever the sheet requests to change its open state
+     * (closing via Cancel/overlay, or the internal Save submit).
+     * Required when using the controlled `open` prop.
+     */
+    onOpenChange?: (open: boolean) => void
 }
 
 interface SheetControlContextValue {
@@ -64,24 +87,34 @@ export default function ReusableSheet({
                                           triggerId,
                                           onSubmit,
                                           side = 'right',
+                                          open: controlledOpen,
+                                          onOpenChange: setControlledOpen,
                                       }: Props) {
-    const [open, setOpen] = useState(false)
+    // Uncontrolled fallback state — used when the caller doesn't pass
+    // `open`/`onOpenChange` (i.e. the sheet is opened via `trigger`).
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+
+    const isControlled = controlledOpen !== undefined
+    const open = isControlled ? controlledOpen : uncontrolledOpen
+    const setOpen = isControlled ? setControlledOpen! : setUncontrolledOpen
 
     const close = () => setOpen(false)
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger
-                data-sheet-trigger-id={triggerId}
-                className="contents"
-            >
-                {trigger}
-            </SheetTrigger>
+            {trigger && (
+                <SheetTrigger
+                    data-sheet-trigger-id={triggerId}
+                    className="contents"
+                >
+                    {trigger}
+                </SheetTrigger>
+            )}
 
             <SheetContent
                 side={side}
                 className={cn(
-                    'overflow-y-auto text-primary',
+                    'overflow-y-auto',
                     '[&::-webkit-scrollbar]:hidden',
                     'scrollbar-none',
                     '[-ms-overflow-style:none]',
