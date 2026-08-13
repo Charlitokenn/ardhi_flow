@@ -1,0 +1,26 @@
+<svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="48"
+        height="46"
+        fill="none"
+        viewBox="0 0 48 46"
+>
+    <g
+            fill="#2020FF"
+            transform="translate(-7.1 -3.5) scale(0.68)"
+    >
+        <rect
+                x="28"
+                y="7"
+                width="24"
+                height="64"
+                rx="14"
+                transform="rotate(28 42 41)"
+        />
+        <circle
+                cx="67"
+                cy="55"
+                r="14"
+        />
+    </g>
+</svg>

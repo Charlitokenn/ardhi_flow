@@ -57,7 +57,7 @@ export const PageHero = ({
     return (
         <div className="flex items-center justify-between gap-4 ">
             <div className="space-y-0.1">
-                <h1 className="flex items-center gap-2 text-2xl font-semibold">
+                <h1 className="flex items-center gap-2 text-2xl font-medium">
                     {type !== 'hero' && getTimeBasedIcon()}
                     {title}
                 </h1>
