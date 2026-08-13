@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import { UserButton } from '@clerk/react'
 import { ModeToggle } from '@/components/mode-toggle'
+import { NetworkStatusBanner } from '@/components/network-status-banner'
 
 export const Route = createFileRoute('/_authed/_org')({
     beforeLoad: ({ context }) => {
@@ -43,6 +44,8 @@ function OrgLayout() {
             <AppSidebar />
 
             <SidebarInset>
+                <NetworkStatusBanner />
+
                 <header className="flex border-b shrink-0 items-center py-2 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
                     <div className="flex font-sans items-center gap-2 px-4">
                         <SidebarTrigger className="-ml-1" />
@@ -91,7 +94,7 @@ function OrgLayout() {
                     </div>
                 </header>
 
-                <main className="min-w-0 flex-1 overflow-y-auto p-6">
+                <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-6">
                     <Outlet />
                 </main>
             </SidebarInset>
