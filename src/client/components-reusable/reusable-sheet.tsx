@@ -83,7 +83,7 @@ export default function ReusableSheet({
                 className={cn(
                     'overflow-y-auto text-primary',
                     '[&::-webkit-scrollbar]:hidden',
-                    '[scrollbar-width:none]',
+                    'scrollbar-none',
                     '[-ms-overflow-style:none]',
                     isInset && 'm-2 h-[calc(100vh-1rem)] rounded-lg',
                     popupClass

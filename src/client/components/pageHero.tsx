@@ -1,20 +1,11 @@
 import {
-    ArchiveIcon,
-    CalendarSyncIcon,
-    CreditCardIcon,
-    FilesIcon, HandCoinsIcon, MoonIcon,
-    ShoppingCartIcon, SunIcon, SunsetIcon,
-    UserPlusIcon, ZapIcon
+    FilesIcon, MoonIcon,
+    SunIcon, SunsetIcon,
 } from 'lucide-react'
 import React, {type JSX } from 'react'
 import ReusableSheet from '@/components-reusable/reusable-sheet'
 import ReusableTooltip from '@/components-reusable/reusable-tooltip'
 import {Button} from "@/components/ui/button.tsx";
-import {
-    DropdownMenu,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu.tsx";
-import {QuickActionsMenu} from "@/components-reusable/reusable-quick-actions.tsx";
 
 type PageHeroProps = {
     title?: string
@@ -24,8 +15,6 @@ type PageHeroProps = {
     buttonText?: string
     buttonIcon?: React.ReactNode
     showButton?: boolean
-
-    showActionDropdown?: boolean
 
     showBulkUploader?: boolean
     bulkUploader?: React.ReactNode
@@ -46,66 +35,6 @@ type PageHeroProps = {
     sheetSizeClass?: string
 }
 
-const quickActionGroups = [
-    {
-        label: "Actions",
-        items: [
-            {
-                label: "Add Contact",
-                icon: UserPlusIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
-            },
-            {
-                label: "Add Sales Contract",
-                icon: ShoppingCartIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
-            },
-        ],
-    },
-    {
-        label: "Finance",
-        items: [
-            {
-                label: "Add Transaction",
-                icon: CreditCardIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
-            },
-            {
-                label: "Create Reconciliation",
-                icon: CalendarSyncIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
-            },
-        ],
-    },
-    {
-        label: "Projects",
-        items: [
-            {
-                label: "New Project",
-                icon: ArchiveIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
-            },
-            {
-                label: "Record Payment",
-                icon: HandCoinsIcon,
-                onClick: () => {
-                    // navigate or open modal
-                },
-            },
-        ],
-    },
-];
-
 export const PageHero = ({
                              title,
                              subtitle,
@@ -113,7 +42,6 @@ export const PageHero = ({
                              buttonText,
                              buttonIcon,
                              showButton = false,
-                             showActionDropdown = false,
                              showBulkUploader = false,
                              bulkUploader,
                              bulkUploaderClass,
@@ -176,16 +104,6 @@ export const PageHero = ({
                         hideFooter={hideBulkUploaderFooter}
                         popupClass={bulkUploaderClass}
                     />
-                )}
-                { showActionDropdown && (
-                    <div className="flex items-center justify-center">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger>
-                                <Button variant="outline" className="w-fit"><ZapIcon/>Quick Actions</Button>
-                            </DropdownMenuTrigger>
-                            <QuickActionsMenu groups={quickActionGroups} />
-                        </DropdownMenu>
-                    </div>
                 )}
             </div>
         </div>

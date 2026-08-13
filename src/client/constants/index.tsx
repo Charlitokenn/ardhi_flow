@@ -1,5 +1,5 @@
 import {
-    ArchiveIcon,
+    ArchiveIcon, FileChartColumnIcon,
     LayoutPanelLeftIcon,
     MessagesSquareIcon,
     ShoppingCartIcon,
@@ -49,24 +49,18 @@ export const appConfig = {
         },
         {
             title: "Projects",
-            url: "",
+            url: "/projects",
             icon: <ArchiveIcon/> ,
-            items: [
-                {
-                    title: "Projects List",
-                    url: "/projects/projects-list",
-                },
-                {
-                    title: "Payments",
-                    url: "/projects/payments",
-                },
-            ],
         },
         {
             title: "Messaging",
             url: "/messaging",
             icon: <MessagesSquareIcon />,
         },
-
+        {
+            title: "Reports",
+            url: "/reports",
+            icon: <FileChartColumnIcon />,
+        },
     ]
 }
