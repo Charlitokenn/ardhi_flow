@@ -101,7 +101,6 @@ export function DateRangePicker({
                         onSelect={handleSelect}
                         numberOfMonths={numberOfMonths}
                         disabled={disabled}
-                        initialFocus
                     />
                     {hasValue && (
                         <div className="border-t p-2">

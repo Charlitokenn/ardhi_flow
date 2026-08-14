@@ -3,6 +3,6 @@ import type { Env } from '../types'
 
 const health = new Hono<{ Bindings: Env }>()
 
-health.get('/', (c) => c.json({ ok: true, ts: new Date().toISOString() }))
+health.get('/', (ctx) => ctx.json({ ok: true, timestamp: new Date().toISOString() }))
 
 export default health

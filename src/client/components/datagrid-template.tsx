@@ -82,6 +82,7 @@ import {
   ReusableEmpty,
   SearchCardsIllustration,
 } from "@/components-reusable/reusable-empty"
+import { ArchiveIcon } from "@/assets/icons/index.tsx"
 
 /**
  * ============================================================================
@@ -1063,6 +1064,7 @@ export function DataTablePattern() {
           />
         ) : (
           <ReusableEmpty
+            media={<ArchiveIcon className="size-12"/>}
             title="No users yet"
             description="Users you add will show up here."
           />

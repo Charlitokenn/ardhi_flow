@@ -1,4 +1,5 @@
 import { type Table } from "@tanstack/react-table"
+import { type DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 import {
     ActionBar,
     ActionBarClose,
@@ -9,14 +10,14 @@ import {
 } from "@/components/ui/action-bar"
 import { DownloadIcon, Trash2Icon, XIcon } from "lucide-react"
 
-interface TableActionBarProps<TData> {
-    table: Table<TData>
+interface TableActionBarProps<TData extends object> {
+    table: Table<DataGridFeatures, TData>
     onExport?: () => void
     onDelete?: () => void
     exportLabel?: string
 }
 
-export function TableActionBar<TData>({
+export function TableActionBar<TData extends object>({
                                           table,
                                           onExport,
                                           onDelete,

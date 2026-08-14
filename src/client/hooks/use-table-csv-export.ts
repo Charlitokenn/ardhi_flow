@@ -2,15 +2,16 @@
 import { type Table, type Row } from "@tanstack/react-table"
 import { useCallback } from "react"
 import { exportToCSV, type ExportColumn } from "@/lib/export-csv"
+import { type DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 
-export function useTableCSVExport<TData>(
-    table: Table<TData>,
+export function useTableCSVExport<TData extends object>(
+    table: Table<DataGridFeatures, TData>,
     columns: ExportColumn<TData>[]
 ) {
     const exportSelected = useCallback(
         (filename?: string) => {
             const selectedRows = table.getSelectedRowModel().rows
-            const data = selectedRows.map((row: Row<TData>) => row.original)
+            const data = selectedRows.map((row: Row<DataGridFeatures, TData>) => row.original)
             exportToCSV(data, columns, filename)
         },
         [table, columns]

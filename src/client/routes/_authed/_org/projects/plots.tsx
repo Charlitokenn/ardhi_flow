@@ -32,7 +32,7 @@ function PlotsPage() {
     const posthog = usePostHog()
 
     const createPlot = useMutation({
-        mutationFn: async (input: { reference: string; location: string; priceTotal: string }) => {
+        mutationFn: async (input: { projectId: string; plotNumber: string; unsurveyedSize: string }) => {
             const res = await api.api.plots.$post({ json: input })
             if (!res.ok) throw new Error('Failed to create plot')
             return res.json()
@@ -40,7 +40,7 @@ function PlotsPage() {
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['plots'] })
             posthog.capture('plot_created', {
-                has_location: Boolean(variables.location),
+                project_id: variables.projectId,
             })
         },
         onError: () => {
@@ -77,35 +77,35 @@ function NewPlotForm({
                      }: {
     pending: boolean
     error: boolean
-    onSubmit: (input: { reference: string; location: string; priceTotal: string }) => void
+    onSubmit: (input: { projectId: string; plotNumber: string; unsurveyedSize: string }) => void
 }) {
-    const [reference, setReference] = useState('')
-    const [location, setLocation] = useState('')
-    const [priceTotal, setPriceTotal] = useState('')
+    const [projectId, setProjectId] = useState('')
+    const [plotNumber, setPlotNumber] = useState('')
+    const [unsurveyedSize, setUnsurveyedSize] = useState('')
 
     return (
         <form
             className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3"
             onSubmit={(e) => {
                 e.preventDefault()
-                if (!reference || !priceTotal) return
-                onSubmit({ reference, location, priceTotal })
-                setReference('')
-                setLocation('')
-                setPriceTotal('')
+                if (!projectId || !plotNumber || !unsurveyedSize) return
+                onSubmit({ projectId, plotNumber, unsurveyedSize })
+                setProjectId('')
+                setPlotNumber('')
+                setUnsurveyedSize('')
             }}
         >
-            <Field label="Reference">
-                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="PLT-0142" required />
+            <Field label="Project ID">
+                <Input value={projectId} onChange={(e) => setProjectId(e.target.value)} placeholder="Project UUID" required />
             </Field>
-            <Field label="Location">
-                <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Kigamboni, block 4" />
+            <Field label="Plot number">
+                <Input value={plotNumber} onChange={(e) => setPlotNumber(e.target.value)} placeholder="142" required />
             </Field>
-            <Field label="Price (TZS)">
+            <Field label="Unsurveyed size (m²)">
                 <Input
-                    value={priceTotal}
-                    onChange={(e) => setPriceTotal(e.target.value)}
-                    placeholder="18000000"
+                    value={unsurveyedSize}
+                    onChange={(e) => setUnsurveyedSize(e.target.value)}
+                    placeholder="500"
                     inputMode="decimal"
                     required
                 />
@@ -132,7 +132,14 @@ function PlotsTable({
                         isLoading,
                         isError,
                     }: {
-    plots: Array<{ id: string; reference: string; location: string | null; priceTotal: string }> | undefined
+    plots: Array<{
+        id: string
+        plotNumber: string
+        surveyedPlotNumber: string | null
+        availability: 'AVAILABLE' | 'SOLD'
+        unsurveyedSize: string
+        surveyedSize: string | null
+    }> | undefined
     isLoading: boolean
     isError: boolean
 }) {
@@ -157,20 +164,18 @@ function PlotsTable({
         <table className="w-full text-sm">
             <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="py-1.5 font-medium">Reference</th>
-                <th className="py-1.5 font-medium">Location</th>
-                <th className="py-1.5 text-right font-medium">Price</th>
+                <th className="py-1.5 font-medium">Plot number</th>
+                <th className="py-1.5 font-medium">Availability</th>
+                <th className="py-1.5 text-right font-medium">Size (m²)</th>
             </tr>
             </thead>
             <tbody>
             {plots.map((plot) => (
                 <tr key={plot.id} className="border-b border-border/60">
-                    <td className="py-1.5 font-medium">{plot.reference}</td>
-                    <td className="py-1.5 text-muted-foreground">{plot.location ?? '—'}</td>
+                    <td className="py-1.5 font-medium">{plot.surveyedPlotNumber ?? plot.plotNumber}</td>
+                    <td className="py-1.5 text-muted-foreground">{plot.availability}</td>
                     <td className="py-1.5 text-right tabular-nums">
-                        {new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 }).format(
-                            Number(plot.priceTotal),
-                        )}
+                        {plot.surveyedSize ?? plot.unsurveyedSize}
                     </td>
                 </tr>
             ))}

@@ -76,7 +76,7 @@ export function NetworkStatusBanner() {
         <div
             role="alert"
             aria-live="assertive"
-            className="flex shrink-0 items-center justify-center gap-2 border-b border-warning/20 bg-warning/30 px-4 py-1 text-xs text-primary"
+            className="flex shrink-0 items-center justify-center gap-2 border-b border-warning/20 bg-warning/30 px-4 py-1 text-xs dark:text-white"
         >
             <WifiOff className="size-4 shrink-0" />
 
