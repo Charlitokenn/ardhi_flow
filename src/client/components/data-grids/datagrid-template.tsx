@@ -1,20 +1,20 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react"
-import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
-import { Badge } from "@/components/reui/badge"
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard.ts"
+import { Badge } from "@/components/reui/badge.tsx"
 import {
   DataGrid,
   DataGridContainer,
   dataGridFeatures,
   type DataGridFeatures,
-} from "@/components/reui/data-grid/data-grid"
-import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
-import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination"
-import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
+} from "@/components/reui/data-grid/data-grid.tsx"
+import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header.tsx"
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination.tsx"
+import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
 import {
   DataGridTable,
   DataGridTableRowSelect,
   DataGridTableRowSelectAll,
-} from "@/components/reui/data-grid/data-grid-table"
+} from "@/components/reui/data-grid/data-grid-table.tsx"
 import {
   type ColumnDef,
   type PaginationState,
@@ -28,45 +28,45 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/avatar.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import {
   Card,
   CardAction,
   CardContent,
   CardFooter,
   CardHeader,
-} from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+} from "@/components/ui/card.tsx"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu.tsx"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/input-group.tsx"
+import { Label } from "@/components/ui/label.tsx"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover.tsx"
 import { MoreHorizontalIcon, SearchIcon, EyeDashedIcon, XIcon, ClipboardIcon, FunnelIcon, UserPlusIcon, SquarePenIcon, Trash2Icon } from "lucide-react"
 import { type RowSelectionState } from "@tanstack/react-table"
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts";
-import { TableActionBar } from "@/components-reusable/reusable-table-action-bar"
+import { TableActionBar } from "@/components-reusable/reusable-table-action-bar.tsx"
 import { type DateRange } from "react-day-picker"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
-import { matchesDateRange } from "@/lib/table-filters"
-import { type ExportColumn } from "@/lib/export-csv"
-import ReusableSheet from "@/components-reusable/reusable-sheet"
-import { Input } from "@/components/ui/input"
+import { DateRangePicker } from "@/components/ui/date-range-picker.tsx"
+import { matchesDateRange } from "@/lib/table-filters.ts"
+import { type ExportColumn } from "@/lib/export-csv.ts"
+import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,13 +76,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {Skeleton} from "@/components/ui/skeleton"
+} from "@/components/ui/alert-dialog.tsx"
+import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {
   ReusableEmpty,
   SearchCardsIllustration,
-} from "@/components-reusable/reusable-empty"
-import { ArchiveIcon } from "@/assets/icons/index.tsx"
+} from "@/components-reusable/reusable-empty.tsx"
+import { ArchiveIcon } from "@/assets/icons"
 
 /**
  * ============================================================================

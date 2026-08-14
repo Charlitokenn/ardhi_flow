@@ -18,6 +18,7 @@
 //   npm run migrate:tenants -- --dry-run               # report only, no writes
 
 import 'dotenv/config'
+import dns from 'node:dns'
 import { Command } from 'commander'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
@@ -26,6 +27,11 @@ import { applyPendingMigrations, getAppliedMigrationTags } from '../src/worker/l
 import { decryptConnectionString } from '../src/worker/lib/crypto'
 import { tenantProjects } from '../drizzle/catalog/schema'
 import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
+
+// See scripts/seed-tenant.ts for why this is needed: Node's fetch prefers
+// IPv6, which breaks Neon connectivity on networks where IPv6 doesn't
+// actually route.
+dns.setDefaultResultOrder('ipv4first')
 
 const program = new Command()
 program

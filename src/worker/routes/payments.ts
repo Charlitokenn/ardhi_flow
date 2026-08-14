@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { createInsertSchema } from 'drizzle-zod'
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import type { Env, Variables } from '../types'
 import { contractPayments } from '../../../drizzle/tenant/schema'
 
@@ -29,6 +29,15 @@ const paymentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     const input = c.req.valid('json')
     const [created] = await c.get('tenantDb').insert(contractPayments).values(input).returning()
     return c.json(created, 201)
+  })
+  .delete('/:id', async (c) => {
+    const id = c.req.param('id')
+    const [deleted] = await c.get('tenantDb')
+      .delete(contractPayments)
+      .where(eq(contractPayments.id, id))
+      .returning()
+    if (!deleted) return c.json({ error: 'Not found' }, 404)
+    return c.json({ success: true })
   })
 
 export default paymentsRoute

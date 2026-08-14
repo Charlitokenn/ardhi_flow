@@ -15,7 +15,8 @@
     "db:generate:tenant": "drizzle-kit generate --config=drizzle.tenant.config.ts --name=init",
     "provision:tenant": "tsx scripts/provision-tenant.ts",
     "migrate:tenants": "tsx scripts/migrate-tenants.ts",
-    "seed:tenant": "tsx scripts/seed-tenant.ts"
+    "seed:tenant": "tsx scripts/seed-tenant.ts",
+    "seed:tenant:pg": "tsx scripts/seed-tenant-pg.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

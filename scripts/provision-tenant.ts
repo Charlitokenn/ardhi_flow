@@ -10,6 +10,7 @@
 //   npm run provision:tenant -- --org-id=org_2abc123 --name="Acme Plots"
 
 import 'dotenv/config'
+import dns from 'node:dns'
 import { Command } from 'commander'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
@@ -18,6 +19,11 @@ import { applyPendingMigrations } from '../src/worker/lib/run-migration'
 import { encryptConnectionString } from '../src/worker/lib/crypto'
 import { tenantProjects, orgs, provisioningEvents } from '../drizzle/catalog/schema'
 import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
+
+// See scripts/seed-tenant.ts for why this is needed: Node's fetch prefers
+// IPv6, which breaks Neon connectivity on networks where IPv6 doesn't
+// actually route.
+dns.setDefaultResultOrder('ipv4first')
 
 const program = new Command()
 program

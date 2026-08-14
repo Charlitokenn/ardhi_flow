@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
 import {ShoppingCartIcon} from "lucide-react";
+import {ContractsDataGrid} from "@/components/data-grids/contracts-datagrid.tsx";
 
 export const Route = createFileRoute('/_authed/_org/sales/')({
     staticData: {
@@ -21,6 +22,7 @@ function RouteComponent() {
               buttonIcon={<ShoppingCartIcon/>}
               showBulkUploader={true}
           />
+          <ContractsDataGrid/>
       </section>
   )
 }

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
 import {MapPlusIcon} from "lucide-react";
+import {ProjectsDataGrid} from "@/components/data-grids/projects-datagrid.tsx";
 
 export const Route = createFileRoute('/_authed/_org/projects/')({
   staticData: {
@@ -20,6 +21,7 @@ function RouteComponent() {
             buttonText="New Project"
             buttonIcon={<MapPlusIcon/>}
         />
+        <ProjectsDataGrid/>
       </section>
   )
 }

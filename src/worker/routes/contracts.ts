@@ -53,5 +53,14 @@ const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     if (!updated) return c.json({ error: 'Not found' }, 404)
     return c.json(updated)
   })
+  .delete('/:id', async (c) => {
+    const id = c.req.param('id')
+    const [deleted] = await c.get('tenantDb')
+      .delete(plotSaleContracts)
+      .where(eq(plotSaleContracts.id, id))
+      .returning()
+    if (!deleted) return c.json({ error: 'Not found' }, 404)
+    return c.json({ success: true })
+  })
 
 export default contractsRoute

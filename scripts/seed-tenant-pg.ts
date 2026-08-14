@@ -1,21 +1,19 @@
 #!/usr/bin/env -S npx tsx
+// This is a variant of scripts/seed-tenant.ts that connects via the plain
+// Postgres wire protocol (`pg` + drizzle-orm/node-postgres) instead of
+// Neon's HTTP driver (`@neondatabase/serverless` + neon-http). Use this if
+// seed-tenant.ts fails with "TypeError: fetch failed" even though the
+// network otherwise has working TCP/TLS connectivity to Neon (verified via
+// e.g. `curl -4 -sv https://<your-neon-host>`) — this bypasses Node's
+// fetch/undici stack entirely, using raw sockets instead.
 import 'dotenv/config'
-import dns from 'node:dns'
 import { Command } from 'commander'
-import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { Pool } from 'pg'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq, sql } from 'drizzle-orm'
 import { decryptConnectionString } from '../src/worker/lib/crypto'
 import { tenantProjects } from '../drizzle/catalog/schema'
 import * as schema from '../drizzle/tenant/schema'
-
-// Node's fetch (undici) prefers IPv6 by default. On networks where IPv6 is
-// advertised but not actually routable (common on some ISPs/VPNs/corporate
-// networks), this causes "TypeError: fetch failed" when talking to Neon's
-// HTTP endpoint, even though IPv4 connectivity works fine. Force IPv4-first
-// resolution so this script behaves consistently regardless of the local
-// network's IPv6 setup.
-dns.setDefaultResultOrder('ipv4first')
 
 const program = new Command()
 program
@@ -32,7 +30,8 @@ async function main() {
     throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
   }
 
-  const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
+  const catalogPool = new Pool({ connectionString: CATALOG_DATABASE_URL })
+  const catalogDb = drizzle(catalogPool)
   const [tenant] = await catalogDb.select().from(tenantProjects).where(eq(tenantProjects.orgId, orgId))
 
   if (!tenant) {
@@ -48,7 +47,8 @@ async function main() {
     TENANT_CONN_ENCRYPTION_KEY,
   )
 
-  const db = drizzle(neon(connectionUri), { schema })
+  const tenantPool = new Pool({ connectionString: connectionUri })
+  const db = drizzle(tenantPool, { schema })
 
   console.log(`→ Seeding tenant: ${tenant.orgId} (${tenant.neonProjectName})`)
 
@@ -375,6 +375,9 @@ async function main() {
   ])
 
   console.log('\n✓ Seeding complete!')
+
+  await tenantPool.end()
+  await catalogPool.end()
 }
 
 main().catch((err) => {
