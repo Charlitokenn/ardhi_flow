@@ -1,18 +1,26 @@
 import type { TenantMigrationFile } from './run-migration'
 
-// Bundled at build time — see src/worker/raw-sql.d.ts for the `?raw` type.
-// Cloudflare Workers can't read the filesystem at runtime, so unlike
-// scripts/migrate-tenants.ts (which reads drizzle/tenant/migrations/*.sql
-// off disk), the Worker needs every migration file listed here explicitly.
+// Bundled at build time — Cloudflare Workers can't read the filesystem at
+// runtime, so unlike scripts/migrate-tenants.ts (which reads
+// drizzle/tenant/migrations/*.sql off disk directly), the Worker needs its
+// migration files bundled in at build time.
 //
-// IMPORTANT: when you run `npm run db:generate:tenant` and it produces a new
-// SQL file, add it here too (in order) — otherwise brand-new tenants
-// provisioned through the Cloudflare Queue consumer (handleTenantProvisionQueue)
-// will silently miss that migration.
-import init from '../../../drizzle/tenant/migrations/0000_init.sql?raw'
-import init1 from '../../../drizzle/tenant/migrations/0001_init.sql?raw'
+// This uses Vite's import.meta.glob to automatically pick up every
+// drizzle/tenant/migrations/NNNN_*.sql file at build time — no manual list
+// to maintain. Running `npm run db:generate:tenant` and committing the
+// resulting file is enough; it's included here automatically the next time
+// the Worker is built/deployed.
+const modules = import.meta.glob<string>('../../../drizzle/tenant/migrations/*.sql', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+})
 
-export const TENANT_MIGRATIONS: TenantMigrationFile[] = [
-  { tag: '0000_init', sql: init },
-  { tag: '0001_init', sql: init1 },
-]
+export const TENANT_MIGRATIONS: TenantMigrationFile[] = Object.entries(modules)
+  .map(([path, sql]) => ({
+    tag: path.split('/').pop()!.replace(/\.sql$/, ''),
+    sql,
+  }))
+  // File names are zero-padded (0000_init, 0001_init, ...), so a plain
+  // lexicographic sort keeps them in the order drizzle-kit generated them.
+  .sort((a, b) => a.tag.localeCompare(b.tag))

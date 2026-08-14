@@ -8,6 +8,7 @@ import { eq, sql } from 'drizzle-orm'
 import { decryptConnectionString } from '../src/worker/lib/crypto'
 import { tenantProjects } from '../drizzle/catalog/schema'
 import * as schema from '../drizzle/tenant/schema'
+import { isFetchNetworkError, printFetchNetworkErrorHint } from './lib/network-error-hint'
 
 // Node's fetch (undici) prefers IPv6 by default. On networks where IPv6 is
 // advertised but not actually routable (common on some ISPs/VPNs/corporate
@@ -379,5 +380,8 @@ async function main() {
 
 main().catch((err) => {
   console.error('❌ Seeding failed:', err)
+  if (isFetchNetworkError(err)) {
+    printFetchNetworkErrorHint('seed:tenant:pg')
+  }
   process.exit(1)
 })

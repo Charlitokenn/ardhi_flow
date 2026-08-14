@@ -13,10 +13,11 @@
     "db:generate:catalog": "drizzle-kit generate --config=drizzle.catalog.config.ts",
     "db:migrate:catalog": "drizzle-kit migrate --config=drizzle.catalog.config.ts",
     "db:generate:tenant": "drizzle-kit generate --config=drizzle.tenant.config.ts --name=init",
-    "provision:tenant": "tsx scripts/provision-tenant.ts",
-    "migrate:tenants": "tsx scripts/migrate-tenants.ts",
-    "seed:tenant": "tsx scripts/seed-tenant.ts",
-    "seed:tenant:pg": "tsx scripts/seed-tenant-pg.ts"
+    "provision:tenant": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/provision-tenant.ts",
+    "migrate:tenants": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/migrate-tenants.ts",
+    "migrate:tenants:pg": "tsx scripts/migrate-tenants-pg.ts",
+    "seed:tenant": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/seed-tenant.ts",
+    "seed:tenant:pg": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/seed-tenant-pg.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

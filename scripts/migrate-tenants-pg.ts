@@ -1,43 +1,30 @@
 #!/usr/bin/env -S npx tsx
-// Pushes pending schema migrations to every provisioned tenant database.
-//
-// This is the "migration fan-out job" referenced (but not implemented) in
-// src/worker/queue/provision-tenant.ts and drizzle.tenant.config.ts: since
-// there's no single tenant DB, `drizzle-kit migrate`/`push` can't be pointed
-// at "the" tenant database — instead this script iterates every row in the
-// catalog's `tenant_projects` table, decrypts each tenant's connection
-// string, and applies any migration (from drizzle/tenant/migrations/) that
-// hasn't been recorded as applied yet for that specific tenant.
+// This is a variant of scripts/migrate-tenants.ts that connects via the
+// plain Postgres wire protocol (`pg` + drizzle-orm/node-postgres) instead
+// of Neon's HTTP driver (`@neondatabase/serverless` + neon-http). Use this
+// if migrate-tenants.ts fails with "TypeError: fetch failed" even though
+// the network otherwise has working TCP/TLS connectivity to Neon (verified
+// via e.g. `curl -4 -sv https://<your-neon-host>`) — this bypasses Node's
+// fetch/undici stack entirely, using raw sockets instead. See
+// scripts/seed-tenant-pg.ts for the same pattern applied to seeding.
 //
 // Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_ENCRYPTION_KEY
 // set (same values as your Worker secrets).
 //
-// If this fails with "TypeError: fetch failed" even though the network
-// otherwise has working TCP/TLS connectivity to Neon (verified via e.g.
-// `curl -4 -sv https://<your-neon-host>`), use `npm run migrate:tenants:pg`
-// instead — see scripts/migrate-tenants-pg.ts.
-//
 // Usage:
-//   npm run migrate:tenants
-//   npm run migrate:tenants -- --org-id=org_2abc123   # single tenant only
-//   npm run migrate:tenants -- --dry-run               # report only, no writes
+//   npm run migrate:tenants:pg
+//   npm run migrate:tenants:pg -- --org-id=org_2abc123   # single tenant only
+//   npm run migrate:tenants:pg -- --dry-run               # report only, no writes
 
-import "dotenv/config";
-import dns from 'node:dns'
+import 'dotenv/config'
 import { Command } from 'commander'
-import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { Pool } from 'pg'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
-import { applyPendingMigrations, getAppliedMigrationTags } from '../src/worker/lib/run-migration'
+import { applyPendingMigrationsPg, getAppliedMigrationTagsPg } from '../src/worker/lib/run-migration-pg'
 import { decryptConnectionString } from '../src/worker/lib/crypto'
 import { tenantProjects } from '../drizzle/catalog/schema'
 import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
-import { isFetchNetworkError, printFetchNetworkErrorHint } from './lib/network-error-hint'
-
-// See scripts/seed-tenant.ts for why this is needed: Node's fetch prefers
-// IPv6, which breaks Neon connectivity on networks where IPv6 doesn't
-// actually route.
-dns.setDefaultResultOrder('ipv4first')
 
 const program = new Command()
 program
@@ -59,13 +46,15 @@ async function main() {
     `→ ${migrations.length} known tenant migration(s): ${migrations.map((m: { tag: string }) => m.tag).join(', ')}`,
   )
 
-  const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
+  const catalogPool = new Pool({ connectionString: CATALOG_DATABASE_URL })
+  const catalogDb = drizzle(catalogPool)
   const tenants = orgId
     ? await catalogDb.select().from(tenantProjects).where(eq(tenantProjects.orgId, orgId))
     : await catalogDb.select().from(tenantProjects).where(eq(tenantProjects.status, 'active'))
 
   if (tenants.length === 0) {
     console.log('No matching tenants found.')
+    await catalogPool.end()
     return
   }
 
@@ -73,7 +62,6 @@ async function main() {
 
   let migratedCount = 0
   let failedCount = 0
-  let hintPrinted = false
 
   for (const tenant of tenants) {
     const label = `${tenant.orgId} (${tenant.neonProjectName})`
@@ -84,7 +72,7 @@ async function main() {
       )
 
       if (dryRun) {
-        const applied = await getAppliedMigrationTags(connectionUri)
+        const applied = await getAppliedMigrationTagsPg(connectionUri)
         const pending = migrations
           .filter((m: { tag: string }) => !applied.has(m.tag))
           .map((m: { tag: string }) => m.tag)
@@ -96,7 +84,7 @@ async function main() {
         continue
       }
 
-      const applied = await applyPendingMigrations(connectionUri, migrations)
+      const applied = await applyPendingMigrationsPg(connectionUri, migrations)
 
       if (applied.length > 0) {
         await catalogDb
@@ -112,10 +100,6 @@ async function main() {
     } catch (err) {
       failedCount++
       console.error(`  ✗ ${label}: FAILED — ${err instanceof Error ? err.message : String(err)}`)
-      if (!hintPrinted && isFetchNetworkError(err)) {
-        hintPrinted = true
-        printFetchNetworkErrorHint('migrate:tenants:pg')
-      }
     }
   }
 
@@ -125,6 +109,8 @@ async function main() {
     } already up to date.`,
   )
 
+  await catalogPool.end()
+
   if (failedCount > 0) {
     process.exitCode = 1
   }
@@ -132,8 +118,5 @@ async function main() {
 
 main().catch((err) => {
   console.error('❌ Migration fan-out failed:', err)
-  if (isFetchNetworkError(err)) {
-    printFetchNetworkErrorHint('migrate:tenants:pg')
-  }
   process.exit(1)
 })
