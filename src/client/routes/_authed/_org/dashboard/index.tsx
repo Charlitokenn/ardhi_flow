@@ -7,7 +7,7 @@ import {toast} from "sonner";
 import {useState} from "react";
 import type {DateRange} from "react-day-picker";
 import {DateRangePickerAlt} from "@/components/ui/date-range-picker-alt.tsx";
-import {DataTablePattern} from "@/components/datagrid-template.tsx";
+import {DataTablePattern} from "@/components/data-grids/datagrid-template.tsx";
 
 export const Route = createFileRoute('/_authed/_org/dashboard/')({
     staticData: {
