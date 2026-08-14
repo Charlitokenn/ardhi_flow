@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@clerk/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api.ts"
@@ -228,10 +228,21 @@ export function ProjectsDataGrid() {
     queryKey: ["projects"],
     queryFn: async () => {
       const res = await api.api.projects.$get()
-      if (!res.ok) throw new Error("Failed to load projects")
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const message = (body && typeof body === "object" && "error" in body ? (body as { error?: string }).error : null)
+          ?? `Failed to load projects (${res.status})`
+        throw new Error(message)
+      }
       return res.json()
     },
   })
+
+  useEffect(() => {
+    if (projectsQuery.isError) {
+      toast.error(projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects")
+    }
+  }, [projectsQuery.isError, projectsQuery.error])
 
   const deleteProject = useMutation({
     mutationFn: async (id: string) => {
@@ -534,7 +545,15 @@ export function ProjectsDataGrid() {
         }}
         isLoading={projectsQuery.isLoading}
         emptyMessage={
-          hasActiveFilters ? (
+          projectsQuery.isError ? (
+            <ReusableEmpty
+              media={<ArchiveIcon className="size-12" />}
+              title="Couldn't load projects"
+              description={projectsQuery.error instanceof Error ? projectsQuery.error.message : "Something went wrong while loading projects."}
+              buttonText="Retry"
+              onAction={() => projectsQuery.refetch()}
+            />
+          ) : hasActiveFilters ? (
             <ReusableEmpty
               media={<SearchCardsIllustration />}
               title="No matching results"

@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@clerk/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api.ts"
@@ -279,7 +279,12 @@ export function TransactionsDataGrid() {
     queryKey: ["payments"],
     queryFn: async () => {
       const res = await api.api.payments.$get()
-      if (!res.ok) throw new Error("Failed to load payments")
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const message = (body && typeof body === "object" && "error" in body ? (body as { error?: string }).error : null)
+          ?? `Failed to load payments (${res.status})`
+        throw new Error(message)
+      }
       return res.json()
     },
   })
@@ -288,10 +293,27 @@ export function TransactionsDataGrid() {
     queryKey: ["expenses"],
     queryFn: async () => {
       const res = await api.api.expenses.$get()
-      if (!res.ok) throw new Error("Failed to load expenses")
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const message = (body && typeof body === "object" && "error" in body ? (body as { error?: string }).error : null)
+          ?? `Failed to load expenses (${res.status})`
+        throw new Error(message)
+      }
       return res.json()
     },
   })
+
+  useEffect(() => {
+    if (paymentsQuery.isError) {
+      toast.error(paymentsQuery.error instanceof Error ? paymentsQuery.error.message : "Failed to load payments")
+    }
+  }, [paymentsQuery.isError, paymentsQuery.error])
+
+  useEffect(() => {
+    if (expensesQuery.isError) {
+      toast.error(expensesQuery.error instanceof Error ? expensesQuery.error.message : "Failed to load expenses")
+    }
+  }, [expensesQuery.isError, expensesQuery.error])
 
   const deletePayment = useMutation({
     mutationFn: async (id: string) => {
@@ -678,7 +700,24 @@ export function TransactionsDataGrid() {
         }}
         isLoading={isLoading}
         emptyMessage={
-          hasActiveFilters ? (
+          paymentsQuery.isError || expensesQuery.isError ? (
+            <ReusableEmpty
+              media={<ArchiveIcon className="size-12" />}
+              title="Couldn't load transactions"
+              description={
+                paymentsQuery.error instanceof Error
+                  ? paymentsQuery.error.message
+                  : expensesQuery.error instanceof Error
+                    ? expensesQuery.error.message
+                    : "Something went wrong while loading transactions."
+              }
+              buttonText="Retry"
+              onAction={() => {
+                paymentsQuery.refetch()
+                expensesQuery.refetch()
+              }}
+            />
+          ) : hasActiveFilters ? (
             <ReusableEmpty
               media={<SearchCardsIllustration />}
               title="No matching results"

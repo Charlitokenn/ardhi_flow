@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@clerk/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api.ts"
@@ -232,10 +232,21 @@ export function ContractsDataGrid() {
     queryKey: ["contracts"],
     queryFn: async () => {
       const res = await api.api.contracts.$get()
-      if (!res.ok) throw new Error("Failed to load contracts")
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const message = (body && typeof body === "object" && "error" in body ? (body as { error?: string }).error : null)
+          ?? `Failed to load contracts (${res.status})`
+        throw new Error(message)
+      }
       return res.json()
     },
   })
+
+  useEffect(() => {
+    if (contractsQuery.isError) {
+      toast.error(contractsQuery.error instanceof Error ? contractsQuery.error.message : "Failed to load contracts")
+    }
+  }, [contractsQuery.isError, contractsQuery.error])
 
   const deleteContract = useMutation({
     mutationFn: async (id: string) => {
@@ -537,7 +548,15 @@ export function ContractsDataGrid() {
         }}
         isLoading={contractsQuery.isLoading}
         emptyMessage={
-          hasActiveFilters ? (
+          contractsQuery.isError ? (
+            <ReusableEmpty
+              media={<ArchiveIcon className="size-12" />}
+              title="Couldn't load contracts"
+              description={contractsQuery.error instanceof Error ? contractsQuery.error.message : "Something went wrong while loading contracts."}
+              buttonText="Retry"
+              onAction={() => contractsQuery.refetch()}
+            />
+          ) : hasActiveFilters ? (
             <ReusableEmpty
               media={<SearchCardsIllustration />}
               title="No matching results"

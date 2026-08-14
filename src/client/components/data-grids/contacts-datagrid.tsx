@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@clerk/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api.ts"
@@ -187,7 +187,7 @@ export function ContactsDataGrid() {
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 7,
+    pageSize: 8,
   })
   const [sorting, setSorting] = useState<SortingState>([{ id: "fullName", desc: false }])
   const [searchQuery, setSearchQuery] = useState("")
@@ -204,10 +204,21 @@ export function ContactsDataGrid() {
     queryKey: ["contacts"],
     queryFn: async () => {
       const res = await api.api.contacts.$get()
-      if (!res.ok) throw new Error("Failed to load contacts")
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const message = (body && typeof body === "object" && "error" in body ? (body as { error?: string }).error : null)
+          ?? `Failed to load contacts (${res.status})`
+        throw new Error(message)
+      }
       return res.json()
     },
   })
+
+  useEffect(() => {
+    if (contactsQuery.isError) {
+      toast.error(contactsQuery.error instanceof Error ? contactsQuery.error.message : "Failed to load contacts")
+    }
+  }, [contactsQuery.isError, contactsQuery.error])
 
   const deleteContact = useMutation({
     mutationFn: async (id: string) => {
@@ -476,7 +487,15 @@ export function ContactsDataGrid() {
         }}
         isLoading={contactsQuery.isLoading}
         emptyMessage={
-          hasActiveFilters ? (
+          contactsQuery.isError ? (
+            <ReusableEmpty
+              media={<ArchiveIcon className="size-12" />}
+              title="Couldn't load contacts"
+              description={contactsQuery.error instanceof Error ? contactsQuery.error.message : "Something went wrong while loading contacts."}
+              buttonText="Retry"
+              onAction={() => contactsQuery.refetch()}
+            />
+          ) : hasActiveFilters ? (
             <ReusableEmpty
               media={<SearchCardsIllustration />}
               title="No matching results"
