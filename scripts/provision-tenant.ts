@@ -10,15 +10,14 @@
 //   npm run provision:tenant -- --org-id=org_2abc123 --name="Acme Plots"
 
 import 'dotenv/config'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { Command } from 'commander'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { createNeonProject, findProjectByName } from '../src/worker/lib/neon-api'
-import { applyMigrationSql } from '../src/worker/lib/run-migration'
+import { applyPendingMigrations } from '../src/worker/lib/run-migration'
 import { encryptConnectionString } from '../src/worker/lib/crypto'
 import { tenantProjects, orgs, provisioningEvents } from '../drizzle/catalog/schema'
+import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
 
 const program = new Command()
 program
@@ -54,12 +53,11 @@ async function main() {
   const { projectId, connectionUri } = await createNeonProject(NEON_API_KEY, projectName, region)
   console.log(`  ✓ Project ${projectId} created`)
 
-  const migrationPath = join(process.cwd(), 'drizzle/tenant/migrations/0000_init.sql')
-  const migrationSql = readFileSync(migrationPath, 'utf-8')
+  const migrations = loadTenantMigrationsFromDisk()
 
-  console.log('→ Applying initial schema...')
-  await applyMigrationSql(connectionUri, migrationSql)
-  console.log('  ✓ Schema applied')
+  console.log(`→ Applying ${migrations.length} migration(s)...`)
+  const applied = await applyPendingMigrations(connectionUri, migrations)
+  console.log(`  ✓ Schema applied (${applied.join(', ')})`)
 
   const encrypted = await encryptConnectionString(connectionUri, TENANT_CONN_ENCRYPTION_KEY)
 
@@ -71,7 +69,7 @@ async function main() {
       neonProjectName: projectName,
       region,
       encryptedConnectionString: encrypted,
-      schemaVersion: 1,
+      schemaVersion: migrations.length,
       status: 'active',
       r2Prefix: `tenants/${orgId}/`,
     })

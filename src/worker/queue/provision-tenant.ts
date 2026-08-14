@@ -1,15 +1,10 @@
 import type { Env } from '../types'
 import { createNeonProject, findProjectByName } from '../lib/neon-api'
-import { applyMigrationSql } from '../lib/run-migration'
+import { applyPendingMigrations } from '../lib/run-migration'
 import { encryptConnectionString } from '../lib/crypto'
 import { getCatalogDb } from '../db/catalog'
 import { tenantProjects, orgs, provisioningEvents } from '../../../drizzle/catalog/schema'
-
-// Bundled at build time — see src/worker/raw-sql.d.ts for the `?raw` type.
-// Only covers the *initial* schema for brand-new tenants; schema changes to
-// already-provisioned tenants go through a separate migration fan-out job
-// (not included in this scaffold — see chat notes on the pattern).
-import initMigrationSql from '../../../drizzle/tenant/migrations/0000_init.sql?raw'
+import { TENANT_MIGRATIONS } from '../lib/tenant-migrations'
 
 export interface ProvisionTenantMessage {
   clerkOrgId: string
@@ -55,7 +50,13 @@ export async function handleTenantProvisionQueue(
         env.DEFAULT_TENANT_REGION,
       )
 
-      await applyMigrationSql(connectionUri, initMigrationSql)
+      // Applies every known tenant migration (not just the initial one) so a
+      // freshly created project ends up on the same schema version as
+      // already-provisioned tenants. Later schema changes to already
+      // provisioned tenants go through the same helper — see
+      // scripts/migrate-tenants.ts for the fan-out job that runs it against
+      // every tenant in the catalog.
+      await applyPendingMigrations(connectionUri, TENANT_MIGRATIONS)
 
       const encrypted = await encryptConnectionString(connectionUri, env.TENANT_CONN_ENCRYPTION_KEY)
 
@@ -67,7 +68,7 @@ export async function handleTenantProvisionQueue(
           neonProjectName: projectName,
           region: env.DEFAULT_TENANT_REGION,
           encryptedConnectionString: encrypted,
-          schemaVersion: 1,
+          schemaVersion: TENANT_MIGRATIONS.length,
           status: 'active',
           r2Prefix: `tenants/${clerkOrgId}/`,
         })

@@ -47,6 +47,23 @@ export const INSTALLMENT_STATUS_ENUM = pgEnum('installment_status', ['DUE', 'PAR
 export const PAYMENT_DIRECTION_ENUM = pgEnum('payment_direction', ['IN', 'OUT']);
 export const PURCHASE_PLAN_ENUM = pgEnum('purchase_plan', ['FLAT_RATE', 'DOWNPAYMENT']);
 
+// General cash-outflow categories. Kept as a flat enum (matching the rest of this
+// schema) rather than a full chart-of-accounts — this is a cash ledger for
+// operational visibility, not double-entry bookkeeping. 'OTHER' + the free-text
+// `description` field is the escape hatch for anything uncategorized.
+export const EXPENSE_CATEGORY = pgEnum('expense_category', [
+    'LAND_ACQUISITION',
+    'SALES_COMMISSION',
+    'SALARY',
+    'RENT',
+    'UTILITIES',
+    'MARKETING',
+    'PROFESSIONAL_FEES',
+    'TRANSPORT',
+    'OFFICE_SUPPLIES',
+    'OTHER',
+]);
+
 // Commission payout tranche state.
 export const COMMISSION_PAYOUT_STATUS = pgEnum('commission_payout_status', ['PENDING', 'PAID', 'CANCELLED']);
 
@@ -328,6 +345,12 @@ export const contractPayments = pgTable(
             .notNull()
             .references(() => contacts.id, { onDelete: 'restrict' }),
 
+        // Which bank account/mobile wallet received this payment. Nullable to avoid
+        // breaking any existing rows on migration; make it notNull going forward once
+        // backfilled. Added now so income-side cash flow can be reconciled against
+        // accounts the same way the new expenses table does for outflows.
+        accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'restrict' }),
+
         direction: PAYMENT_DIRECTION_ENUM('direction').notNull(),
         amount: numeric('amount').notNull(),
         receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull(),
@@ -341,6 +364,7 @@ export const contractPayments = pgTable(
         index('contract_payments_contract_idx').on(table.contractId),
         index('contract_payments_client_idx').on(table.clientContactId),
         index('contract_payments_received_idx').on(table.receivedAt),
+        index('contract_payments_account_idx').on(table.accountId),
     ],
 );
 
@@ -433,6 +457,59 @@ export const commissionPayouts = pgTable(
         index('commission_payouts_agent_idx').on(table.salesAgentContactId),
         index('commission_payouts_status_idx').on(table.status),
         uniqueIndex('commission_payouts_contract_tranche_unique').on(table.contractId, table.trancheNumber),
+    ],
+);
+
+// --- Expenses (cash outflows) ---
+// Covers two things that had nowhere to live before:
+//   1. Payments made to acquire a project's land (category = LAND_ACQUISITION).
+//      `projects.acquisitionValue` is the expected/agreed total — same target-vs-actual
+//      relationship as totalContractValue vs contractPayments on the sales side. Sum
+//      expenses WHERE category = 'LAND_ACQUISITION' AND projectId = X to get amount
+//      actually paid, and diff against acquisitionValue for what's still owed to the seller.
+//   2. General operating expenses not tied to any project (salaries, rent, utilities, etc).
+// Also gives commission payouts an actual cash record: when a commissionPayouts row
+// is marked PAID, write a matching expenses row (category = SALES_COMMISSION,
+// commissionPayoutId set) so it's reflected in account balances and expense reports.
+export const expenses = pgTable(
+    'expenses',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        category: EXPENSE_CATEGORY('category').notNull(),
+        description: text('description'),
+        amount: numeric('amount').notNull(),
+
+        // Which account the money actually left from.
+        accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'restrict' }),
+
+        // Who was paid. Typically the LAND_SELLER contact for LAND_ACQUISITION, the
+        // landlord for RENT, the agent for SALES_COMMISSION, etc. Nullable — salaries
+        // or misc spend may not warrant a contacts row.
+        payeeContactId: uuid('payee_contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+
+        // Attributes this expense to a project. Effectively required (in practice) for
+        // LAND_ACQUISITION, left null for company-wide overhead.
+        projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+
+        // Links a SALES_COMMISSION expense back to the payout tranche it settles.
+        commissionPayoutId: uuid('commission_payout_id').references(() => commissionPayouts.id, {
+            onDelete: 'set null',
+        }),
+
+        paidAt: timestamp('paid_at', { withTimezone: true }).defaultNow().notNull(),
+        method: text('method'),
+        reference: text('reference'),
+        createdBy: text('created_by'),
+
+        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index('expenses_category_idx').on(table.category),
+        index('expenses_project_idx').on(table.projectId),
+        index('expenses_payee_idx').on(table.payeeContactId),
+        index('expenses_account_idx').on(table.accountId),
+        index('expenses_paid_idx').on(table.paidAt),
+        index('expenses_commission_payout_idx').on(table.commissionPayoutId),
     ],
 );
 
@@ -530,6 +607,8 @@ export type CommissionSetting = typeof commissionSettings.$inferSelect;
 export type NewCommissionSetting = typeof commissionSettings.$inferInsert;
 export type CommissionPayout = typeof commissionPayouts.$inferSelect;
 export type NewCommissionPayout = typeof commissionPayouts.$inferInsert;
+export type Expense = typeof expenses.$inferSelect;
+export type NewExpense = typeof expenses.$inferInsert;
 export type SmsCampaign = typeof smsCampaigns.$inferSelect;
 export type NewSmsCampaign = typeof smsCampaigns.$inferInsert;
 export type SmsMessage = typeof smsMessages.$inferSelect;
@@ -543,6 +622,7 @@ export type ProjectWithPlots = Project & {
 // Relations
 export const projectsRelations = relations(projects, ({ many }) => ({
     plots: many(plots),
+    expenses: many(expenses),
 }));
 
 export const contactsRelations = relations(contacts, ({ many }) => ({
@@ -556,6 +636,7 @@ export const contactsRelations = relations(contacts, ({ many }) => ({
     plotSaleContractsAsAgent: many(plotSaleContracts, { relationName: 'salesAgentContact' }),
     smsMessages: many(smsMessages),
     commissionPayouts: many(commissionPayouts),
+    expensesAsPayee: many(expenses),
 }));
 
 export const plotsRelations = relations(plots, ({ one, many }) => ({
@@ -614,6 +695,10 @@ export const contractPaymentsRelations = relations(contractPayments, ({ one, man
         fields: [contractPayments.clientContactId],
         references: [contacts.id],
     }),
+    account: one(accounts, {
+        fields: [contractPayments.accountId],
+        references: [accounts.id],
+    }),
     allocations: many(contractPaymentAllocations),
     triggeredCommissionPayouts: many(commissionPayouts),
 }));
@@ -636,7 +721,7 @@ export const contractEventsRelations = relations(contractEvents, ({ one }) => ({
     }),
 }));
 
-export const commissionPayoutsRelations = relations(commissionPayouts, ({ one }) => ({
+export const commissionPayoutsRelations = relations(commissionPayouts, ({ one, many }) => ({
     contract: one(plotSaleContracts, {
         fields: [commissionPayouts.contractId],
         references: [plotSaleContracts.id],
@@ -648,6 +733,31 @@ export const commissionPayoutsRelations = relations(commissionPayouts, ({ one })
     triggeringPayment: one(contractPayments, {
         fields: [commissionPayouts.triggeringPaymentId],
         references: [contractPayments.id],
+    }),
+    settlementExpenses: many(expenses),
+}));
+
+export const accountsRelations = relations(accounts, ({ many }) => ({
+    contractPayments: many(contractPayments),
+    expenses: many(expenses),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+    account: one(accounts, {
+        fields: [expenses.accountId],
+        references: [accounts.id],
+    }),
+    payee: one(contacts, {
+        fields: [expenses.payeeContactId],
+        references: [contacts.id],
+    }),
+    project: one(projects, {
+        fields: [expenses.projectId],
+        references: [projects.id],
+    }),
+    commissionPayout: one(commissionPayouts, {
+        fields: [expenses.commissionPayoutId],
+        references: [commissionPayouts.id],
     }),
 }));
 

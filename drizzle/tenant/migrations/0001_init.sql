@@ -12,6 +12,12 @@ CREATE TYPE "public"."relationship" AS ENUM('PARENT', 'SIBLING', 'SPOUSE', 'FRIE
 CREATE TYPE "public"."sms_campaign_status" AS ENUM('DRAFT', 'SCHEDULED', 'SENDING', 'SENT', 'FAILED');--> statement-breakpoint
 CREATE TYPE "public"."sms_campaign_type" AS ENUM('PAYMENT_REMINDER', 'OVERDUE_NOTICE', 'FULLY_PAID_THANKYOU', 'MARKETING', 'GENERAL', 'CUSTOM');--> statement-breakpoint
 CREATE TYPE "public"."sms_message_status" AS ENUM('QUEUED', 'SENT', 'DELIVERED', 'FAILED', 'UNDELIVERED', 'EXPIRED');--> statement-breakpoint
+ALTER TABLE "buyers" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "installments" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP TABLE "buyers" CASCADE;--> statement-breakpoint
+DROP TABLE "installments" CASCADE;--> statement-breakpoint
+DROP TYPE "public"."installment_status";--> statement-breakpoint
+CREATE TYPE "public"."installment_status" AS ENUM('DUE', 'PARTIAL', 'PAID');--> statement-breakpoint
 CREATE TABLE "accounts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"account_name" varchar(255) NOT NULL,
@@ -231,19 +237,7 @@ CREATE TABLE "sms_messages" (
 	"created_at" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint
-ALTER TABLE "buyers" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "installments" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
-DROP TABLE "buyers" CASCADE;--> statement-breakpoint
-DROP TABLE "installments" CASCADE;--> statement-breakpoint
 ALTER TABLE "plots" DROP CONSTRAINT "plots_reference_unique";--> statement-breakpoint
-ALTER TABLE "plots" DROP CONSTRAINT "plots_buyer_id_buyers_id_fk";
---> statement-breakpoint
-ALTER TABLE "contract_installments" ALTER COLUMN "status" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "contract_installments" ALTER COLUMN "status" SET DEFAULT 'DUE'::text;--> statement-breakpoint
-DROP TYPE "public"."installment_status";--> statement-breakpoint
-CREATE TYPE "public"."installment_status" AS ENUM('DUE', 'PARTIAL', 'PAID');--> statement-breakpoint
-ALTER TABLE "contract_installments" ALTER COLUMN "status" SET DEFAULT 'DUE'::"public"."installment_status";--> statement-breakpoint
-ALTER TABLE "contract_installments" ALTER COLUMN "status" SET DATA TYPE "public"."installment_status" USING "status"::"public"."installment_status";--> statement-breakpoint
 ALTER TABLE "plots" ALTER COLUMN "created_at" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "plots" ADD COLUMN "plot_number" numeric NOT NULL;--> statement-breakpoint
 ALTER TABLE "plots" ADD COLUMN "surveyed_plot_number" varchar(50);--> statement-breakpoint
