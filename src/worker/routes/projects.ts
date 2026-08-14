@@ -3,50 +3,46 @@ import { zValidator } from '@hono/zod-validator'
 import { createInsertSchema } from 'drizzle-zod'
 import { eq, and, desc } from 'drizzle-orm'
 import type { Env, Variables } from '../types'
-import { plots } from '../../../drizzle/tenant/schema'
+import { projects } from '../../../drizzle/tenant/schema'
 
-const insertPlotSchema = createInsertSchema(plots).omit({ id: true, createdAt: true, updatedAt: true })
+const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true })
 
-const plotsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
+const projectsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
   .get('/', async (c) => {
     const rows = await c.get('tenantDb')
-      .query.plots.findMany({
-        where: eq(plots.isDeleted, false),
+      .query.projects.findMany({
+        where: eq(projects.isDeleted, false),
         with: {
-          project: true,
-          contact: true,
-          activeContract: true,
+          plots: true,
         },
-        orderBy: [desc(plots.createdAt)],
+        orderBy: [desc(projects.createdAt)],
       })
     return c.json(rows)
   })
   .get('/:id', async (c) => {
     const id = c.req.param('id')
     const row = await c.get('tenantDb')
-      .query.plots.findFirst({
-        where: and(eq(plots.id, id), eq(plots.isDeleted, false)),
+      .query.projects.findFirst({
+        where: and(eq(projects.id, id), eq(projects.isDeleted, false)),
         with: {
-          project: true,
-          contact: true,
-          activeContract: true,
+          plots: true,
         },
       })
     if (!row) return c.json({ error: 'Not found' }, 404)
     return c.json(row)
   })
-  .post('/', zValidator('json', insertPlotSchema), async (c) => {
+  .post('/', zValidator('json', insertProjectSchema), async (c) => {
     const input = c.req.valid('json')
-    const [created] = await c.get('tenantDb').insert(plots).values(input).returning()
+    const [created] = await c.get('tenantDb').insert(projects).values(input).returning()
     return c.json(created, 201)
   })
-  .patch('/:id', zValidator('json', insertPlotSchema.partial()), async (c) => {
+  .patch('/:id', zValidator('json', insertProjectSchema.partial()), async (c) => {
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const [updated] = await c.get('tenantDb')
-      .update(plots)
+      .update(projects)
       .set({ ...input, updatedAt: new Date() })
-      .where(and(eq(plots.id, id), eq(plots.isDeleted, false)))
+      .where(and(eq(projects.id, id), eq(projects.isDeleted, false)))
       .returning()
     if (!updated) return c.json({ error: 'Not found' }, 404)
     return c.json(updated)
@@ -54,12 +50,12 @@ const plotsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
   .delete('/:id', async (c) => {
     const id = c.req.param('id')
     const [deleted] = await c.get('tenantDb')
-      .update(plots)
+      .update(projects)
       .set({ isDeleted: true, updatedAt: new Date() })
-      .where(eq(plots.id, id))
+      .where(eq(projects.id, id))
       .returning()
     if (!deleted) return c.json({ error: 'Not found' }, 404)
     return c.json({ success: true })
   })
 
-export default plotsRoute
+export default projectsRoute

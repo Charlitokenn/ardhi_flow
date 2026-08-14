@@ -6,6 +6,7 @@ import type { Env, Variables } from '../types'
 import { getCatalogDb } from '../db/catalog'
 import { tenantProjects } from '../../../drizzle/catalog/schema'
 import { decryptConnectionString } from '../lib/crypto'
+import * as schema from '../../../drizzle/tenant/schema'
 
 // KV is eventually consistent (~60s propagation) which is fine here: tenant
 // connection info barely ever changes, and a stale cache hit just means an
@@ -46,7 +47,7 @@ export const tenantResolver = () =>
       )
     }
 
-    c.set('tenantDb', drizzle(neon(connectionString)))
+    c.set('tenantDb', drizzle(neon(connectionString), { schema }))
 
     await next()
   })

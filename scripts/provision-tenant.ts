@@ -38,7 +38,7 @@ async function main() {
   }
 
   const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
-  const projectName = `tenant-${orgId}`
+  const projectName = `tenant-${name}`
 
   const existing = await findProjectByName(NEON_API_KEY, projectName)
   if (existing) {

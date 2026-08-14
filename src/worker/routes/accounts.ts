@@ -3,50 +3,40 @@ import { zValidator } from '@hono/zod-validator'
 import { createInsertSchema } from 'drizzle-zod'
 import { eq, and, desc } from 'drizzle-orm'
 import type { Env, Variables } from '../types'
-import { plots } from '../../../drizzle/tenant/schema'
+import { accounts } from '../../../drizzle/tenant/schema'
 
-const insertPlotSchema = createInsertSchema(plots).omit({ id: true, createdAt: true, updatedAt: true })
+const insertAccountSchema = createInsertSchema(accounts).omit({ id: true, createdAt: true, updatedAt: true })
 
-const plotsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
+const accountsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
   .get('/', async (c) => {
     const rows = await c.get('tenantDb')
-      .query.plots.findMany({
-        where: eq(plots.isDeleted, false),
-        with: {
-          project: true,
-          contact: true,
-          activeContract: true,
-        },
-        orderBy: [desc(plots.createdAt)],
+      .query.accounts.findMany({
+        where: eq(accounts.isDeleted, false),
+        orderBy: [desc(accounts.createdAt)],
       })
     return c.json(rows)
   })
   .get('/:id', async (c) => {
     const id = c.req.param('id')
     const row = await c.get('tenantDb')
-      .query.plots.findFirst({
-        where: and(eq(plots.id, id), eq(plots.isDeleted, false)),
-        with: {
-          project: true,
-          contact: true,
-          activeContract: true,
-        },
+      .query.accounts.findFirst({
+        where: and(eq(accounts.id, id), eq(accounts.isDeleted, false)),
       })
     if (!row) return c.json({ error: 'Not found' }, 404)
     return c.json(row)
   })
-  .post('/', zValidator('json', insertPlotSchema), async (c) => {
+  .post('/', zValidator('json', insertAccountSchema), async (c) => {
     const input = c.req.valid('json')
-    const [created] = await c.get('tenantDb').insert(plots).values(input).returning()
+    const [created] = await c.get('tenantDb').insert(accounts).values(input).returning()
     return c.json(created, 201)
   })
-  .patch('/:id', zValidator('json', insertPlotSchema.partial()), async (c) => {
+  .patch('/:id', zValidator('json', insertAccountSchema.partial()), async (c) => {
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const [updated] = await c.get('tenantDb')
-      .update(plots)
+      .update(accounts)
       .set({ ...input, updatedAt: new Date() })
-      .where(and(eq(plots.id, id), eq(plots.isDeleted, false)))
+      .where(and(eq(accounts.id, id), eq(accounts.isDeleted, false)))
       .returning()
     if (!updated) return c.json({ error: 'Not found' }, 404)
     return c.json(updated)
@@ -54,12 +44,12 @@ const plotsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
   .delete('/:id', async (c) => {
     const id = c.req.param('id')
     const [deleted] = await c.get('tenantDb')
-      .update(plots)
+      .update(accounts)
       .set({ isDeleted: true, updatedAt: new Date() })
-      .where(eq(plots.id, id))
+      .where(eq(accounts.id, id))
       .returning()
     if (!deleted) return c.json({ error: 'Not found' }, 404)
     return c.json({ success: true })
   })
 
-export default plotsRoute
+export default accountsRoute

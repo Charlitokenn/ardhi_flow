@@ -6,6 +6,13 @@ import { tenantResolver } from './middleware/tenant-resolver'
 import webhooksRoute from './routes/webhooks/clerk'
 import healthRoute from './routes/health'
 import plotsRoute from './routes/plots'
+import contactsRoute from './routes/contacts'
+import projectsRoute from './routes/projects'
+import accountsRoute from './routes/accounts'
+import contractsRoute from './routes/contracts'
+import paymentsRoute from './routes/payments'
+import expensesRoute from './routes/expenses'
+import dashboardRoute from './routes/dashboard'
 import { handleTenantProvisionQueue, type ProvisionTenantMessage } from './queue/provision-tenant'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -22,6 +29,13 @@ const authed = new Hono<{ Bindings: Env; Variables: Variables }>()
   .use('*', clerkAuth())
   .use('*', tenantResolver())
   .route('/plots', plotsRoute)
+  .route('/contacts', contactsRoute)
+  .route('/projects', projectsRoute)
+  .route('/accounts', accountsRoute)
+  .route('/contracts', contractsRoute)
+  .route('/payments', paymentsRoute)
+  .route('/expenses', expensesRoute)
+  .route('/dashboard', dashboardRoute)
 
 const routes = app.route('/api', authed)
 

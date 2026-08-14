@@ -1,5 +1,6 @@
 import type { NeonHttpDatabase } from 'drizzle-orm/neon-http'
 import type { ProvisionTenantMessage } from './queue/provision-tenant'
+import * as schema from '../../drizzle/tenant/schema'
 
 export interface Env {
   // Static assets (the built React app) — configured in wrangler.jsonc.
@@ -31,5 +32,5 @@ export interface Variables {
   orgId: string
   orgRole: string
   // Populated by the tenant-resolver middleware once orgId is known.
-  tenantDb: NeonHttpDatabase
+  tenantDb: NeonHttpDatabase<typeof schema>
 }
