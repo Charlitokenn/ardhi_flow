@@ -215,7 +215,7 @@ export function ContractsDataGrid() {
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 8,
   })
   const [sorting, setSorting] = useState<SortingState>([{ id: "startDate", desc: true }])
   const [searchQuery, setSearchQuery] = useState("")

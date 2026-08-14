@@ -260,7 +260,7 @@ export function TransactionsDataGrid() {
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 8,
   })
   const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }])
   const [searchQuery, setSearchQuery] = useState("")

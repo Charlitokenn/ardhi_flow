@@ -212,7 +212,7 @@ export function ProjectsDataGrid() {
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 8,
   })
   const [sorting, setSorting] = useState<SortingState>([{ id: "projectName", desc: false }])
   const [searchQuery, setSearchQuery] = useState("")
