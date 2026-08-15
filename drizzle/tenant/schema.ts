@@ -394,13 +394,30 @@ export const contractEvents = pgTable(
         contractId: uuid('contract_id')
             .notNull()
             .references(() => plotSaleContracts.id, { onDelete: 'cascade' }),
+        // Optional: scopes this row to one specific installment/invoice — this is what
+        // lets a follow-up comment show up on a specific invoice rather than only the
+        // contract as a whole. Left null for contract-level events (cancellation, etc).
+        installmentId: uuid('installment_id').references(() => contractInstallments.id, {
+            onDelete: 'cascade',
+        }),
+        // Free text by convention (not a pgEnum) — use 'FOLLOWUP_COMMENT' for staff
+        // notes logging client feedback during a payment follow-up; other values
+        // (e.g. 'CANCELLED', 'DELINQUENT_MARKED') for system-generated entries.
         eventType: text('event_type').notNull(),
         message: text('message'),
         meta: jsonb('meta'),
+        // Collections notes ("client says broke until next paycheck") should never
+        // leak into the client portal by accident. Defaults to internal-only; only
+        // flip this if you deliberately want a client-visible comment thread.
+        isInternal: boolean('is_internal').default(true).notNull(),
         createdBy: text('created_by'),
         createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     },
-    (table) => [index('contract_events_contract_idx').on(table.contractId)],
+    (table) => [
+        index('contract_events_contract_idx').on(table.contractId),
+        index('contract_events_installment_idx').on(table.installmentId),
+        index('contract_events_type_idx').on(table.eventType),
+    ],
 );
 
 // --- Commission ---
@@ -684,6 +701,7 @@ export const contractInstallmentsRelations = relations(contractInstallments, ({ 
     }),
     allocations: many(contractPaymentAllocations),
     smsMessages: many(smsMessages),
+    comments: many(contractEvents),
 }));
 
 export const contractPaymentsRelations = relations(contractPayments, ({ one, many }) => ({
@@ -718,6 +736,10 @@ export const contractEventsRelations = relations(contractEvents, ({ one }) => ({
     contract: one(plotSaleContracts, {
         fields: [contractEvents.contractId],
         references: [plotSaleContracts.id],
+    }),
+    installment: one(contractInstallments, {
+        fields: [contractEvents.installmentId],
+        references: [contractInstallments.id],
     }),
 }));
 
