@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button.tsx";
 import ReusableSheet from "@/components-reusable/reusable-sheet";
+import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
 
 interface QuickActionsMenuProps {
     side?: "top" | "right" | "bottom" | "left";
@@ -161,17 +162,24 @@ export function QuickActionsMenu({
                 }}
                 title={activeItem?.sheetTitle ?? ""}
                 description={activeItem?.sheetDescription}
+                hideFooter={activeItem?.label === "Add Contact"}
+                popupClass={activeItem?.label === "Add Contact" ? "w-full sm:max-w-2xl" : undefined}
                 formContent={
-                    <div className="text-sm text-muted-foreground">
-                        {/* TODO: replace with the real form for "{activeItem?.label}" once it exists. */}
-                        Form for &quot;{activeItem?.label}&quot; goes here.
-                    </div>
+                    activeItem?.label === "Add Contact" ? (
+                        <AddEditContactForm mode="add" onSuccess={() => setActiveLabel(null)} />
+                    ) : (
+                        <div className="text-sm text-muted-foreground">
+                            {/* TODO: replace with the real form for "{activeItem?.label}" once it exists. */}
+                            Form for &quot;{activeItem?.label}&quot; goes here.
+                        </div>
+                    )
                 }
                 onSubmit={(event) => {
                     event.preventDefault();
                     // TODO: hook up the real submit handler for the active
-                    // action's form (e.g. create contact/transaction/etc.)
-                    // once it's implemented, then close the sheet.
+                    // action's form (e.g. create transaction/etc.) once it's
+                    // implemented, then close the sheet. "Add Contact" is
+                    // already wired above and manages its own submit/close.
                     setActiveLabel(null);
                 }}
             />
