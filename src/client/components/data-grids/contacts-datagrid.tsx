@@ -87,7 +87,6 @@ import {
   SearchCardsIllustration,
 } from "@/components-reusable/reusable-empty.tsx"
 import { ArchiveIcon } from "@/assets/icons"
-import { AddEditContactForm, type ContactRecord } from "@/components/forms/contacts/add-edit-contact-form.tsx"
 
 interface IContact {
   id: string
@@ -109,21 +108,6 @@ const exportColumns: ExportColumn<IContact>[] = [
   { header: "Region", accessor: (d) => d.region },
   { header: "District", accessor: (d) => d.district },
 ]
-
-// Maps the subset of fields already loaded into a grid row to a partial
-// `ContactRecord` seed, so the edit form's query cache can be pre-populated
-// and render instantly instead of showing a loading skeleton.
-function rowToContactSeed(row: IContact): Partial<ContactRecord> {
-  return {
-    id: row.id,
-    fullName: row.fullName,
-    mobileNumber: row.mobileNumber,
-    email: row.email,
-    contactType: row.contactType as ContactRecord["contactType"],
-    region: row.region,
-    district: row.district,
-  }
-}
 
 function initials(name: string) {
   return name
@@ -211,9 +195,6 @@ export function ContactsDataGrid() {
 
   const [viewingRow, setViewingRow] = useState<IContact | null>(null)
   const isViewSheetOpen = viewingRow !== null
-
-  const [editingRow, setEditingRow] = useState<IContact | null>(null)
-  const isEditSheetOpen = editingRow !== null
 
   const [deletingRow, setDeletingRow] = useState<IContact | null>(null)
   const isDeleteDialogOpen = deletingRow !== null
@@ -398,7 +379,7 @@ export function ContactsDataGrid() {
           (row) => (
             <ActionsCell
               row={row}
-              onEdit={(rowData) => setEditingRow(rowData)}
+              onEdit={() => toast.info("Editing contacts is coming soon")}
               onView={(rowData) => setViewingRow(rowData)}
               onDelete={(rowData) => setDeletingRow(rowData)}
               disabled={deletingIds.has(row.original.id)}
@@ -593,7 +574,7 @@ export function ContactsDataGrid() {
             </div>
             <CardAction />
           </CardHeader>
-          <CardContent className="p-0.5">
+          <CardContent className="p-0">
             <Card className="p-0">
               <DataGridContainer>
                 <DataGridScrollArea>
@@ -626,27 +607,6 @@ export function ContactsDataGrid() {
               <div><span className="text-muted-foreground">Region: </span>{viewingRow.region ?? "—"}</div>
               <div><span className="text-muted-foreground">District: </span>{viewingRow.district ?? "—"}</div>
             </div>
-          )
-        }
-      />
-
-      <ReusableSheet
-        title="Edit contact"
-        description="Update this contact's details."
-        open={isEditSheetOpen}
-        onOpenChange={(open) => {
-          if (!open) setEditingRow(null)
-        }}
-        hideFooter
-        popupClass="w-full sm:max-w-2xl"
-        formContent={
-          editingRow && (
-            <AddEditContactForm
-              mode="edit"
-              contactId={editingRow.id}
-              initialData={rowToContactSeed(editingRow)}
-              onSuccess={() => setEditingRow(null)}
-            />
           )
         }
       />

@@ -805,7 +805,7 @@ export function TransactionsDataGrid() {
             </div>
             <CardAction />
           </CardHeader>
-          <CardContent className="p-0.5">
+          <CardContent className="p-0">
             <Card className="p-0">
               <DataGridContainer>
                 <DataGridScrollArea>

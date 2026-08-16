@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useState } from 'react'
 import {
     Sheet,
     SheetContent,
@@ -69,14 +69,9 @@ interface SheetControlContextValue {
 const SheetControlContext =
     createContext<SheetControlContextValue | null>(null)
 
-/**
- * Lets content rendered as `formContent` close its own sheet (e.g. after a
- * successful save) without the parent needing to manage the `open` state
- * itself. Returns `null` when rendered outside a `ReusableSheet`.
- */
-export function useSheetControl() {
-    return useContext(SheetControlContext)
-}
+// export function useSheetControl() {
+//     return useContext(SheetControlContext)
+// }
 
 export default function ReusableSheet({
                                           trigger,
