@@ -1,7 +1,7 @@
 # ArdhiFlow — Library-Specific Notes
 
 > Before using any library, read its section here for project-specific constraints.
-> Then consult the library's own docs for full API details.
+> Then consult the library's own docs for full API details use context7 connector to query the latest docs.
 >
 > **Verified against official docs**: 2026-08-16
 

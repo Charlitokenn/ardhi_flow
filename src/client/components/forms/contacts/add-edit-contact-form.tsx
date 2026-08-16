@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useAuth } from "@clerk/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -328,16 +328,29 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
     initialData: () => buildSeedRecord(initialData, contactId),
   })
 
-  useEffect(() => {
-    if (isEdit && contactQuery.data) {
-      setValues(toFormValues(contactQuery.data))
-    } else if (!isEdit) {
-      setValues(EMPTY_VALUES)
-    }
+  // Whether the *complete* `ContactRecord` has been fetched, as opposed to
+  // just the partial `initialData` seed. `buildPayload`/mutations must not
+  // fire — and the save action must stay disabled — until this is true, so a
+  // PATCH never overwrites fields the form hasn't actually loaded yet.
+  const hasFullRecord = !isEdit || contactQuery.isFetched
+
+  // Re-seeds `values` from the query result exactly once per contact/fetch
+  // transition (new contact id, or the moment the full record arrives),
+  // without clobbering subsequent user edits on later renders. This mirrors
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes —
+  // adjusting state during render (guarded by a "previous key" comparison)
+  // instead of in a `useEffect`, since setting state synchronously inside an
+  // effect body triggers an extra, avoidable render pass.
+  const [seededFor, setSeededFor] = useState<string | null>(null)
+  const seedKey = isEdit ? (contactQuery.data ? `${contactQuery.data.id}:${contactQuery.isFetched}` : null) : "add"
+
+  if (seedKey !== null && seedKey !== seededFor) {
+    setSeededFor(seedKey)
+    setValues(isEdit && contactQuery.data ? toFormValues(contactQuery.data) : EMPTY_VALUES)
     setErrors({})
     setCurrentStep(1)
     setHighestStep(1)
-  }, [isEdit, contactQuery.data])
+  }
 
   const update = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -425,6 +438,13 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
   const handleBack = () => setCurrentStep((prev) => Math.max(1, prev - 1))
 
   const handleSave = () => {
+    // Guards against firing a create/update mutation — and thus `buildPayload`
+    // sending fields that were never actually loaded — before the full
+    // `ContactRecord` has arrived. The save button is disabled for the same
+    // reason, but this keeps the mutation itself safe regardless of how it's
+    // triggered.
+    if (!hasFullRecord) return
+
     let firstInvalidStep: number | null = null
     for (const s of steps) {
       if (!validateStep(s.step) && firstInvalidStep === null) {
@@ -763,7 +783,7 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
         </Button>
 
         {isLastStep ? (
-          <Button type="button" onClick={handleSave} disabled={isSaving}>
+          <Button type="button" onClick={handleSave} disabled={!hasFullRecord || isSaving}>
             {isSaving ? "Saving..." : isEdit ? "Update contact" : "Save contact"}
           </Button>
         ) : (

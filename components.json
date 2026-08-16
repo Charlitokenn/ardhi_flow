@@ -24,6 +24,7 @@
   "registries": {
     "@diceui": "https://diceui.com/r/{style}/{name}.json",
     "@react-bits": "https://reactbits.dev/r/{name}.json",
-    "@reui": "https://reui.io/r/{style}/{name}.json"
+    "@reui": "https://reui.io/r/{style}/{name}.json",
+    "@billingsdk": "https://billingsdk.com/r/{name}.json"
   }
 }
