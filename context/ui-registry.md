@@ -3,7 +3,7 @@
 > **Agent rule**: Before building any UI element, check here first.
 > After building any UI element, add it here.
 
-Last updated: 2026-08-16
+Last updated: 2026-08-17 (post-merge: `feat-implement-contact-form` PR)
 
 ---
 
@@ -91,10 +91,47 @@ Last updated: 2026-08-16
 - **Purpose**: Feature-specific TanStack Table grids built on the `reui/data-grid` wrapper.
 - **Notes**: `components/data-grids/datagrid-template.tsx` is the copy-from-scratch starting point for a new resource's grid — mirror its structure rather than building a table from raw markup. Follows the pattern noted in `ui-rules.md`.
 
-### Contacts forms (in progress)
-- **Files**: `components/forms/contacts/add-contact-form.tsx`, `edit-contact-form.tsx`, `view-contact-form.tsx`, `client-statement.tsx`
-- **Purpose**: Create/edit/view a contact and generate a client statement.
-- **Notes**: These files currently exist as empty stubs in the repo — not yet implemented. Treat them as the intended location for this work, not as a reference pattern to copy from yet. Use `NewPlotForm` (inline in `routes/_authed/_org/projects/plots.tsx`) as the actual reference pattern for a controlled-component form wired to a `useMutation`.
+### AddEditContactForm
+- **File**: `components/forms/contacts/add-edit-contact-form.tsx` (797 lines)
+- **Purpose**: The real create *and* edit form for a contact — one component, `mode="add" | "edit"` prop switches behavior. Multi-step (`Stepper`): contact info → address → emergency/next-of-kin.
+- **Props**: `mode: "add" | "edit"`, `contactId?: string` (required for edit), `initialData?: Partial<ContactRecord>` (pre-seeds the edit form so it renders instantly instead of a loading skeleton — see `rowToContactSeed()` in `contacts-datagrid.tsx`), `onSuccess?: () => void`
+- **Used in**: `routes/_authed/_org/contacts/index.tsx` (the page's "New Contact" quick-action sheet, `mode="add"`), `reusable-quick-actions.tsx` (global "Add Contact" quick action), `contacts-datagrid.tsx` (row-level Edit action, `mode="edit"`)
+- **Notes**: This is now the reference pattern for any new multi-step, validated form in this codebase — see `ui-rules.md` → Forms for the pattern it establishes (per-step `zod` schemas, `Stepper`, `UNSET` sentinel for optional Radix `Select`s, self-closing via `useSheetControl()`). `add-contact-form.tsx` and `edit-contact-form.tsx` still exist as empty stub files — they were superseded by this combined component and can be deleted once confirmed unused elsewhere. `view-contact-form.tsx` and `client-statement.tsx` are still empty stubs — the datagrid's "View" action currently renders an inline detail sheet directly in `contacts-datagrid.tsx`, not through `view-contact-form.tsx`.
+
+### PhoneInput
+- **File**: `components/reui/phone-input.tsx`
+- **Purpose**: Country-code-aware phone number input — flag + country combobox (built on the new `Combobox` primitive) + formatted number field, wrapping `react-phone-number-input`.
+- **Props**: `variant?: "sm" | "default" | "lg"`, plus standard controlled-input props (`value`, `onChange`) via `react-phone-number-input`'s API.
+- **Used in**: `AddEditContactForm` (mobile number, alt mobile number, next-of-kin mobile fields)
+- **Notes**: Pulled from the `@reui` registry — file carries a stray `"use client"` directive at the top, which is a harmless no-op in this Vite SPA (see `code-standards.md` note on registry-sourced files). Use this instead of a plain `Input` for any new phone-number field so formatting/validation stays consistent.
+
+### Stepper (+ StepperNav / StepperItem / StepperTrigger / StepperPanel / etc.)
+- **File**: `components/reui/stepper.tsx`
+- **Purpose**: Multi-step form/wizard primitive — horizontal or vertical, controlled or uncontrolled active-step state, per-step `active`/`completed`/`inactive`/`loading` visual states.
+- **Used in**: `AddEditContactForm`
+- **Notes**: This is the intended primitive for any future multi-step flow (e.g. the contract-creation flow noted as unverified in `progress-tracker.md`) — check here before hand-rolling step state.
+
+### Combobox
+- **File**: `components/ui/combobox.tsx`
+- **Purpose**: Searchable select/autocomplete, built on `cmdk` + Radix `Popover` (shadcn primitive).
+- **Used in**: `PhoneInput` (country selector); available generally for any searchable-select need.
+- **Notes**: Prefer this over a plain `Select` once an option list gets long enough that scrolling to find an item is annoying (country lists, long enum lists, etc.).
+
+### RadioGroup
+- **File**: `components/ui/radio-group.tsx`
+- **Purpose**: Standard shadcn radio-group primitive (Radix-based).
+- **Used in**: not yet referenced by any feature component as of this update — added as a base primitive, available for use.
+
+### Toggle
+- **File**: `components/ui/toggle.tsx`
+- **Purpose**: Standard shadcn toggle/pressed-button primitive (Radix-based).
+- **Used in**: not yet referenced by any feature component as of this update — added as a base primitive, available for use.
+
+### Billing SDK component suite (`components/billingsdk/`) — scaffolded, not yet integrated
+- **Files**: `cancel-subscription-card.tsx`, `cancel-subscription-dialog.tsx`, `invoice-history.tsx`, `payment-card.tsx`, `payment-method-selector.tsx`, `subscription-management.tsx`, `update-plan-card.tsx`, `update-plan-dialog.tsx` — plus matching `*-demo.tsx` files at `components/` root and `lib/billingsdk-config.ts`.
+- **Purpose**: A full subscription-management UI kit (current-plan summary, cancel flow, plan upgrade/downgrade dialog, payment-method selector, invoice history) pulled from the new `@billingsdk` registry (`components.json`).
+- **Used in**: **Nothing yet.** No route or nav entry references any of these components or the demo files — confirmed by searching `src/client/routes/` and the sidebar nav config. `lib/billingsdk-config.ts` still contains the registry's own placeholder example data (mentions "Liveblocks" pricing tiers, unrelated to ArdhiFlow) — it has not been customized with real ArdhiFlow plan/pricing data yet.
+- **Notes**: Given Charles's past PayPal Subscriptions billing work on other projects (RareBooks), this strongly looks like the start of a **tenant-facing self-serve subscription management feature** — i.e. letting an org admin view/manage *their organization's ArdhiFlow subscription* (plan, payment method, invoices), not a customer-facing feature of the land-sale business itself. This is an inference, not confirmed in code or nav — verify intent before building it out further. See `build-plan.md` and `progress-tracker.md` for how this is now tracked. Before wiring these in: (1) replace the demo config in `billingsdk-config.ts` with real plan data, (2) confirm whether billing is PayPal Subscriptions-backed (consistent with Charles's other projects) or something else, (3) delete the `*-demo.tsx` files once real usage replaces them — they're registry scaffolding, not app code.
 
 ### Reusable primitives (`components-reusable/`)
 - **reusable-empty.tsx** — standard empty-state block (icon + message + optional CTA)
@@ -106,5 +143,5 @@ Last updated: 2026-08-16
 - **Notes**: Use these before building a one-off equivalent — they exist specifically to avoid every feature area growing its own empty-state/stat-tile/tooltip variant.
 
 ### shadcn/ui primitives (`components/ui/`)
-- 30+ generated primitives (`button`, `dialog`, `dropdown-menu`, `sidebar`, `banner`, `calendar`, `command`, `field`, `input-group`, etc.) plus two date pickers (`date-range-picker.tsx`, `date-range-picker-alt.tsx`).
-- **Never edit these directly** — add/update via `npx shadcn add <component>` so registry-tracked updates aren't lost. If you need a variant that doesn't exist, check the `@diceui` and `@reui` registries (configured in `components.json`) before building custom.
+- 30+ generated primitives (`button`, `dialog`, `dropdown-menu`, `sidebar`, `banner`, `calendar`, `command`, `field`, `input-group`, `combobox`, `radio-group`, `toggle`, etc.) plus two date pickers (`date-range-picker.tsx`, `date-range-picker-alt.tsx`).
+- **Never edit these directly** — add/update via `npx shadcn add <component>` so registry-tracked updates aren't lost. If you need a variant that doesn't exist, check the `@diceui`, `@reui`, and `@billingsdk` registries (configured in `components.json`) before building custom.

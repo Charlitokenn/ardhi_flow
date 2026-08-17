@@ -11,6 +11,8 @@ import PieChart from "@/assets/pie-chart.svg?react"
 import Settings from "@/assets/settings.svg?react"
 import UsersGroup from "@/assets/users-group.svg?react"
 import Wallet from "@/assets/wallet.svg?react"
+import Pdf from "@/assets/pdf.svg?react"
+import Users from "@/assets/users.svg?react"
 
 export const ArchiveIcon = ({ className } : { className : string }) => {
     return <Archive className={className}/>
@@ -62,4 +64,12 @@ export const UsersGroupIcon = ({ className } : { className : string }) => {
 
 export const WalletIcon = ({ className } : { className : string }) => {
     return <Wallet className={className}/>
+}
+
+export const PdfIcon = ({ className } : { className : string }) => {
+    return <Pdf className={className}/>
+}
+
+export const UsersIcon = ({ className } : { className : string }) => {
+    return <Users className={className}/>
 }

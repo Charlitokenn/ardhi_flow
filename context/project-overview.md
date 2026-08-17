@@ -30,4 +30,4 @@ A land-sale company can sign up, have their tenant auto-provision, and immediate
 
 ## Out of Scope for v1
 
-Client-facing self-service portal (contacts already carry an optional `clerkUserId` for this, but no portal UI exists yet), mobile apps, multi-currency support, full double-entry accounting (expenses are a cash ledger, not a chart of accounts), automated tests / CI pipeline, and migration fan-out for schema changes to already-provisioned tenants.
+Client-facing self-service portal (contacts already carry an optional `clerkUserId` for this, but no portal UI exists yet), mobile apps, multi-currency support, full double-entry accounting (expenses are a cash ledger, not a chart of accounts), and automated tests / CI pipeline. (Migration fan-out for schema changes to already-provisioned tenants was originally listed here too, but `scripts/migrate-tenants.ts` / `migrate-tenants-pg.ts` now implement it — see `SCAFFOLD_NOTES.md`.)

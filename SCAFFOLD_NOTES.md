@@ -68,6 +68,7 @@ scripts/
 - Manual CLI for backfilling/testing provisioning without a live webhook
 - Hono RPC (`hc<AppType>`) wired between client and worker for typed API calls — verified end to end: the Drizzle schema's shape flows through drizzle-zod → Hono's zValidator → AppType → the client call, and TypeScript actually rejects bad fields at the call site
 - Connection-string encryption at rest (AES-GCM)
+- Migration fan-out job for schema changes to already-provisioned tenants (`scripts/migrate-tenants.ts` / `migrate-tenants-pg.ts`) — per-org dry-run, apply, and schema-version tracking; built after this file's original "still need to" note below was written. Like everything else in this scaffold, not yet run against live infrastructure.
 - **Client routing (TanStack Router, file-based) + TanStack Query**: `/` → smart redirect, `/sign-in/$` + `/sign-up/$` (Clerk path-routing, splat for its internal sub-steps), `/onboarding` (org create/select via Clerk's `OrganizationList`, shown when signed in with no active org), `/dashboard` + `/dashboard/plots` behind an org-gated layout with a sidebar shell (org switcher, nav, mobile slide-over). Plots page is a full working example: list + create form against the real `tenantDb`-backed API, loading/empty/error states.
 
 **You still need to:**
@@ -78,11 +79,10 @@ scripts/
 2. Set secrets: copy `.dev.vars.example` → `.dev.vars` and `.env.example` → `.env` for local dev (including `VITE_CLERK_PUBLISHABLE_KEY` now), and `wrangler secret put <NAME>` for each in production
 3. In the Clerk dashboard: customize the session token to include `org_id`, `org_role`, `org_slug` claims (Sessions → Edit), and add a webhook endpoint for `organization.created` pointing at `/api/webhooks/clerk`
 4. Replace the starter tenant schema (`buyers`/`plots`/`installments`) with your real domain model, then `npm run db:generate:tenant` — the plots page is meant as a pattern to copy, not a page to keep as-is
-5. Build the migration fan-out job for schema changes to *already-provisioned* tenants — this scaffold only handles migrating brand-new tenants at creation time
-6. Run `npm run db:generate:catalog` + `npm run db:migrate:catalog` against your real catalog Neon project to actually create its tables (the SQL is generated, but nothing has been applied anywhere yet)
-7. Wire R2 into the tenant-resolver's context (or a separate middleware) the same way `tenantDb` is, scoped to `tenant.r2Prefix`
-8. Nothing links to `buyers`/`installments` yet in the UI — only `plots` has a page; add the rest as you build out the domain
-9. "Return to where you were" after sign-in isn't wired — the auth gate always redirects to `/sign-in`, and Clerk always lands back on `/dashboard`, not the page that triggered the gate. Worth adding once there's enough navigation depth to matter.
+5. Run `npm run db:generate:catalog` + `npm run db:migrate:catalog` against your real catalog Neon project to actually create its tables (the SQL is generated, but nothing has been applied anywhere yet)
+6. Wire R2 into the tenant-resolver's context (or a separate middleware) the same way `tenantDb` is, scoped to `tenant.r2Prefix`
+7. Nothing links to `buyers`/`installments` yet in the UI — only `plots` has a page; add the rest as you build out the domain
+8. "Return to where you were" after sign-in isn't wired — the auth gate always redirects to `/sign-in`, and Clerk always lands back on `/dashboard`, not the page that triggered the gate. Worth adding once there's enough navigation depth to matter.
 
 ## Audited against current official docs (Context7 + direct doc checks)
 
@@ -144,8 +144,10 @@ correct":
 - **No encryption key rotation strategy** for `TENANT_CONN_ENCRYPTION_KEY`.
   Losing it means losing access to every tenant connection string; there's
   no documented backup/rotation procedure.
-- Migration fan-out job and R2 wiring, already flagged below, are still
-  unbuilt.
+- R2 wiring, already flagged below, is still unbuilt. The migration
+  fan-out job (`scripts/migrate-tenants.ts` / `migrate-tenants-pg.ts`) is now
+  built, but like everything else here, hasn't been run against live
+  infrastructure.
 
 Treat this as a solid, doc-verified starting point for the plumbing — not
 as something to point real customer data at yet.

@@ -5,7 +5,8 @@
 - Language: **TypeScript** throughout (client, worker, scripts, drizzle config)
 - Strict-leaning tsconfig: `noUnusedLocals`, `noUnusedParameters`, `verbatimModuleSyntax` (type-only imports must use `import type`), `erasableSyntaxOnly`, `noFallthroughCasesInSwitch`. There's no explicit `strict: true`/`noImplicitAny` flag set, but write as if there were — don't introduce `any`.
 - Use `import type { X } from '...'` for anything that's type-only — required by `verbatimModuleSyntax`, and it's how the client keeps worker-only runtime code (Drizzle, Neon, Clerk backend SDK) out of the browser bundle (see the comment at the top of `src/client/lib/api.ts`).
-- Validation schemas are generated from Drizzle tables via `drizzle-zod`'s `createInsertSchema(table)`, not hand-written Zod schemas — keep this pattern for any new table/route so the schema, the DB, and the API validator can never drift from each other.
+- **Server-side** validation schemas are generated from Drizzle tables via `drizzle-zod`'s `createInsertSchema(table)`, not hand-written Zod schemas — keep this pattern for any new table/route so the schema, the DB, and the API validator can never drift from each other.
+- **Client-side**, complex multi-step forms now use hand-written `zod` object schemas per step (see `add-edit-contact-form.tsx` — `contactInfoSchema`, `addressSchema`, `emergencySchema`) for fast-fail UX validation. These are intentionally separate, hand-written schemas, not imported from the server's `drizzle-zod` schemas — the client and worker packages aren't sharing a schema module today, so keep both in sync by hand when a validated field's rules change on one side. See `ui-rules.md` → Forms for when to reach for this pattern vs. a plain single-step form.
 - Prefer `type` for object shapes; Drizzle's own `$inferSelect`/`$inferInsert` type exports (see bottom of `drizzle/tenant/schema.ts`) are the source of truth for a table's row shape — import those rather than redefining an interface.
 
 ## File & Folder Naming
@@ -46,7 +47,7 @@ function PlotsPage() {
 ```
 
 - Every route file exports a `Route` via `createFileRoute(path)`, with a `staticData.breadcrumb` string and a `component`.
-- There is no `'use client'` directive anywhere — this is a plain Vite SPA, every component is a client component by definition. Don't add Next.js-style directives.
+- Don't add `'use client'` directives to hand-written files — this is a plain Vite SPA, every component is a client component by definition. **Exception**: components pulled in from an external shadcn-compatible registry (`@reui`, `@billingsdk`, etc.) sometimes arrive with a stray `"use client"` at the top (e.g. `reui/phone-input.tsx`) — it's a harmless no-op here; leave it in registry-sourced files so future `npx shadcn add` updates don't produce a spurious diff, but never add one yourself in code you write from scratch.
 
 ## Imports
 

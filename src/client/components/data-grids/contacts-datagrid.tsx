@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner"
 import {
   Avatar,
+  AvatarImage,
   AvatarFallback,
 } from "@/components/ui/avatar.tsx"
 import { Button } from "@/components/ui/button.tsx"
@@ -84,16 +85,17 @@ import {
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import {
   ReusableEmpty,
-  SearchCardsIllustration,
 } from "@/components-reusable/reusable-empty.tsx"
-import { ArchiveIcon } from "@/assets/icons"
+import { UsersIcon } from "@/assets/icons"
 import { AddEditContactForm, type ContactRecord } from "@/components/forms/contacts/add-edit-contact-form.tsx"
+import {formatMobileNumber} from "@/lib/utils.ts";
 
 interface IContact {
   id: string
   fullName: string
   mobileNumber: string | null
   email: string | null
+  clientPhoto: string | undefined
   contactType: string | null
   region: string | null
   district: string | null
@@ -319,15 +321,29 @@ export function ContactsDataGrid() {
           <DataGridColumnHeader title="Contact" visibility={true} column={column} />
         ),
         cell: renderWithDeleteSkeleton(
-          <Skeleton className="h-7 w-auto" />,
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8" />
+            <div className="space-y-px">
+              <div className="text-foreground font-medium">
+                <Skeleton className="h-8 w-auto" />
+              </div>
+              <div className="text-muted-foreground">
+                <Skeleton className="h-6 w-auto" />
+              </div>
+            </div>
+          </div>,
           (row) => (
             <div className="flex items-center gap-3">
               <Avatar className="size-8">
+                <AvatarImage
+                    src={row.original.clientPhoto}
+                    className="object-cover"
+                />
                 <AvatarFallback>{initials(row.original.fullName)}</AvatarFallback>
               </Avatar>
               <div className="space-y-px">
                 <div className="text-foreground font-medium">{row.original.fullName}</div>
-                <div className="text-muted-foreground">{row.original.email ?? "—"}</div>
+                <div className="text-muted-foreground">{contactTypeBadge(row.original.contactType)}</div>
               </div>
             </div>
           )
@@ -346,7 +362,7 @@ export function ContactsDataGrid() {
         ),
         cell: renderWithDeleteSkeleton(
           <Skeleton className="h-7 w-auto" />,
-          (row) => <div className="text-foreground font-medium">{row.original.mobileNumber ?? "—"}</div>
+          (row) => <div className="text-foreground font-medium">{formatMobileNumber(row.original.mobileNumber) ?? "—"}</div>
         ),
         size: 150,
         meta: { skeleton: <Skeleton className="h-7 w-auto" /> },
@@ -355,36 +371,16 @@ export function ContactsDataGrid() {
         enableResizing: true,
       },
       {
-        accessorKey: "region",
-        id: "region",
+        accessorKey: "altMobileNumber",
+        id: "altMobileNumber",
         header: ({ column }) => (
-          <DataGridColumnHeader title="Location" visibility={true} column={column} />
+            <DataGridColumnHeader title="Alt Mobile" visibility={true} column={column} />
         ),
         cell: renderWithDeleteSkeleton(
-          <Skeleton className="h-7 w-auto" />,
-          (row) => (
-            <div className="text-foreground font-medium">
-              {[row.original.district, row.original.region].filter(Boolean).join(", ") || "—"}
-            </div>
-          )
+            <Skeleton className="h-7 w-auto" />,
+            (row) => <div className="text-foreground font-medium">{formatMobileNumber(row.original.altMobileNumber) ?? ""}</div>
         ),
-        size: 180,
-        meta: { skeleton: <Skeleton className="h-7 w-auto" /> },
-        enableSorting: true,
-        enableHiding: true,
-        enableResizing: true,
-      },
-      {
-        accessorKey: "contactType",
-        id: "contactType",
-        header: ({ column }) => (
-          <DataGridColumnHeader title="Type" visibility={true} column={column} />
-        ),
-        cell: renderWithDeleteSkeleton(
-          <Skeleton className="h-7 w-auto" />,
-          (row) => contactTypeBadge(row.original.contactType)
-        ),
-        size: 140,
+        size: 150,
         meta: { skeleton: <Skeleton className="h-7 w-auto" /> },
         enableSorting: true,
         enableHiding: true,
@@ -406,7 +402,7 @@ export function ContactsDataGrid() {
           )
         ),
         size: 60,
-        meta: { skeleton: <Skeleton className="h-6 w-6" /> },
+        meta: { autoSize: false, skeleton: <Skeleton className="h-6 w-6" /> },
         enableSorting: false,
         enableHiding: false,
         enableResizing: false,
@@ -508,7 +504,7 @@ export function ContactsDataGrid() {
         emptyMessage={
           contactsQuery.isError ? (
             <ReusableEmpty
-              media={<ArchiveIcon className="size-12" />}
+              media={<UsersIcon className="size-12" />}
               title="Couldn't load contacts"
               description={contactsQuery.error instanceof Error ? contactsQuery.error.message : "Something went wrong while loading contacts."}
               buttonText="Retry"
@@ -516,7 +512,7 @@ export function ContactsDataGrid() {
             />
           ) : hasActiveFilters ? (
             <ReusableEmpty
-              media={<SearchCardsIllustration />}
+              media={<UsersIcon className="size-12" />}
               title="No matching results"
               description="Try adjusting your search or filters."
               buttonText="Clear filters"
@@ -524,7 +520,7 @@ export function ContactsDataGrid() {
             />
           ) : (
             <ReusableEmpty
-              media={<ArchiveIcon className="size-12" />}
+              media={<UsersIcon className="size-12" />}
               title="No contacts yet"
               description="Contacts you add will show up here."
             />
@@ -644,7 +640,7 @@ export function ContactsDataGrid() {
             <AddEditContactForm
               mode="edit"
               contactId={editingRow.id}
-              initialData={rowToContactSeed(editingRow)}
+              initialData={editingRow}
               onSuccess={() => setEditingRow(null)}
             />
           )

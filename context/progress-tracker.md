@@ -1,6 +1,6 @@
 # ArdhiFlow — Progress Tracker
 
-Last updated: 2026-08-16
+Last updated: 2026-08-17 (post-merge: PR #3 `feat-implement-contact-form` → `main`)
 
 > Status reflects what's actually in the codebase as of this generation (verified by
 > reading route/component files and their data wiring), not the route/nav existing
@@ -20,9 +20,9 @@ Last updated: 2026-08-16
 
 | Status | # | Feature | Notes |
 |--------|---|---------|-------|
-| [~] | 4 | Contacts | List page + `ContactsDataGrid` (635 lines) wired to real `useQuery`/API data. `add-contact-form.tsx` / `edit-contact-form.tsx` / `view-contact-form.tsx` / `client-statement.tsx` exist as **empty stub files** — this is the concrete next step, not a design decision still open. |
+| [~] | 4 | Contacts | List page + `ContactsDataGrid` wired to real `useQuery`/API data. **Create and edit are now implemented and wired**, via `add-edit-contact-form.tsx` (797 lines, multi-step: contact info → address → next-of-kin), reachable from both the page-level "New Contact" action and the grid's row-level "Edit" action. Remaining gap: "View" still renders inline in the grid rather than through `view-contact-form.tsx` (still an empty stub), and `client-statement.tsx` (client statement generation) is still an empty stub — `pdf.svg`/`users.svg` assets were added but aren't referenced by any code yet, suggesting this is queued next. |
 | [x] | 5 | Projects & Plots | `ProjectsDataGrid` (666 lines) and the plots page (per `SCAFFOLD_NOTES.md`, a full list+create example against the real API) both wired to live data. |
-| [~] | 6 | Sales / Plot Sale Contracts | Schema + worker route (`contracts.ts`) fully built, including the DB-level "one active contract per plot" constraint. `ContractsDataGrid` (701 lines) wired to real data. **Verify against `contracts.ts` and any accompanying client form whether contract *creation* (multi-step: pick plot, client, terms, generate installment schedule) is wired in the UI yet** before assuming it needs to be built from scratch. |
+| [~] | 6 | Sales / Plot Sale Contracts | Schema + worker route (`contracts.ts`) fully built, including the DB-level "one active contract per plot" constraint. `ContractsDataGrid` (701 lines) wired to real data. **Confirmed: contract *creation* is not wired in the UI** — the Sales page's "New Contract" button opens an empty sheet with no `sheetContent` passed in, even though the worker's `POST /contracts` endpoint (multi-step: pick plot, client, terms, generate installment schedule) is fully built. |
 | [~] | 7 | Payments & Reconciliation | Transactions: `TransactionsDataGrid` (866 lines) wired to real data, route has a "Record Transaction" CTA. Reconciliation: route is a bare `PageHero` shell with a "New Reconciliation" button that isn't wired to anything yet — no reconciliation UI exists beyond the page header. |
 
 ## Phase 3 — Enhancement
@@ -33,13 +33,14 @@ Last updated: 2026-08-16
 | [ ] | 9  | Expenses | Schema fully built (`expenses` table, category enum, links to accounts/payees/projects/commission payouts) and a worker route (`expenses.ts`) exists. No dedicated client route/UI found in the current nav — confirm before building, since the worker side is already there. |
 | [ ] | 10 | SMS messaging (NextSMS) | Schema (`sms_campaigns`, `sms_messages`, `sms_delivery_events`) fully built. `messaging/index.tsx` is a bare `PageHero` shell — no grid, no send flow, no NextSMS API integration visible yet. |
 | [~] | 11 | Dashboard & Reports | Dashboard route has real layout (KPI tiles, date-range picker, data table pattern) but **hardcoded placeholder values** (`value="12%"`) and commented-out data-loading calls — not wired to the `dashboard.ts` worker route's actual output yet (check what that route currently returns before writing new aggregation queries). Reports route is a bare `PageHero` shell only. |
+| [ ] | 18 | Tenant self-serve subscription management *(new, inferred — see `build-plan.md`)* | A full `billingsdk`-sourced component suite was added (`components/billingsdk/*`: cancel-subscription card/dialog, update-plan card/dialog, payment-method selector, invoice history) plus matching `*-demo.tsx` files and `lib/billingsdk-config.ts`. **Not wired to any route or nav entry** — confirmed by searching `src/client/routes/`. Config still holds the registry's own placeholder ("Liveblocks") plan data, not real ArdhiFlow pricing. Treat as "components available" not "feature shipped." |
 
 ## Phase 4 — Production Readiness
 
 | Status | # | Feature | Notes |
 |--------|---|---------|-------|
 | [ ] | 12 | Provisioning lifecycle completeness | `organization.deleted` not handled; no abuse protection on the provisioning webhook. |
-| [ ] | 13 | Migration fan-out for live tenants | `scripts/migrate-tenants.ts` / `migrate-tenants-pg.ts` exist — verify whether these already implement the fan-out job before assuming it's unbuilt; `SCAFFOLD_NOTES.md` (written earlier in the project) flags it as missing, but the schema and scripts have grown since then. |
+| [~] | 13 | Migration fan-out for live tenants | **Confirmed built**: `scripts/migrate-tenants.ts` / `migrate-tenants-pg.ts` implement the fan-out job, with per-org dry-run, apply, and schema-version tracking. `SCAFFOLD_NOTES.md` and `project-overview.md` no longer claim it's unbuilt/out of scope. Remaining gap: never run against live infrastructure (see Known Blockers). |
 | [ ] | 14 | R2 wiring for tenant files | `TENANT_FILES` binding declared in `wrangler.jsonc`, not yet attached to any request context. |
 | [ ] | 15 | Real health checks + observability | `/api/health` returns 200 unconditionally; no structured logging/error tracking beyond Hono's request logger (PostHog error tracking is separately configured client-side — see `library-docs.md`, but that's not the same as server-side observability). |
 | [ ] | 16 | Automated tests + CI | No test framework installed, no CI workflow beyond a PR labeler action. |
@@ -58,7 +59,7 @@ Last updated: 2026-08-16
 
 ## Current Session Focus
 
-> Feature being worked on right now: **None** — this tracker was seeded from a point-in-time repo read on 2026-08-16, not from an active session.
+> Feature being worked on right now: **None** — this tracker reflects a point-in-time repo read on 2026-08-17, after PR #3 (`feat-implement-contact-form`) was merged to `main`, not an active session.
 
 ## Known Blockers
 
@@ -72,3 +73,8 @@ Last updated: 2026-08-16
   Decisions: ...
   Next: ...
 -->
+
+**Feature 4 — Contacts (create + edit)** (2026-08-17, PR #3 `feat-implement-contact-form`)
+Files changed: `components/forms/contacts/add-edit-contact-form.tsx` (new, 797 lines), `components/reui/phone-input.tsx` + `stepper.tsx` (new), `components/ui/combobox.tsx`/`radio-group.tsx`/`toggle.tsx` (new), `components-reusable/reusable-sheet.tsx` (`useSheetControl` un-commented and exported), `reusable-quick-actions.tsx`, `data-grids/contacts-datagrid.tsx`, `routes/_authed/_org/contacts/index.tsx`.
+Decisions: one combined `AddEditContactForm` for both add/edit rather than two components; multi-step (`Stepper`) with per-step `zod` validation; new `@billingsdk` registry + `motion`/`react-phone-number-input` deps also landed in this PR but are unrelated scaffolding, not part of this feature.
+Next: `view-contact-form.tsx` and `client-statement.tsx` remain stubs — likely the next piece, given the added-but-unused `pdf.svg`/`users.svg` assets.

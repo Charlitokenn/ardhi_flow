@@ -60,7 +60,7 @@ export const PageHero = ({
                              sheetSizeClass
                          }: PageHeroProps): JSX.Element => {
     return (
-        <div className="flex items-center justify-between gap-4 ">
+        <div className="flex items-center justify-between gap-4 mb-8">
             <div className="space-y-0.1">
                 <h1 className="flex items-center gap-2 text-2xl font-medium">
                     {type !== 'hero' && getTimeBasedIcon()}

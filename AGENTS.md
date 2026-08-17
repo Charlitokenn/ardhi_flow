@@ -62,4 +62,4 @@ Read the context files in this exact order before writing any code:
 
 ## Known Limitations to Respect (from SCAFFOLD_NOTES.md)
 
-Before "fixing" something that looks incomplete, check `SCAFFOLD_NOTES.md` at the repo root — several gaps are already known and tracked there: no `organization.deleted` webhook handling (orgs can orphan their Neon project), no migration fan-out job for already-provisioned tenants, `/api/health` doesn't check real dependencies, no encryption-key rotation strategy, and no abuse protection on the provisioning webhook.
+Before "fixing" something that looks incomplete, check `SCAFFOLD_NOTES.md` at the repo root — several gaps are already known and tracked there: no `organization.deleted` webhook handling (orgs can orphan their Neon project), `/api/health` doesn't check real dependencies, no encryption-key rotation strategy, and no abuse protection on the provisioning webhook. (The migration fan-out job for already-provisioned tenants is built — `scripts/migrate-tenants.ts` / `migrate-tenants-pg.ts` — but never run against live infrastructure.)

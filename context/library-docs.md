@@ -3,7 +3,7 @@
 > Before using any library, read its section here for project-specific constraints.
 > Then consult the library's own docs for full API details use context7 connector to query the latest docs.
 >
-> **Verified against official docs**: 2026-08-16
+> **Verified against official docs**: 2026-08-16, updated 2026-08-17 (new libraries added in the `feat-implement-contact-form` merge)
 
 ---
 
@@ -61,12 +61,34 @@
 
 ---
 
+## react-phone-number-input (+ `reui/phone-input.tsx` wrapper)
+
+- The underlying value format is E.164 (`+255712000111`) — always store/compare phone numbers in this format, don't try to reformat or strip the `+` before persisting.
+- The library ships its own `isValidPhoneNumber()` helper for real validation (checks against actual per-country number-length rules via `libphonenumber-js` under the hood). `add-edit-contact-form.tsx` currently validates phone fields with a **hand-rolled regex** (`PHONE_REGEX`) instead — this is looser than `isValidPhoneNumber()` (e.g. it won't catch a syntactically plausible but non-existent number). Worth switching to `isValidPhoneNumber()` for a correctness improvement, but that's a deliberate choice to make, not something to silently "fix" as a bug.
+- Country flags are imported from `react-phone-number-input/flags` and rendered through the project's own `Combobox` primitive (not the library's bundled country-select UI) — this is why `reui/phone-input.tsx` exists as a wrapper rather than using the package's default export directly.
+
+## reui `Stepper`
+
+- Supports both controlled (`activeStep`/`onStepChange` props) and uncontrolled (internal state) usage, horizontal or vertical orientation, and per-step visual states (`active`/`completed`/`inactive`/`loading`) via `StepIndicators`.
+- `add-edit-contact-form.tsx` is the first real usage in this codebase — treat it as the reference implementation for step composition (`StepperNav` + `StepperItem` + `StepperTrigger` for the step headers, `StepperPanel` + `StepperContent` for each step's field group) until a second usage establishes any variation.
+
+## Billing SDK (`@billingsdk` registry, `components/billingsdk/`)
+
+- Pulled from `https://billingsdk.com/r/{name}.json` (added to `components.json` registries in this merge). It's a component *registry* (like shadcn's own), not an npm package — there's no `billingsdk` entry in `package.json`; each component is copied into the repo via `npx shadcn add @billingsdk/<name>` the same way `@reui`/`@diceui` components are.
+- **Not yet wired to anything** — `lib/billingsdk-config.ts` still holds the registry's own demo data (a "Liveblocks"-themed pricing config), and no route/nav references any billingsdk component. Before using these: replace the demo `plans`/`CurrentPlan` config with real ArdhiFlow subscription-plan data, and confirm the payment backend these should talk to (Charles has an existing PayPal Subscriptions integration pattern from other projects — check whether this billing UI is meant to sit on top of that or something new before wiring in real API calls).
+- The suite covers: current-plan summary + cancel flow (`cancel-subscription-card`/`-dialog`), plan change (`update-plan-card`/`-dialog`), payment method selection (`payment-method-selector`, `payment-card`), and billing history (`invoice-history`). Each has a matching `*-demo.tsx` at `components/` root showing default usage with the placeholder config — delete the demo files once real integration replaces them, don't ship them as-is.
+
 ## PostHog (`posthog-js`)
 
 - PostHog Self-driving is configured for this project (GitHub App integration, org-level AI data processing consent granted) with error tracking (`capture_exceptions: true`), a custom conversion funnel on the plot-creation flow, and GitHub Issues sync for `Charlitokenn/ardhi_flow`. Session replay and Support/Conversations were flagged as needing server-side toggle verification in the PostHog dashboard as of the last setup run — check `posthog-self-driving-report.md` at the repo root before assuming those are live.
 - Client init is in `src/client/routes/__root.tsx`. Capture meaningful business events (`plot_created`, `plot_creation_failed`, etc.) via `usePostHog()`'s `capture()` on mutation success/error paths — this is what feeds the conversion-funnel monitoring, not a nice-to-have.
 
 ---
+
+## Zod v4
+
+- This project is on **Zod v4** (`^4.4.3`), which changed several APIs from v3 — most visibly, string-format validators moved to top-level functions: `z.email()`, not the v3-style `z.string().email()`. `add-edit-contact-form.tsx`'s `emailOptional` schema uses the correct v4 form (`z.email().safeParse(v)`) — follow that, not v3-era examples you might recall or find in older tutorials/blog posts.
+- Both the server (`drizzle-zod`-generated schemas, via `@hono/zod-validator`) and the client (hand-written per-step schemas in complex forms) are on this same v4 — no version mismatch between the two, just no schema *sharing* between them (see `code-standards.md`).
 
 ## Version Lock
 

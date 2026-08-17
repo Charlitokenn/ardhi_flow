@@ -22,7 +22,8 @@ These rules apply to every UI file. The agent must follow them without exception
 
 ## Components
 
-- **Check `ui-registry.md` and the `ui/`, `reui/`, `data-grids/`, `components-reusable/` folders before building anything new** — this project pulls from three shadcn-compatible registries (`shadcn`, `@diceui`, `@reui`) via the CLI, so a lot of primitives already exist or are one `npx shadcn add` away.
+- **Check `ui-registry.md` and the `ui/`, `reui/`, `billingsdk/`, `data-grids/`, `components-reusable/` folders before building anything new** — this project pulls from four shadcn-compatible registries (`shadcn`, `@diceui`, `@reui`, `@billingsdk`) via the CLI, so a lot of primitives already exist or are one `npx shadcn add` away.
+- Registry-pulled files sometimes carry a stray `"use client"` directive at the top (e.g. `reui/phone-input.tsx`) — this is a harmless no-op in this plain Vite SPA (there's no server/client component split to mark), not a signal to restructure anything. Leave it as-is rather than stripping it, so future `npx shadcn add`/registry updates don't produce a spurious diff.
 - Data tables use TanStack Table via the `reui/data-grid` wrapper — see `contacts-datagrid.tsx` / `contracts-datagrid.tsx` / `projects-datagrid.tsx` / `transactions-datagrid.tsx` as the pattern, and `datagrid-template.tsx` as the starting scaffold for a new one. Don't build a bespoke table from raw `<table>` markup.
 - Empty states use `components-reusable/reusable-empty.tsx`. Stats/metric tiles use `reusable-stats.tsx`. Bulk-action bars on tables use `reusable-table-action-bar.tsx`. Reuse these rather than one-off equivalents.
 - Toasts: `sonner`'s `<Toaster />` is mounted once in `main.tsx` — call `toast(...)` from `sonner` directly, don't add a second toast system.
@@ -32,9 +33,15 @@ These rules apply to every UI file. The agent must follow them without exception
 
 ## Forms
 
-- **No form library is installed** (no `react-hook-form`, no form-specific validation wiring on the client) — forms in this codebase are plain controlled components with `useState`, validated ad hoc, and submitted via a TanStack Query `useMutation` that calls the typed Hono RPC client. Follow the pattern in `plots.tsx`'s `NewPlotForm` rather than introducing a new form library without discussing it first.
-- Server-side validation is the real safety net: every mutating route validates its input with `zValidator('json', schema)` where `schema` is `drizzle-zod`'s `createInsertSchema(table)` (see any file in `src/worker/routes/`). Client-side checks are a UX nicety, not the source of truth.
-- Disable the submit button and show a pending state while `mutation.isPending` is true (see `createPlot.isPending` passed into `NewPlotForm`).
+- **Still no form library** (no `react-hook-form`) — forms remain plain controlled components with `useState`, submitted via a TanStack Query `useMutation` that calls the typed Hono RPC client. This hasn't changed. What *has* changed: complex, multi-field forms now validate client-side with hand-written `zod` schemas instead of skipping client validation entirely.
+- **Two live reference patterns depending on form complexity:**
+  - **Simple, single-step forms** (a handful of fields, one screen): follow `plots.tsx`'s `NewPlotForm` — plain `useState`, no client-side schema, rely on the server's `zValidator` for real validation.
+  - **Complex, multi-step forms**: follow `add-edit-contact-form.tsx` — per-step `zod` object schemas (e.g. `contactInfoSchema`, `addressSchema`, `emergencySchema`), the `Stepper`/`StepperNav`/`StepperPanel` primitives from `reui/stepper.tsx`, and a single component handling both `mode="add"` and `mode="edit"` rather than two near-duplicate components. Use this pattern once a resource's create form has more than ~6-8 fields or naturally splits into logical sections.
+- **`UNSET` sentinel for optional Radix `Select`s**: Radix's `Select.Item` rejects an empty-string `value`, so an unset optional select field uses a sentinel constant (`const UNSET = "UNSET"`) instead of `""`, normalized back to `""` before zod validation / API submission. Reuse this exact pattern (don't invent a different sentinel) for any new optional `Select` field.
+- **Self-closing sheets**: a form rendered inside a `ReusableSheet`'s `formContent` can close its own sheet after a successful save via `useSheetControl()` (`components-reusable/reusable-sheet.tsx`) rather than requiring the parent to manage `open` state and coordinate a callback. Prefer this over threading an `onOpenChange` callback down through props for new sheet-hosted forms.
+- Server-side validation remains the real safety net regardless of whether a form validates client-side: every mutating route validates its input with `zValidator('json', schema)` where `schema` is `drizzle-zod`'s `createInsertSchema(table)` (see any file in `src/worker/routes/`). Client-side `zod` checks are a UX improvement (fail fast, per-step errors), not a replacement for the server check.
+- Disable the submit button and show a pending state while the mutation's `isPending` is true (see `createPlot.isPending` in `NewPlotForm`, or the submit handling in `AddEditContactForm`).
+- Phone number fields use `PhoneInput` (`reui/phone-input.tsx`), not a plain `Input` — it handles country code + formatting via `react-phone-number-input`.
 
 ## Data Fetching & Mutations (UI-facing)
 

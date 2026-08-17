@@ -64,3 +64,29 @@ export const isDateInRange = (date: Date, range: DateRange): boolean => {
   const to = new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate())
   return d >= from && d <= to
 }
+
+export function formatMobileNumber(raw: string | null | undefined): string | null {
+  if (!raw) return null
+
+  // Strip everything except digits and the leading '+'
+  const cleaned = raw.trim().replace(/[^\d+]/g, "")
+
+  // Extract digits only
+  const digits = cleaned.replace(/\D/g, "")
+
+  // Tanzanian numbers: 12 digits starting with 255, or 10 digits starting with 0/6/7
+  let normalized: string
+
+  if (digits.length === 12 && digits.startsWith("255")) {
+    normalized = digits
+  } else if (digits.length === 10 && (digits.startsWith("0") || digits.startsWith("6") || digits.startsWith("7"))) {
+    normalized = "255" + digits.slice(1) // replace leading 0 with 255
+  } else if (digits.length === 9 && (digits.startsWith("6") || digits.startsWith("7"))) {
+    normalized = "255" + digits
+  } else {
+    return null // unrecognized format
+  }
+
+  // Format as +255 XXX XXX XXX
+  return `+${normalized.slice(0, 3)} ${normalized.slice(3, 6)} ${normalized.slice(6, 9)} ${normalized.slice(9)}`
+}

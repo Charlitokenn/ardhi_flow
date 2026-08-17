@@ -9,7 +9,9 @@
 | Routing | TanStack Router (file-based, `@tanstack/router-plugin`) | Route tree auto-generated into `src/client/routeTree.gen.ts` — never hand-edit that file |
 | Data fetching | TanStack Query + Hono RPC (`hc<AppType>`) | Fully typed client calls, no manual fetch/JSON parsing, no codegen step beyond TS inference |
 | Styling | Tailwind CSS v4 | CSS-first config via `@theme inline` in `index.css` — there is no `tailwind.config.ts` |
-| UI Components | shadcn/ui (style `radix-mira`, base color `zinc`) + Radix primitives + `reui`/`diceui` registries | See `components.json` for registry URLs |
+| UI Components | shadcn/ui (style `radix-mira`, base color `zinc`) + Radix primitives + `reui`/`diceui`/`billingsdk` registries | See `components.json` for registry URLs |
+| Animation | `motion` (Framer Motion's successor package) | Added for the newer stepper/dialog-driven flows |
+| Phone input | `react-phone-number-input` | Wrapped by `components/reui/phone-input.tsx` |
 | Backend | Hono 4 on a single Cloudflare Worker | Same Worker serves `/api/*` and the built SPA via Workers Assets |
 | Auth | Clerk (Organizations) | `@clerk/react` (client), `@clerk/backend` (server JWT verification), `@clerk/ui` (themed sign-in/up) |
 | Database | Postgres via Neon serverless driver + Drizzle ORM | Two logically separate DB scopes — see "Database Schema" below |
@@ -28,9 +30,10 @@ ardhi_flow/
 │   │   ├── routes/              # TanStack Router file-based routes (see Route Tree below)
 │   │   ├── components/          # UI components — kebab-case filenames throughout
 │   │   │   ├── ui/               # shadcn/ui primitives — never edit directly, regenerate via CLI
-│   │   │   ├── reui/              # reui registry components (data-grid, badge, date-selector)
+│   │   │   ├── reui/              # reui registry components (data-grid, badge, date-selector, phone-input, stepper)
+│   │   │   ├── billingsdk/         # billingsdk registry components (subscription mgmt, invoices, payment method) — scaffolded, not yet integrated into any route
 │   │   │   ├── data-grids/        # feature-specific TanStack Table grids (contacts, contracts, projects, transactions)
-│   │   │   └── forms/              # feature-specific forms (currently: contacts/)
+│   │   │   └── forms/              # feature-specific forms — contacts/add-edit-contact-form.tsx is real; view-contact-form.tsx and client-statement.tsx are still stubs
 │   │   ├── components-reusable/  # generic cross-feature building blocks (empty state, stats, tooltips, sheets, table action bar)
 │   │   ├── constants/            # appConfig — app name, sidebar nav menu definition
 │   │   ├── hooks/                # generic React hooks (mobile detection, clipboard, CSV export, etc.)

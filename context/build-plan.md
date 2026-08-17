@@ -41,6 +41,7 @@
 | 9  | Expenses | Cash-outflow tracking categorized by type (land acquisition, salary, rent, commission settlement, etc.), attributable to a project or company-wide overhead |
 | 10 | SMS messaging (NextSMS) | Templated payment-reminder / overdue-notice / marketing campaigns with per-message delivery tracking, opt-out respect |
 | 11 | Dashboard & Reports | Company-wide KPI overview (sales, collections, receivables) and reporting surfaces — currently a UI shell with hardcoded placeholder values, not wired to real aggregation queries yet |
+| 18 | Tenant self-serve subscription management *(inferred, unconfirmed)* | Let an org admin view/manage their organization's own ArdhiFlow subscription — plan, payment method, invoices, cancel/upgrade. A full `billingsdk`-based UI kit was added to the repo (`components/billingsdk/`) but is not yet wired to any route, real plan data, or a payment backend. This item's existence in the roadmap is an inference from the component addition, not a confirmed spec — validate scope with Charles before building it out. |
 
 ---
 
@@ -62,7 +63,10 @@
 ## Feature Detail Notes
 
 ### Feature 4 — Contacts
-The list UI, data grid (`contacts-datagrid.tsx`), and API routes are real and wired to live data. The create/edit/view forms (`components/forms/contacts/*.tsx`) exist as empty stub files — this is the next concrete piece of work in this feature, not a decision still to be made.
+The list UI, data grid (`contacts-datagrid.tsx`), and API routes are real and wired to live data. **Create and edit are now fully implemented** via `add-edit-contact-form.tsx` (a single multi-step component, `mode="add" | "edit"`), wired into both the page-level "New Contact" quick action and the datagrid's row-level "Edit" action. Remaining gap: `view-contact-form.tsx` and `client-statement.tsx` are still empty stubs — the datagrid's "View" action currently renders contact details inline rather than through `view-contact-form.tsx`, and there's no client-statement generation (PDF or otherwise) yet, despite `pdf.svg` and `users.svg` assets having been added in anticipation of this.
+
+### Feature 18 — Tenant self-serve subscription management *(new, inferred)*
+See the Phase 3 table above. `components/billingsdk/*` gives a ready-made subscription-management UI (cancel flow, plan change dialog, payment-method selector, invoice history) sourced from the new `@billingsdk` registry. Before treating this as buildable: (1) confirm with Charles this is actually intended scope and not just a components pull for future reference, (2) replace the demo plan config in `lib/billingsdk-config.ts`, (3) decide the payment backend (Charles's other projects use PayPal Subscriptions — check whether that pattern applies here too), (4) decide where this surfaces in the nav (likely an org-settings area, which doesn't exist in the current sidebar yet).
 
 ### Feature 6 — Sales / Plot Sale Contracts
 The schema (`plot_sale_contracts`, `contract_installments`, `contract_payments`, `contract_payment_allocations`, `contract_events`) and worker route (`contracts.ts`) are fully built out, including the DB-enforced "one active/delinquent contract per plot" constraint. `sales/index.tsx` renders `ContractsDataGrid`, which is wired to real API data. Contract *creation* flow (the actual multi-step form for starting a new sale) should be checked against current state before assuming it's missing or present — verify against `contracts.ts`'s POST handler and any accompanying client form before building a duplicate.
