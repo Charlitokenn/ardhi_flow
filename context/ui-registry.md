@@ -3,7 +3,7 @@
 > **Agent rule**: Before building any UI element, check here first.
 > After building any UI element, add it here.
 
-Last updated: 2026-08-17 (post-merge: `feat-implement-contact-form` PR)
+Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 
 ---
 
@@ -92,10 +92,10 @@ Last updated: 2026-08-17 (post-merge: `feat-implement-contact-form` PR)
 - **Notes**: `components/data-grids/datagrid-template.tsx` is the copy-from-scratch starting point for a new resource's grid — mirror its structure rather than building a table from raw markup. Follows the pattern noted in `ui-rules.md`.
 
 ### AddEditContactForm
-- **File**: `components/forms/contacts/add-edit-contact-form.tsx` (797 lines)
+- **File**: `components/forms/contacts/add-edit-contact-form.tsx` (728 lines)
 - **Purpose**: The real create *and* edit form for a contact — one component, `mode="add" | "edit"` prop switches behavior. Multi-step (`Stepper`): contact info → address → emergency/next-of-kin.
-- **Props**: `mode: "add" | "edit"`, `contactId?: string` (required for edit), `initialData?: Partial<ContactRecord>` (pre-seeds the edit form so it renders instantly instead of a loading skeleton — see `rowToContactSeed()` in `contacts-datagrid.tsx`), `onSuccess?: () => void`
-- **Used in**: `routes/_authed/_org/contacts/index.tsx` (the page's "New Contact" quick-action sheet, `mode="add"`), `reusable-quick-actions.tsx` (global "Add Contact" quick action), `contacts-datagrid.tsx` (row-level Edit action, `mode="edit"`)
+- **Props**: `mode: "add" | "edit"`, `contactId?: string` (required for edit), `initialData?: ContactRecord` (the full contact record, required for edit — the caller must pass the complete row it already has, e.g. from `contacts-datagrid.tsx`; the form no longer fetches or query-cache-seeds a partial record itself), `onSuccess?: () => void`
+- **Used in**: `routes/_authed/_org/contacts/index.tsx` (the page's "New Contact" quick-action sheet, `mode="add"`), `reusable-quick-actions.tsx` (global "Add Contact" quick action), `contacts-datagrid.tsx` (row-level Edit action, `mode="edit"`, passing the full `IContact` row — which now extends `ContactRecord` — as `initialData`)
 - **Notes**: This is now the reference pattern for any new multi-step, validated form in this codebase — see `ui-rules.md` → Forms for the pattern it establishes (per-step `zod` schemas, `Stepper`, `UNSET` sentinel for optional Radix `Select`s, self-closing via `useSheetControl()`). `add-contact-form.tsx` and `edit-contact-form.tsx` still exist as empty stub files — they were superseded by this combined component and can be deleted once confirmed unused elsewhere. `view-contact-form.tsx` and `client-statement.tsx` are still empty stubs — the datagrid's "View" action currently renders an inline detail sheet directly in `contacts-datagrid.tsx`, not through `view-contact-form.tsx`.
 
 ### PhoneInput

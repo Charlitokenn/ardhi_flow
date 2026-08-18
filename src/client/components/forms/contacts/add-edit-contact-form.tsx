@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useAuth } from "@clerk/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
 import { apiClient } from "@/lib/api.ts"
@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx"
-import { Skeleton } from "@/components/ui/skeleton.tsx"
 import {
   Stepper,
   StepperContent,
@@ -113,39 +112,6 @@ const EMPTY_VALUES: FormValues = {
   secondNOKMobile: "",
   secondNOKRelationship: UNSET,
   smsOptOut: false,
-}
-
-// Fills in a full `ContactRecord` from whatever subset of fields the caller
-// already knows about a row (e.g. the columns shown in the data grid), so
-// the query cache can be seeded and the edit form can render instantly
-// instead of showing a loading skeleton while the full record is fetched.
-function buildSeedRecord(
-  seed: Partial<ContactRecord> | undefined,
-  contactId: string | undefined,
-): ContactRecord | undefined {
-  if (!seed || !contactId || seed.id !== contactId) return undefined
-  return {
-    id: contactId,
-    fullName: seed.fullName ?? "",
-    mobileNumber: seed.mobileNumber ?? null,
-    altMobileNumber: seed.altMobileNumber ?? null,
-    email: seed.email ?? null,
-    gender: seed.gender ?? null,
-    contactType: seed.contactType ?? null,
-    idType: seed.idType ?? null,
-    idNumber: seed.idNumber ?? null,
-    region: seed.region ?? null,
-    district: seed.district ?? null,
-    ward: seed.ward ?? null,
-    street: seed.street ?? null,
-    firstNOKName: seed.firstNOKName ?? null,
-    firstNOKMobile: seed.firstNOKMobile ?? null,
-    firstNOKRelationship: seed.firstNOKRelationship ?? null,
-    secondNOKName: seed.secondNOKName ?? null,
-    secondNOKMobile: seed.secondNOKMobile ?? null,
-    secondNOKRelationship: seed.secondNOKRelationship ?? null,
-    smsOptOut: seed.smsOptOut ?? false,
-  }
 }
 
 function toFormValues(contact: ContactRecord): FormValues {
@@ -297,12 +263,11 @@ interface AddEditContactFormProps {
   mode: "add" | "edit"
   contactId?: string
   onSuccess?: () => void
-  // Partial contact data already known by the caller (e.g. the row currently
-  // shown in the contacts data grid). When it matches `contactId`, it's used
-  // to seed the React Query cache so the form renders immediately instead of
-  // showing a skeleton, while the full record is still refetched in the
-  // background to make sure it's up to date.
-  initialData?: Partial<ContactRecord>
+  // Full contact data already loaded by the caller (e.g. the row currently
+  // shown in the contacts data grid). Required in edit mode — the form uses
+  // it directly to populate its fields, so it renders with all the data
+  // immediately instead of fetching the record itself.
+  initialData?: ContactRecord
 }
 
 export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: AddEditContactFormProps) {
@@ -312,41 +277,27 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
   const sheetControl = useSheetControl()
   const isEdit = mode === "edit"
 
-  const [values, setValues] = useState<FormValues>(EMPTY_VALUES)
+  const [values, setValues] = useState<FormValues>(() =>
+    isEdit && initialData ? toFormValues(initialData) : EMPTY_VALUES
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [currentStep, setCurrentStep] = useState(1)
   const [highestStep, setHighestStep] = useState(1)
 
-  const contactQuery = useQuery({
-    queryKey: ["contact", contactId],
-    queryFn: async () => {
-      const res = await api.api.contacts[":id"].$get({ param: { id: contactId! } })
-      if (!res.ok) throw new Error("Failed to load contact")
-      return (await res.json()) as ContactRecord
-    },
-    enabled: isEdit && !!contactId,
-    initialData: () => buildSeedRecord(initialData, contactId),
-  })
-
-  // Whether the *complete* `ContactRecord` has been fetched, as opposed to
-  // just the partial `initialData` seed. `buildPayload`/mutations must not
-  // fire — and the save action must stay disabled — until this is true, so a
-  // PATCH never overwrites fields the form hasn't actually loaded yet.
-  const hasFullRecord = !isEdit || contactQuery.isFetched
-
-  // Re-seeds `values` from the query result exactly once per contact/fetch
-  // transition (new contact id, or the moment the full record arrives),
-  // without clobbering subsequent user edits on later renders. This mirrors
+  // Re-seeds `values` from `initialData` when the form is opened for a
+  // different contact (e.g. the caller swaps which row is being edited
+  // without unmounting this component), without clobbering subsequent user
+  // edits on later renders. This mirrors
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes —
   // adjusting state during render (guarded by a "previous key" comparison)
   // instead of in a `useEffect`, since setting state synchronously inside an
   // effect body triggers an extra, avoidable render pass.
-  const [seededFor, setSeededFor] = useState<string | null>(null)
-  const seedKey = isEdit ? (contactQuery.data ? `${contactQuery.data.id}:${contactQuery.isFetched}` : null) : "add"
+  const [seededFor, setSeededFor] = useState<string | null>(isEdit ? contactId ?? null : "add")
+  const seedKey = isEdit ? contactId ?? null : "add"
 
   if (seedKey !== null && seedKey !== seededFor) {
     setSeededFor(seedKey)
-    setValues(isEdit && contactQuery.data ? toFormValues(contactQuery.data) : EMPTY_VALUES)
+    setValues(isEdit && initialData ? toFormValues(initialData) : EMPTY_VALUES)
     setErrors({})
     setCurrentStep(1)
     setHighestStep(1)
@@ -358,7 +309,6 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["contacts"] })
-    if (contactId) queryClient.invalidateQueries({ queryKey: ["contact", contactId] })
   }
 
   const createContact = useMutation({
@@ -406,7 +356,6 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
   })
 
   const isSaving = createContact.isPending || updateContact.isPending
-  const isLoadingContact = isEdit && contactQuery.isLoading
 
   // Validates a single step's fields against its zod schema, replacing any
   // previous errors for that step's fields with the freshly computed ones.
@@ -438,13 +387,6 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
   const handleBack = () => setCurrentStep((prev) => Math.max(1, prev - 1))
 
   const handleSave = () => {
-    // Guards against firing a create/update mutation — and thus `buildPayload`
-    // sending fields that were never actually loaded — before the full
-    // `ContactRecord` has arrived. The save button is disabled for the same
-    // reason, but this keeps the mutation itself safe regardless of how it's
-    // triggered.
-    if (!hasFullRecord) return
-
     let firstInvalidStep: number | null = null
     for (const s of steps) {
       if (!validateStep(s.step) && firstInvalidStep === null) {
@@ -467,17 +409,6 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
   }
 
   const isLastStep = currentStep === TOTAL_STEPS
-
-  if (isLoadingContact) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-7 w-full" />
-        <Skeleton className="h-7 w-full" />
-        <Skeleton className="h-7 w-full" />
-        <Skeleton className="h-7 w-2/3" />
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -783,7 +714,7 @@ export function AddEditContactForm({ mode, contactId, onSuccess, initialData }: 
         </Button>
 
         {isLastStep ? (
-          <Button type="button" onClick={handleSave} disabled={!hasFullRecord || isSaving}>
+          <Button type="button" onClick={handleSave} disabled={isSaving}>
             {isSaving ? "Saving..." : isEdit ? "Update contact" : "Save contact"}
           </Button>
         ) : (

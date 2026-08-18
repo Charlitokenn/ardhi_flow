@@ -530,6 +530,27 @@ export const expenses = pgTable(
     ],
 );
 
+// --- Company branding settings ---
+// Singleton row (fixed id) holding the branding details generated documents
+// (client statement, confirmation letter) need beyond what Clerk already
+// models (organization name, logo) — see docs/specs/0001-contacts-completion.
+// The fixed id + ON CONFLICT DO UPDATE upsert (in the route) is what makes
+// this a true singleton, not "find the first row".
+export const COMPANY_SETTINGS_ID = '00000000-0000-0000-0000-000000000001';
+
+export const companySettings = pgTable('company_settings', {
+    id: uuid('id').primaryKey().default(COMPANY_SETTINGS_ID),
+    slogan: text('slogan'),
+    primaryColor: text('primary_color'),
+    email: text('email'),
+    mobileNumber: text('mobile_number'),
+    address: text('address'),
+    website: text('website'),
+    signerTitle: text('signer_title'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
 // --- SMS (NextSMS) ---
 
 export const smsCampaigns = pgTable('sms_campaigns', {
@@ -632,6 +653,8 @@ export type SmsMessage = typeof smsMessages.$inferSelect;
 export type NewSmsMessage = typeof smsMessages.$inferInsert;
 export type SmsDeliveryEvent = typeof smsDeliveryEvents.$inferSelect;
 export type NewSmsDeliveryEvent = typeof smsDeliveryEvents.$inferInsert;
+export type CompanySetting = typeof companySettings.$inferSelect;
+export type NewCompanySetting = typeof companySettings.$inferInsert;
 export type ProjectWithPlots = Project & {
     plots: Plot[];
 };

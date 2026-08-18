@@ -1,6 +1,6 @@
 # ArdhiFlow — Progress Tracker
 
-Last updated: 2026-08-17 (post-merge: PR #3 `feat-implement-contact-form` → `main`)
+Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 
 > Status reflects what's actually in the codebase as of this generation (verified by
 > reading route/component files and their data wiring), not the route/nav existing
@@ -20,7 +20,7 @@ Last updated: 2026-08-17 (post-merge: PR #3 `feat-implement-contact-form` → `m
 
 | Status | # | Feature | Notes |
 |--------|---|---------|-------|
-| [~] | 4 | Contacts | List page + `ContactsDataGrid` wired to real `useQuery`/API data. **Create and edit are now implemented and wired**, via `add-edit-contact-form.tsx` (797 lines, multi-step: contact info → address → next-of-kin), reachable from both the page-level "New Contact" action and the grid's row-level "Edit" action. Remaining gap: "View" still renders inline in the grid rather than through `view-contact-form.tsx` (still an empty stub), and `client-statement.tsx` (client statement generation) is still an empty stub — `pdf.svg`/`users.svg` assets were added but aren't referenced by any code yet, suggesting this is queued next. |
+| [~] | 4 | Contacts | List page + `ContactsDataGrid` wired to real `useQuery`/API data. **Create and edit are now implemented and wired**, via `add-edit-contact-form.tsx` (728 lines, multi-step: contact info → address → next-of-kin), reachable from both the page-level "New Contact" action and the grid's row-level "Edit" action. The edit form no longer fetches/seeds a partial record itself — the grid passes its already-loaded full row (`IContact` now extends `ContactRecord`) as `initialData` so the form has everything on open. Remaining gap: "View" still renders inline in the grid rather than through `view-contact-form.tsx` (still an empty stub), and `client-statement.tsx` (client statement generation) is still an empty stub — `pdf.svg`/`users.svg` assets were added but aren't referenced by any code yet, suggesting this is queued next. |
 | [x] | 5 | Projects & Plots | `ProjectsDataGrid` (666 lines) and the plots page (per `SCAFFOLD_NOTES.md`, a full list+create example against the real API) both wired to live data. |
 | [~] | 6 | Sales / Plot Sale Contracts | Schema + worker route (`contracts.ts`) fully built, including the DB-level "one active contract per plot" constraint. `ContractsDataGrid` (701 lines) wired to real data. **Confirmed: contract *creation* is not wired in the UI** — the Sales page's "New Contract" button opens an empty sheet with no `sheetContent` passed in, even though the worker's `POST /contracts` endpoint (multi-step: pick plot, client, terms, generate installment schedule) is fully built. |
 | [~] | 7 | Payments & Reconciliation | Transactions: `TransactionsDataGrid` (866 lines) wired to real data, route has a "Record Transaction" CTA. Reconciliation: route is a bare `PageHero` shell with a "New Reconciliation" button that isn't wired to anything yet — no reconciliation UI exists beyond the page header. |
@@ -78,3 +78,8 @@ Last updated: 2026-08-17 (post-merge: PR #3 `feat-implement-contact-form` → `m
 Files changed: `components/forms/contacts/add-edit-contact-form.tsx` (new, 797 lines), `components/reui/phone-input.tsx` + `stepper.tsx` (new), `components/ui/combobox.tsx`/`radio-group.tsx`/`toggle.tsx` (new), `components-reusable/reusable-sheet.tsx` (`useSheetControl` un-commented and exported), `reusable-quick-actions.tsx`, `data-grids/contacts-datagrid.tsx`, `routes/_authed/_org/contacts/index.tsx`.
 Decisions: one combined `AddEditContactForm` for both add/edit rather than two components; multi-step (`Stepper`) with per-step `zod` validation; new `@billingsdk` registry + `motion`/`react-phone-number-input` deps also landed in this PR but are unrelated scaffolding, not part of this feature.
 Next: `view-contact-form.tsx` and `client-statement.tsx` remain stubs — likely the next piece, given the added-but-unused `pdf.svg`/`users.svg` assets.
+
+**Feature 4 follow-up — Contacts edit form: remove data seeding** (2026-08-17)
+Files changed: `components/forms/contacts/add-edit-contact-form.tsx` (removed `buildSeedRecord()`, the `useQuery`-based `GET /api/contacts/:id` fetch, and the loading-skeleton branch; `initialData` is now a required-for-edit full `ContactRecord`), `data-grids/contacts-datagrid.tsx` (removed the dead `rowToContactSeed()` helper; `IContact` now `extends ContactRecord` instead of declaring a narrow field subset, since the list endpoint already returns full rows; fixed the resulting `clientPhoto`/`contactType` type mismatches this surfaced).
+Decisions: the contacts list (`GET /api/contacts`) already returns full rows, so the grid's in-memory row data was always a complete `ContactRecord` — the old partial-seed-plus-refetch pattern was solving a problem that didn't exist for this resource. The edit form now trusts the caller's `initialData` directly instead of re-fetching by `id`.
+Next: unchanged from above.
