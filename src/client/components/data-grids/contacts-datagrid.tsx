@@ -72,6 +72,7 @@ import {UserDeleteIcon} from "@/assets/icons/index.tsx"
 import {ViewContactForm} from "@/components/forms/contacts/view-contact-form.tsx"
 import type {ClientContact} from "@/types/contacts.ts"
 import {type DocumentBrandingExtra, EMPTY_BRANDING_EXTRA} from "@/types/branding.ts"
+import VerticalTabsSkeleton from "@/components/vertical-tabs-skeleton.tsx";
 // Extends `ContactRecord` with the extra fields the grid itself needs
 // (`clientPhoto`, `createdAt`). The list endpoint already returns the full
 // contact row, so a grid row carries everything the add/edit form needs —
@@ -207,12 +208,7 @@ function ViewSheetContent({viewingRowId}: { viewingRowId: string }) {
     }
 
     if (contactQuery.isLoading || !contactQuery.data) {
-        return (
-            <div className="mt-8 ml-2 space-y-3">
-                <Skeleton className="h-8 w-48"/>
-                <Skeleton className="h-64 w-full"/>
-            </div>
-        )
+        return <VerticalTabsSkeleton tabCount={3}/>
     }
 
     const extra: DocumentBrandingExtra = brandingQuery.data
