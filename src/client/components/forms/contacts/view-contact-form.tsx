@@ -1,7 +1,7 @@
 import * as React from "react"
 import VerticalTabs, {type VerticalTabItem} from "@/components-reusable/reusable-vertical-tabs.tsx"
 import {PageHero} from "@/components/pageHero"
-import {FileText, FileCheck2, HouseIcon} from "lucide-react"
+import {FileCheck2, FileText, HouseIcon} from "lucide-react"
 import {formatInternationalWithSpaces, thousandSeparator, toProperCase} from "@/lib/utils"
 import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx"
 import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx"
@@ -11,7 +11,12 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/c
 import type {ClientContact} from "@/types/contacts.ts"
 import type {DocumentBrandingExtra} from "@/types/branding.ts"
 import {buildDocumentReferenceNumber} from "@/lib/document-reference.ts"
-import {computeContractBalance, computeTotalPaid, isContractFullyPaid, withRunningTotals} from "@/lib/contract-balance.ts"
+import {
+    computeContractBalance,
+    computeTotalPaid,
+    isContractFullyPaid,
+    withRunningTotals
+} from "@/lib/contract-balance.ts"
 
 export const ViewContactForm = ({contact, extra}: {
     contact: ClientContact
@@ -170,7 +175,7 @@ export const ViewContactForm = ({contact, extra}: {
                 label: "Overview",
                 icon: HouseIcon,
                 content: (
-                    <div className="rounded border-l-2 border-dashed min-h-[490px] mr-3 pl-6 py-1 mx-3">
+                    <div className="rounded border-l-2 border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <PageHero
                             title={contact.fullName}
                             subtitle={`Contact Type: ${toProperCase(contact.contactType?.replace("_", " "))}`}
@@ -187,7 +192,7 @@ export const ViewContactForm = ({contact, extra}: {
                 label: "Client Statement",
                 icon: FileText,
                 content: (
-                    <div className="rounded border-l-2 border-dashed min-h-[490px] mr-3 pl-6 py-1 mx-3">
+                    <div className="rounded border-l-2 border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <div className="flex justify-between gap-2 mb-2">
                             {plotSelector}
                             <PDFDownloadLink document={statementDocument} fileName={statementFileName}>
@@ -204,7 +209,7 @@ export const ViewContactForm = ({contact, extra}: {
                             </PDFViewer>
                         ) : (
                             <div
-                                className="flex h-[480px] items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
+                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
                                 This plot has no contract yet.
                             </div>
                         )}
@@ -217,7 +222,7 @@ export const ViewContactForm = ({contact, extra}: {
                 label: "Confirmation Letter",
                 icon: FileCheck2,
                 content: (
-                    <div className="rounded border-l-2 border-dashed min-h-[490px] mr-3 pl-6 py-1 mx-3">
+                    <div className="rounded border-l-2 border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <div className="flex justify-between gap-2 mb-2">
                             {plotSelector}
                             {fullyPaid && letterDocument ? (
@@ -238,7 +243,7 @@ export const ViewContactForm = ({contact, extra}: {
                             </PDFViewer>
                         ) : (
                             <div
-                                className="flex h-[480px] items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
+                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
                                 Available when the selected contract balance is fully paid.
                             </div>
                         )}

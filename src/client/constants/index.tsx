@@ -1,5 +1,6 @@
 import {
-    ArchiveIcon, FileChartColumnIcon,
+    ArchiveIcon,
+    FileChartColumnIcon,
     LayoutPanelLeftIcon,
     MessagesSquareIcon,
     ShoppingCartIcon,
@@ -16,22 +17,22 @@ export const appConfig = {
         {
             title: "Dashboard",
             url: "/dashboard",
-            icon: <LayoutPanelLeftIcon />,
+            icon: <LayoutPanelLeftIcon/>,
         },
         {
             title: "Contacts",
             url: "/contacts",
-            icon: <UsersIcon />,
+            icon: <UsersIcon/>,
         },
         {
             title: "Daily Sales",
             url: "/sales",
-            icon: <ShoppingCartIcon />,
+            icon: <ShoppingCartIcon/>,
         },
         {
             title: "Finance",
             url: "",
-            icon: <WalletIcon />,
+            icon: <WalletIcon/>,
             items: [
                 {
                     title: "Transactions",
@@ -42,6 +43,10 @@ export const appConfig = {
                     url: "/finance/reminder",
                 },
                 {
+                    title: "Commissions",
+                    url: "/finance/commissions",
+                },
+                {
                     title: "Reconciliation",
                     url: "/finance/reconciliation",
                 },
@@ -50,17 +55,17 @@ export const appConfig = {
         {
             title: "Projects",
             url: "/projects",
-            icon: <ArchiveIcon/> ,
+            icon: <ArchiveIcon/>,
         },
         {
             title: "Messaging",
             url: "/messaging",
-            icon: <MessagesSquareIcon />,
+            icon: <MessagesSquareIcon/>,
         },
         {
             title: "Reports",
             url: "/reports",
-            icon: <FileChartColumnIcon />,
+            icon: <FileChartColumnIcon/>,
         },
     ]
 }

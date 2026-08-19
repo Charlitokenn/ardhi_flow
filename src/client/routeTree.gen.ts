@@ -18,6 +18,7 @@ import { Route as SignUpSplatRouteImport } from './routes/sign-up.$'
 import { Route as AuthedOrgFinanceRouteRouteImport } from './routes/_authed/_org/finance/route'
 import { Route as AuthedOrgContactsIndexRouteImport } from './routes/_authed/_org/contacts/index'
 import { Route as AuthedOrgDashboardIndexRouteImport } from './routes/_authed/_org/dashboard/index'
+import { Route as AuthedOrgFinanceCommissionsRouteImport } from './routes/_authed/_org/finance/commissions'
 import { Route as AuthedOrgFinanceReconciliationRouteImport } from './routes/_authed/_org/finance/reconciliation'
 import { Route as AuthedOrgFinanceReminderRouteImport } from './routes/_authed/_org/finance/reminder'
 import { Route as AuthedOrgFinanceTransactionsRouteImport } from './routes/_authed/_org/finance/transactions'
@@ -70,6 +71,12 @@ const AuthedOrgDashboardIndexRoute = AuthedOrgDashboardIndexRouteImport.update({
   path: '/dashboard/',
   getParentRoute: () => AuthedOrgRouteRoute,
 } as any)
+const AuthedOrgFinanceCommissionsRoute =
+  AuthedOrgFinanceCommissionsRouteImport.update({
+    id: '/commissions',
+    path: '/commissions',
+    getParentRoute: () => AuthedOrgFinanceRouteRoute,
+  } as any)
 const AuthedOrgFinanceReconciliationRoute =
   AuthedOrgFinanceReconciliationRouteImport.update({
     id: '/reconciliation',
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/finance': typeof AuthedOrgFinanceRouteRouteWithChildren
+  '/finance/commissions': typeof AuthedOrgFinanceCommissionsRoute
   '/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/finance/reminder': typeof AuthedOrgFinanceReminderRoute
   '/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
@@ -137,6 +145,7 @@ export interface FileRoutesByTo {
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/finance': typeof AuthedOrgFinanceRouteRouteWithChildren
+  '/finance/commissions': typeof AuthedOrgFinanceCommissionsRoute
   '/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/finance/reminder': typeof AuthedOrgFinanceReminderRoute
   '/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
@@ -157,6 +166,7 @@ export interface FileRoutesById {
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/_authed/_org/finance': typeof AuthedOrgFinanceRouteRouteWithChildren
+  '/_authed/_org/finance/commissions': typeof AuthedOrgFinanceCommissionsRoute
   '/_authed/_org/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/_authed/_org/finance/reminder': typeof AuthedOrgFinanceReminderRoute
   '/_authed/_org/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/sign-up/$'
     | '/finance'
+    | '/finance/commissions'
     | '/finance/reconciliation'
     | '/finance/reminder'
     | '/finance/transactions'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/sign-up/$'
     | '/finance'
+    | '/finance/commissions'
     | '/finance/reconciliation'
     | '/finance/reminder'
     | '/finance/transactions'
@@ -212,6 +224,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/sign-up/$'
     | '/_authed/_org/finance'
+    | '/_authed/_org/finance/commissions'
     | '/_authed/_org/finance/reconciliation'
     | '/_authed/_org/finance/reminder'
     | '/_authed/_org/finance/transactions'
@@ -296,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgDashboardIndexRouteImport
       parentRoute: typeof AuthedOrgRouteRoute
     }
+    '/_authed/_org/finance/commissions': {
+      id: '/_authed/_org/finance/commissions'
+      path: '/commissions'
+      fullPath: '/finance/commissions'
+      preLoaderRoute: typeof AuthedOrgFinanceCommissionsRouteImport
+      parentRoute: typeof AuthedOrgFinanceRouteRoute
+    }
     '/_authed/_org/finance/reconciliation': {
       id: '/_authed/_org/finance/reconciliation'
       path: '/reconciliation'
@@ -356,12 +376,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedOrgFinanceRouteRouteChildren {
+  AuthedOrgFinanceCommissionsRoute: typeof AuthedOrgFinanceCommissionsRoute
   AuthedOrgFinanceReconciliationRoute: typeof AuthedOrgFinanceReconciliationRoute
   AuthedOrgFinanceReminderRoute: typeof AuthedOrgFinanceReminderRoute
   AuthedOrgFinanceTransactionsRoute: typeof AuthedOrgFinanceTransactionsRoute
 }
 
 const AuthedOrgFinanceRouteRouteChildren: AuthedOrgFinanceRouteRouteChildren = {
+  AuthedOrgFinanceCommissionsRoute: AuthedOrgFinanceCommissionsRoute,
   AuthedOrgFinanceReconciliationRoute: AuthedOrgFinanceReconciliationRoute,
   AuthedOrgFinanceReminderRoute: AuthedOrgFinanceReminderRoute,
   AuthedOrgFinanceTransactionsRoute: AuthedOrgFinanceTransactionsRoute,
