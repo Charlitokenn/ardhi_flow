@@ -238,7 +238,13 @@ function LevelField({
           ComboboxInput below both displays the selected value when closed
           and doubles as the live search box while the popup is open — it
           is not paired with a second input inside ComboboxContent. */}
-            <Combobox items={options} value={value || null} onValueChange={onValueChange} disabled={disabled}>
+            <Combobox
+                items={options}
+                value={value || null}
+                onValueChange={onValueChange}
+                disabled={disabled}
+                autoHighlight
+            >
                 <ComboboxInput
                     id={id}
                     placeholder={placeholder}
@@ -249,11 +255,11 @@ function LevelField({
                 <ComboboxContent>
                     <ComboboxEmpty className="px-4 py-2.5 text-sm">{emptyMessage}</ComboboxEmpty>
                     <ComboboxList>
-                        {options.map((option) => (
+                        {(option: string) => (
                             <ComboboxItem key={option} value={option}>
                                 {option}
                             </ComboboxItem>
-                        ))}
+                        )}
                     </ComboboxList>
                 </ComboboxContent>
             </Combobox>
