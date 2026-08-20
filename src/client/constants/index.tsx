@@ -67,5 +67,16 @@ export const appConfig = {
             url: "/reports",
             icon: <FileChartColumnIcon/>,
         },
-    ]
+    ],
+    env: {
+        catalogDbUrl: import.meta.env.CATALOG_DATABASE_URL,
+        neonApiKey: import.meta.env.NEON_API_KEY,
+        tenantConnectionEncryptionKey: import.meta.env.TENANT_CONN_ENCRYPTION_KEY,
+        clerkPublishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+        clerkSecretKey: import.meta.env.CLERK_PUBLISHABLE_KEY,
+        clerkJwtKey: import.meta.env.CLERK_JWT_KEY,
+        postHogProjectToken: import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN,
+        postHogHost: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+        postHogAssetsHost: import.meta.env.VITE_PUBLIC_POSTHOG_ASSETS_HOST,
+    }
 }
