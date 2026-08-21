@@ -16,6 +16,7 @@ import Users from "@/assets/users.svg?react"
 import Csv from "@/assets/csv.svg?react"
 import UserMinus from "@/assets/user-minus.svg?react"
 import Import from "@/assets/import-icon.svg?react"
+import ShieldUser from "@/assets/shield-user.svg?react"
 
 export const ArchiveIcon = ({className}: { className: string }) => {
     return <Archive className={className}/>
@@ -87,4 +88,8 @@ export const UserDeleteIcon = ({className}: { className: string }) => {
 
 export const ImportIcon = ({className}: { className: string }) => {
     return <Import className={className}/>
+}
+
+export const ShieldUserIcon = ({className}: { className: string }) => {
+    return <ShieldUser className={className}/>
 }

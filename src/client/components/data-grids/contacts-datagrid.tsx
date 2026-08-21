@@ -451,7 +451,7 @@ export function ContactsDataGrid() {
                 enableResizing: false,
             },
         ],
-        [deletingIds]
+        [deletingIds, renderWithDeleteSkeleton]
     )
 
     const [columnOrder, setColumnOrder] = useState<string[]>(columns.map((c) => c.id as string))
@@ -501,7 +501,11 @@ export function ContactsDataGrid() {
                     next.delete(id)
                     return next
                 })
-                toast.error(`Failed to delete ${fullName}`)
+                toast('Delete Failed', {
+                    description: `Failed to delete ${fullName}`,
+                    duration: 5000,
+                    icon: <UserDeleteIcon className="size-6"/>,
+                });
             },
         })
     }
@@ -524,6 +528,11 @@ export function ContactsDataGrid() {
                 selectedIds.forEach((id) => next.delete(id))
                 return next
             })
+            toast('Delete Successful', {
+                description: `Deleted ${selectedIds.length} ${selectedIds.length > 1 ? " contacts" : " contact"}`,
+                duration: 5000,
+                icon: <UserDeleteIcon className="size-6"/>,
+            });
             toast.success(`Deleted ${selectedIds.length} contact(s)`)
         }).catch(() => {
             queryClient.invalidateQueries({queryKey: ["contacts"]})
