@@ -1,59 +1,20 @@
-import {ClerkProvider, useAuth, useClerk, useOrganization} from "@clerk/react"
-import {StrictMode} from "react"
-import {createRoot, type Root} from "react-dom/client"
-import {shadcn} from "@clerk/ui/themes"
-import {QueryClientProvider} from "@tanstack/react-query"
-import {queryClient} from "@/router.tsx"
-import {BrandingSettingsForm} from "@/components/forms/company/branding-settings-form.tsx"
+import {useState} from "react"
+import {OrganizationProfile, useAuth, useOrganization} from "@clerk/react"
+import {Dialog, DialogContent} from "@/components/ui/dialog"
 import {PaletteIcon} from "lucide-react"
-import {renderToStaticMarkup} from "react-dom/server"
-
-import {DropdownMenu, DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
-import {SidebarMenu, SidebarMenuButton, SidebarMenuItem,} from "@/components/ui/sidebar"
-import {toast} from "sonner";
-import {ShieldUserIcon} from "@/assets/icons";
-
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-
-// Clerk's custom page mount/unmount hooks hand back a plain DOM node, not a
-// React tree slot — this is a separate React root outside the app's own
-// tree, so it needs its own ClerkProvider/QueryClientProvider to give
-// BrandingSettingsForm the context (useAuth, useOrganization, useQuery) it
-// depends on. Re-wrapping with the same publishable key reuses Clerk's
-// already-loaded singleton instance rather than re-initializing it.
-let brandingPageRoot: Root | null = null
-
-function mountBrandingPage(el: HTMLDivElement) {
-    brandingPageRoot = createRoot(el)
-    brandingPageRoot.render(
-        <StrictMode>
-            <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} appearance={{theme: shadcn}}>
-                <QueryClientProvider client={queryClient}>
-                    <BrandingSettingsForm/>
-                </QueryClientProvider>
-            </ClerkProvider>
-        </StrictMode>,
-    )
-}
-
-function unmountBrandingPage() {
-    brandingPageRoot?.unmount()
-    brandingPageRoot = null
-}
-
-function mountBrandingIcon(el: HTMLDivElement) {
-    el.innerHTML = renderToStaticMarkup(<PaletteIcon className="size-4"/>)
-}
+import {toast} from "sonner"
+import {ShieldUserIcon} from "@/assets/icons"
+import {BrandingSettingsForm} from "@/components/forms/company/branding-settings-form.tsx"
+import {DropdownMenu, DropdownMenuTrigger} from "@/components/ui/dropdown-menu"
+import {SidebarMenu, SidebarMenuButton, SidebarMenuItem} from "@/components/ui/sidebar"
 
 export function TeamSwitcher() {
     const {organization} = useOrganization()
-    const {openOrganizationProfile} = useClerk();
-    const {has} = useAuth();
-    const isAdmin = has?.({role: 'org:admin'});
+    const {has} = useAuth()
+    const isAdmin = has?.({role: 'org:admin'})
+    const [open, setOpen] = useState(false)
 
-    if (!organization) {
-        return null
-    }
+    if (!organization) return null
 
     return (
         <SidebarMenu>
@@ -62,33 +23,16 @@ export function TeamSwitcher() {
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
-                            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                             onClick={() => {
                                 if (!isAdmin) {
                                     toast('Unauthorized', {
                                         description: `Only admins can manage organization settings`,
                                         duration: 5000,
                                         icon: <ShieldUserIcon className="size-6"/>,
-                                    });
+                                    })
                                     return
                                 }
-                                openOrganizationProfile({
-                                    customPages: [
-                                        {
-                                            label: 'members',
-                                        },
-                                        {
-                                            label: 'general',
-                                        },
-                                        {
-                                            label: "Branding",
-                                            url: "branding",
-                                            mountIcon: mountBrandingIcon,
-                                            mount: mountBrandingPage,
-                                            unmount: unmountBrandingPage,
-                                        },
-                                    ],
-                                })
+                                setOpen(true)
                             }}
                         >
                             <div
@@ -103,6 +47,33 @@ export function TeamSwitcher() {
                     </DropdownMenuTrigger>
                 </DropdownMenu>
             </SidebarMenuItem>
+
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent
+                    showCloseButton={false}
+                    className="p-2 items-center bg-transparent overflow-hidden sm:max-w-4xl h-[85vh] sm:h-180"
+                >
+                    <OrganizationProfile
+                        routing="hash"
+                        appearance={{
+                            elements: {
+                                rootBox: "w-full h-full",
+                                cardBox: "w-full h-full shadow-none border-none",
+                            },
+                        }}
+                    >
+                        <OrganizationProfile.Page label="general"/>
+                        <OrganizationProfile.Page label="members"/>
+                        <OrganizationProfile.Page
+                            label="Branding"
+                            url="branding"
+                            labelIcon={<PaletteIcon className="size-4"/>}
+                        >
+                            <BrandingSettingsForm/>
+                        </OrganizationProfile.Page>
+                    </OrganizationProfile>
+                </DialogContent>
+            </Dialog>
         </SidebarMenu>
     )
 }
