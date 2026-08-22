@@ -18,6 +18,8 @@ import UserMinus from "@/assets/user-minus.svg?react"
 import Import from "@/assets/import-icon.svg?react"
 import ShieldUser from "@/assets/shield-user.svg?react"
 import ColorSwatch from "@/assets/color-swatch.svg?react"
+import User from "@/assets/user.svg?react"
+import UserCheck from "@/assets/user-check.svg?react"
 
 export const ArchiveIcon = ({className}: { className: string }) => {
     return <Archive className={className}/>
@@ -97,4 +99,12 @@ export const ShieldUserIcon = ({className}: { className: string }) => {
 
 export const ColorSwatchIcon = ({className}: { className: string }) => {
     return <ColorSwatch className={className}/>
+}
+
+export const UserIcon = ({className}: { className: string }) => {
+    return <User className={className}/>
+}
+
+export const UserCheckIcon = ({className}: { className: string }) => {
+    return <UserCheck className={className}/>
 }

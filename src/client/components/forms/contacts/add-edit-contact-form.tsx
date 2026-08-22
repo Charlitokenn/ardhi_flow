@@ -31,6 +31,7 @@ import {
     StepperTitle,
     StepperTrigger,
 } from "@/components/reui/stepper.tsx"
+import {UserCheckIcon} from "@/assets/icons";
 
 type Gender = "MALE" | "FEMALE"
 type IdType = "NATIONAL_ID" | "PASSPORT" | "DRIVER_LICENSE" | "VOTER_ID"
@@ -345,7 +346,11 @@ export function AddEditContactForm({mode, contactId, onSuccess, initialData}: Ad
         },
         onSuccess: () => {
             invalidate()
-            toast.success(`${values.fullName} was updated`)
+            toast('Update Successful', {
+                description: `${values.fullName} has been updated`,
+                duration: 5000,
+                icon: <UserCheckIcon className="size-6"/>,
+            });
             onSuccess?.()
             sheetControl?.close()
         },

@@ -292,23 +292,23 @@ export function TabsScrollSwitchSkeleton({
 
 /* ------------------------------------------------------------------ */
 
-export function CustomTabs({
-                               tabs = defaultTabs,
-                               defaultTab,
-                               activeTab: controlledActiveTab,
-                               onTabChange,
-                               className,
-                               sidebarClassName,
-                               contentClassName,
-                               panelClassName,
-                               contentHeight = 590,
-                               hideHeader = false,
-                               unstyled = false,
-                               transition: transitionProp,
-                               loading = false,
-                               skeletonTabCount,
-                               maxWidth,
-                           }: TabsScrollSwitchProps) {
+export function CustomTabsVertical({
+                                       tabs = defaultTabs,
+                                       defaultTab,
+                                       activeTab: controlledActiveTab,
+                                       onTabChange,
+                                       className,
+                                       sidebarClassName,
+                                       contentClassName,
+                                       panelClassName,
+                                       contentHeight = 590,
+                                       hideHeader = false,
+                                       unstyled = false,
+                                       transition: transitionProp,
+                                       loading = false,
+                                       skeletonTabCount,
+                                       maxWidth,
+                                   }: TabsScrollSwitchProps) {
     const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState(
         defaultTab ?? tabs[0]?.id
     );
@@ -477,4 +477,4 @@ export function CustomTabs({
     );
 }
 
-export default CustomTabs;
+export default CustomTabsVertical;

@@ -72,7 +72,7 @@ import {UserDeleteIcon} from "@/assets/icons/index.tsx"
 import {ViewContactForm} from "@/components/forms/contacts/view-contact-form.tsx"
 import type {ClientContact} from "@/types/contacts.ts"
 import {type DocumentBrandingExtra, EMPTY_BRANDING_EXTRA} from "@/types/branding.ts"
-import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs.tsx";
+import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
 
 // Extends `ContactRecord` with the extra fields the grid itself needs
 // (`clientPhoto`, `createdAt`). The list endpoint already returns the full

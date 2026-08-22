@@ -1,52 +1,62 @@
-import * as React from "react"
-import {PageHero} from "@/components/pageHero"
-import {FileCheck2, FileText, HouseIcon} from "lucide-react"
-import {formatInternationalWithSpaces, thousandSeparator, toProperCase} from "@/lib/utils"
-import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx"
-import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx"
-import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer"
-import {ImportIcon} from "@/assets/icons"
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
-import type {ClientContact} from "@/types/contacts.ts"
-import type {DocumentBrandingExtra} from "@/types/branding.ts"
-import {buildDocumentReferenceNumber} from "@/lib/document-reference.ts"
+import * as React from "react";
+import {PageHero} from "@/components/pageHero";
+import {FileCheck2, FileText, HouseIcon, MapPlusIcon, UserIcon,} from "lucide-react";
+import {formatInternationalWithSpaces, thousandSeparator, toProperCase,} from "@/lib/utils";
+import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx";
+import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx";
+import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
+import {ImportIcon} from "@/assets/icons";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import type {ClientContact} from "@/types/contacts.ts";
+import type {DocumentBrandingExtra} from "@/types/branding.ts";
+import {buildDocumentReferenceNumber} from "@/lib/document-reference.ts";
 import {
     computeContractBalance,
     computeTotalPaid,
     isContractFullyPaid,
-    withRunningTotals
-} from "@/lib/contract-balance.ts"
-import CustomTabs from "@/components/custom-tabs.tsx"
+    withRunningTotals,
+} from "@/lib/contract-balance.ts";
+import CustomTabsVertical from "@/components/custom-tabs-vertical.tsx";
+import CustomTabsHorizontal from "@/components/custom-tabs-horizontal.tsx";
 
-export const ViewContactForm = ({contact, extra}: {
-    contact: ClientContact
-    extra: DocumentBrandingExtra
+export const ViewContactForm = ({
+                                    contact,
+                                    extra,
+                                }: {
+    contact: ClientContact;
+    extra: DocumentBrandingExtra;
 }) => {
     const [selectedPlotId, setSelectedPlotId] = React.useState<string>(
-        contact?.plots?.[0]?.id ?? ""
-    )
-    const selectedPlot = contact?.plots?.find((plot) => plot.id === selectedPlotId)
-    const latestContract = selectedPlot?.latestContract ?? null
+        contact?.plots?.[0]?.id ?? "",
+    );
+    const selectedPlot = contact?.plots?.find(
+        (plot) => plot.id === selectedPlotId,
+    );
+    const latestContract = selectedPlot?.latestContract ?? null;
 
     const tabsData: TabItem[] = React.useMemo(() => {
-        const plotsCount = contact?.plots?.length ?? 0
-        const hasPlots = plotsCount > 0
-        const isClient = contact?.contactType === "CLIENT"
+        const plotsCount = contact?.plots?.length ?? 0;
+        const hasPlots = plotsCount > 0;
+        const isClient = contact?.contactType === "CLIENT";
 
-        const plotSizeRaw = selectedPlot?.surveyedSize ?? selectedPlot?.unsurveyedSize ?? "0"
-        const plotSize = thousandSeparator(Number(plotSizeRaw))
+        const plotSizeRaw =
+            selectedPlot?.surveyedSize ?? selectedPlot?.unsurveyedSize ?? "0";
+        const plotSize = thousandSeparator(Number(plotSizeRaw));
 
-        const duration = latestContract?.termMonths ?? 0
-        const contractValue = latestContract ? Number(latestContract.totalContractValue) : 0
-        const pricePerSqm = Number(plotSizeRaw) > 0 ? contractValue / Number(plotSizeRaw) : 0
-        const totalPayments = latestContract ? computeTotalPaid(latestContract) : 0
-        const balance = latestContract ? computeContractBalance(latestContract) : 0
-        const displayBalance = Math.max(balance, 0)
-        const fullyPaid = isContractFullyPaid(latestContract)
+        const duration = latestContract?.termMonths ?? 0;
+        const contractValue = latestContract
+            ? Number(latestContract.totalContractValue)
+            : 0;
+        const pricePerSqm =
+            Number(plotSizeRaw) > 0 ? contractValue / Number(plotSizeRaw) : 0;
+        const totalPayments = latestContract ? computeTotalPaid(latestContract) : 0;
+        const balance = latestContract ? computeContractBalance(latestContract) : 0;
+        const displayBalance = Math.max(balance, 0);
+        const fullyPaid = isContractFullyPaid(latestContract);
 
         const installmentsWithRunning = latestContract
             ? withRunningTotals(latestContract, latestContract.installments)
-            : []
+            : [];
 
         // Monthly installment, per the contract's own purchase plan. For the
         // DOWNPAYMENT plan, use the contract's own financedAmount (already
@@ -54,30 +64,39 @@ export const ViewContactForm = ({contact, extra}: {
         // it from downpaymentPercent, which is stored as a whole number
         // (e.g. 20 meaning 20%), not a 0-1 fraction.
         const monthlyInstallment = (() => {
-            if (!latestContract) return 0
-            const total = Number(latestContract.totalContractValue)
-            const months = latestContract.termMonths
-            if (!months) return 0
-            if (latestContract.purchasePlan === "FLAT_RATE") return total / months
+            if (!latestContract) return 0;
+            const total = Number(latestContract.totalContractValue);
+            const months = latestContract.termMonths;
+            if (!months) return 0;
+            if (latestContract.purchasePlan === "FLAT_RATE") return total / months;
             if (months > 1) {
-                return Number(latestContract.financedAmount) / (months - 1)
+                return Number(latestContract.financedAmount) / (months - 1);
             }
-            return 0
-        })()
+            return 0;
+        })();
 
-        const salesAgentName = latestContract?.salesAgent?.fullName ?? "—"
-        const salesAgentEmail = latestContract?.salesAgent?.email ?? "—"
+        const salesAgentName = latestContract?.salesAgent?.fullName ?? "—";
+        const salesAgentEmail = latestContract?.salesAgent?.email ?? "—";
 
-        const projectName = selectedPlot?.project.projectName ?? ""
+        const projectName = selectedPlot?.project.projectName ?? "";
         const statementReferenceNumber = buildDocumentReferenceNumber(
-            extra.companyName, projectName, contact.fullName, "STMT"
-        )
+            extra.companyName,
+            projectName,
+            contact.fullName,
+            "STMT",
+        );
         const letterReferenceNumber = buildDocumentReferenceNumber(
-            extra.companyName, projectName, contact.fullName, "CONF"
-        )
-        const clientSlug = contact.fullName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
-        const statementFileName = `statement-${clientSlug}-${statementReferenceNumber.replace(/\//g, "-")}.pdf`
-        const letterFileName = `confirmation-${clientSlug}-${letterReferenceNumber.replace(/\//g, "-")}.pdf`
+            extra.companyName,
+            projectName,
+            contact.fullName,
+            "CONF",
+        );
+        const clientSlug = contact.fullName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        const statementFileName = `statement-${clientSlug}-${statementReferenceNumber.replace(/\//g, "-")}.pdf`;
+        const letterFileName = `confirmation-${clientSlug}-${letterReferenceNumber.replace(/\//g, "-")}.pdf`;
 
         const statementDocument = (
             <ClientStatementDocument
@@ -90,8 +109,10 @@ export const ViewContactForm = ({contact, extra}: {
                 billTo={{
                     clientName: contact.fullName,
                     projectName,
-                    mobile: formatInternationalWithSpaces(contact.mobileNumber ?? "") ?? "",
-                    region: `${contact.region ?? ""} ${contact.street ?? ""} ${contact.ward ?? ""}`.trim(),
+                    mobile:
+                        formatInternationalWithSpaces(contact.mobileNumber ?? "") ?? "",
+                    region:
+                        `${contact.region ?? ""} ${contact.street ?? ""} ${contact.ward ?? ""}`.trim(),
                     projectLocation: `${projectName} - Plot No. ${selectedPlot?.plotNumber ?? ""}`,
                     plotSize: `Sqm ${plotSize}`,
                     pricePerSqm: `Tshs. ${thousandSeparator(pricePerSqm)} /Sqm`,
@@ -121,7 +142,9 @@ export const ViewContactForm = ({contact, extra}: {
                 footer={{
                     email: extra.branding.email,
                     address: extra.branding.address,
-                    mobile: formatInternationalWithSpaces(extra.branding.mobileNumber ?? ""),
+                    mobile: formatInternationalWithSpaces(
+                        extra.branding.mobileNumber ?? "",
+                    ),
                     website: extra.branding.website,
                 }}
                 footerNotes={
@@ -130,7 +153,7 @@ export const ViewContactForm = ({contact, extra}: {
                         : `Salio la mkataba wako ni Tshs. ${thousandSeparator(displayBalance)}. Tafadhali fanya malipo kulipa kiasi kilichobakia kabla ya mkataba kuisha.`
                 }
             />
-        )
+        );
 
         const letterDocument = latestContract && (
             <ConfirmationLetterDocument
@@ -152,7 +175,7 @@ export const ViewContactForm = ({contact, extra}: {
                 website={extra.branding.website}
                 signerTitle={extra.branding.signerTitle}
             />
-        )
+        );
 
         const plotSelector = (
             <Select value={selectedPlotId} onValueChange={setSelectedPlotId}>
@@ -162,12 +185,44 @@ export const ViewContactForm = ({contact, extra}: {
                 <SelectContent>
                     {contact.plots.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                            <span>{item.project.projectName}</span> - Plot No.<span>{item.plotNumber}</span>
+                            <span>{item.project.projectName}</span> - Plot No.
+                            <span>{item.plotNumber}</span>
                         </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
-        )
+        );
+
+        const horizontalTabs = [
+            {
+                id: "tab-1",
+                label: "My details",
+                icon: UserIcon,
+                content: (
+                    <>
+                        Manage your personal{" "}
+                        <span className="text-foreground font-semibold">
+              account details
+            </span>
+                        . Keep everything up to date so we can serve you better.
+                    </>
+                ),
+            },
+            {
+                id: "tab-2",
+                label: "Plots Held",
+                icon: MapPlusIcon,
+                content: (
+                    <>
+                        Manage your personal{" "}
+                        <span className="text-foreground font-semibold">
+              account details
+            </span>
+                        . Keep everything up to date so we can serve you better.
+                    </>
+                ),
+            },
+        ];
 
         const tabs: VerticalTabItem[] = [
             {
@@ -178,13 +233,19 @@ export const ViewContactForm = ({contact, extra}: {
                     <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <PageHero
                             title={contact.fullName}
-                            subtitle={`Contact Type: ${toProperCase(contact.contactType?.replace("_", " "))}`}
+                            subtitle={
+                                <div className="flex text-sm">
+                                    Contact Type:{" "}
+                                    {toProperCase(contact.contactType?.replace("_", " "))}
+                                </div>
+                            }
                             type="hero"
                         />
+                        <CustomTabsHorizontal tabs={horizontalTabs}/>
                     </div>
                 ),
             },
-        ]
+        ];
 
         if (hasPlots && isClient) {
             tabs.push({
@@ -195,17 +256,28 @@ export const ViewContactForm = ({contact, extra}: {
                     <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <div className="flex justify-between gap-2 mb-2">
                             {plotSelector}
-                            <PDFDownloadLink document={statementDocument} fileName={statementFileName}>
+                            <PDFDownloadLink
+                                document={statementDocument}
+                                fileName={statementFileName}
+                            >
                                 {({blob, url, loading, error}) =>
-                                    loading ? <span className="text-sm">Loading document...</span>
-                                        : <span className="flex text-sm">
-                                            <ImportIcon className="size-5"/> Download Statement
-                                        </span>
+                                    loading ? (
+                                        <span className="text-sm">Loading document...</span>
+                                    ) : (
+                                        <span className="flex text-sm">
+                      <ImportIcon className="size-5"/> Download Statement
+                    </span>
+                                    )
                                 }
                             </PDFDownloadLink>
                         </div>
                         {latestContract ? (
-                            <PDFViewer width="100%" height={480} showToolbar={false} className="rounded-lg">
+                            <PDFViewer
+                                width="100%"
+                                height={480}
+                                showToolbar={false}
+                                className="rounded-lg"
+                            >
                                 {statementDocument}
                             </PDFViewer>
                         ) : (
@@ -216,7 +288,7 @@ export const ViewContactForm = ({contact, extra}: {
                         )}
                     </div>
                 ),
-            })
+            });
 
             tabs.push({
                 id: "tab-3",
@@ -227,22 +299,33 @@ export const ViewContactForm = ({contact, extra}: {
                         <div className="flex justify-between gap-2 mb-2">
                             {plotSelector}
                             {fullyPaid && letterDocument ? (
-                                <PDFDownloadLink document={letterDocument} fileName={letterFileName}>
+                                <PDFDownloadLink
+                                    document={letterDocument}
+                                    fileName={letterFileName}
+                                >
                                     {({loading}) =>
-                                        loading ? <span className="text-sm">Preparing...</span>
-                                            : <span className="flex text-sm">
-                                            <ImportIcon className="size-5"/> Download Letter
-                                        </span>
+                                        loading ? (
+                                            <span className="text-sm">Preparing...</span>
+                                        ) : (
+                                            <span className="flex text-sm">
+                        <ImportIcon className="size-5"/> Download Letter
+                      </span>
+                                        )
                                     }
                                 </PDFDownloadLink>
                             ) : (
                                 <span className="flex text-sm cursor-not-allowed">
-                                   <ImportIcon className="size-5"/> Download Letter
-                                </span>
+                  <ImportIcon className="size-5"/> Download Letter
+                </span>
                             )}
                         </div>
                         {fullyPaid && letterDocument ? (
-                            <PDFViewer width="100%" height={480} showToolbar={false} className="rounded-lg">
+                            <PDFViewer
+                                width="100%"
+                                height={480}
+                                showToolbar={false}
+                                className="rounded-lg"
+                            >
                                 {letterDocument}
                             </PDFViewer>
                         ) : (
@@ -253,20 +336,20 @@ export const ViewContactForm = ({contact, extra}: {
                         )}
                     </div>
                 ),
-            })
+            });
         }
 
-        return tabs
-    }, [contact, extra, selectedPlot, selectedPlotId, latestContract])
+        return tabs;
+    }, [contact, extra, selectedPlot, selectedPlotId, latestContract]);
 
     return (
         <div className="mt-4">
-            <CustomTabs
+            <CustomTabsVertical
                 defaultValue="tab-1"
                 tabs={tabsData}
                 skeletonTabCount={4}
                 unstyled
             />
         </div>
-    )
-}
+    );
+};
