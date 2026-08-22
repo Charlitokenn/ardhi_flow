@@ -454,7 +454,7 @@ export function CustomTabs({
                                                     </div>
                                                     {tab.status && (
                                                         <span
-                                                            className="text-[11px] text-muted-foreground font-mono border border-border rounded px-2 py-0.5 mt-0.5 shrink-0">
+                                                            className="text-sm text-muted-foreground font-mono border border-border rounded px-2 py-0.5 mt-0.5 shrink-0">
                               {tab.status}
                             </span>
                                                     )}

@@ -1,11 +1,12 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import React from "react";
 
 interface Props {
     trigger: React.ReactNode
-    tooltip: string;
+    tooltip: string | ReactNode;
 }
-const ReusableTooptip = ({trigger,tooltip}: Props) => (
+
+const ReusableTooltip = ({trigger, tooltip}: Props) => (
     <Tooltip>
         <TooltipTrigger asChild>
             {trigger}
@@ -17,4 +18,4 @@ const ReusableTooptip = ({trigger,tooltip}: Props) => (
 )
 
 
-export default ReusableTooptip
+export default ReusableTooltip

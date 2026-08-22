@@ -1,5 +1,6 @@
 import {useState} from "react"
 import {OrganizationProfile, useAuth, useOrganization} from "@clerk/react"
+import {useQuery} from "@tanstack/react-query"
 import {Dialog, DialogContent} from "@/components/ui/dialog"
 import {PaletteIcon} from "lucide-react"
 import {toast} from "sonner"
@@ -7,12 +8,28 @@ import {ShieldUserIcon} from "@/assets/icons"
 import {BrandingSettingsForm} from "@/components/forms/company/branding-settings-form.tsx"
 import {DropdownMenu, DropdownMenuTrigger} from "@/components/ui/dropdown-menu"
 import {SidebarMenu, SidebarMenuButton, SidebarMenuItem} from "@/components/ui/sidebar"
+import {apiClient} from "@/lib/api.ts"
 
 export function TeamSwitcher() {
     const {organization} = useOrganization()
-    const {has} = useAuth()
+    const {getToken, has} = useAuth()
     const isAdmin = has?.({role: 'org:admin'})
     const [open, setOpen] = useState(false)
+    const api = apiClient(getToken)
+
+    // Same tenant-scoped `company_settings` row edited in the Branding page
+    // below — shares the "company-settings" query key so a save there
+    // (branding-settings-form.tsx) invalidates this too and the slogan
+    // updates here without a manual refetch.
+    const settingsQuery = useQuery({
+        queryKey: ["company-settings"],
+        queryFn: async () => {
+            const res = await api.api["company-settings"].$get()
+            if (!res.ok) throw new Error(`Failed to load company settings (${res.status})`)
+            return res.json()
+        },
+        enabled: !!organization,
+    })
 
     if (!organization) return null
 
@@ -41,7 +58,11 @@ export function TeamSwitcher() {
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-medium font-ubuntu">{organization.name}</span>
-                                {/*<span className="truncate text-xs">{organization.name}</span>*/}
+                                {settingsQuery.data?.slogan && (
+                                    <span className="truncate text-xs text-muted-foreground">
+                                        "{settingsQuery.data.slogan}"
+                                    </span>
+                                )}
                             </div>
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>

@@ -11,7 +11,7 @@ import {addSpacesBeforeCapitals, cn} from "@/lib/utils";
 // Simple Stepper (vertical only, reusing styles from MultiStepForm)
 // ============================================================================
 import {AlertCircle, Check, Loader2} from "lucide-react";
-import {CSVIcon, ImportIcon } from "@/assets/icons/index";
+import {CSVIcon, ImportIcon} from "@/assets/icons/index";
 import {ScrollArea, ScrollBar} from "@/components/ui/scroll-area";
 import {toast} from "sonner"
 
@@ -878,7 +878,7 @@ export function ReusableCSVUploader<TInsert extends Record<string, unknown>>({
                                                         </Select>
                                                         {isRequiredMissing && (
                                                             <span
-                                                                className="flex items-center gap-1 text-[11px] text-destructive">
+                                                                className="flex items-center gap-1 text-sm text-destructive">
                                 <AlertCircle className="size-3"/>
                                 Required field must be mapped
                               </span>
