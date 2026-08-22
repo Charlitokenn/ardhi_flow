@@ -1,6 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
+import {createFileRoute} from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
 import {BellRingIcon} from "lucide-react";
+import {TabsScrollSwitch} from "@/components/custom-tabs"
 
 export const Route = createFileRoute('/_authed/_org/finance/reminder')({
     staticData: {
@@ -18,6 +19,7 @@ function RouteComponent() {
                 subtitle="Followup on outstanding payments"
                 buttonIcon={<BellRingIcon/>}
             />
+            <TabsScrollSwitch/>
         </section>
     )
 }

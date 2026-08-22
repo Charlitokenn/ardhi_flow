@@ -82,6 +82,70 @@ interface ClientStatementProps {
 
 const DEFAULT_BRAND_COLOR = "#1e3a5f"
 
+/**
+ * Single source of truth for the payments/installments table's columns.
+ *
+ * Both the header row and every body row read their width from this array
+ * (by index), so they can never drift apart again the way the old
+ * per-branch JSX did. Widths sum to exactly 100%.
+ */
+const TABLE_COLUMNS = [
+    // --- Left block: "Malipo Yaliyofanyika" (payments the client has made) ---
+    {key: "paymentDate", label: "Tarehe ya Malipo", width: "11%", align: "left" as const, group: "payments" as const},
+    {key: "details", label: "Taarifa ya Muamala", width: "12%", align: "center" as const, group: "payments" as const},
+    {key: "receiptNumber", label: "Risiti Namba", width: "8%", align: "left" as const, group: "payments" as const},
+    {
+        key: "paidAmount",
+        label: "Kiasi Kilicholipwa",
+        width: "12%",
+        align: "center" as const,
+        group: "payments" as const
+    },
+    // --- Right block: "Orodha ya Marejesho ya Mkataba" (contract installment schedule) ---
+    {
+        key: "installmentDate",
+        label: "Tarehe ya Rejesho",
+        width: "11%",
+        align: "center" as const,
+        group: "schedule" as const
+    },
+    {
+        key: "installmentNumber",
+        label: "Namba ya Rejesho",
+        width: "11%",
+        align: "center" as const,
+        group: "schedule" as const
+    },
+    {
+        key: "installmentAmount",
+        label: "Kiasi cha Rejesho",
+        width: "12%",
+        align: "center" as const,
+        group: "schedule" as const
+    },
+    {key: "allocation", label: "Malipo", width: "11%", align: "center" as const, group: "schedule" as const}, // amount from payments allocated to this installment
+    {
+        key: "runningTotal",
+        label: "Salio la Mkataba",
+        width: "12%",
+        align: "center" as const,
+        group: "schedule" as const
+    }, // contract balance after this installment
+] as const
+// widths sum to exactly 100%
+
+// The "Malipo Yaliyofanyika" / "Orodha ya Marejesho ya Mkataba" label row above
+// the table needs to span exactly the same width as the columns underneath it.
+// Deriving these from TABLE_COLUMNS (instead of a hardcoded marginLeft/width)
+// means the label row can never drift out of alignment with the table again,
+// even if columns are resized later.
+const sumGroupWidth = (group: "payments" | "schedule") =>
+    TABLE_COLUMNS.filter((c) => c.group === group)
+        .reduce((total, c) => total + parseFloat(c.width), 0)
+
+const PAYMENTS_GROUP_WIDTH = `${sumGroupWidth("payments")}%`
+const SCHEDULE_GROUP_WIDTH = `${sumGroupWidth("schedule")}%`
+
 // Built per render from the caller's real branding color (see
 // docs/specs/0001-contacts-completion/0003-client-statement-pdf.md) instead
 // of a module level constant baked in once at import time.
@@ -243,51 +307,16 @@ const createStyles = (primaryColor: string) => StyleSheet.create({
     tableRowAlt: {
         backgroundColor: "#f9f9f9",
     },
-    colPaymentDate: {
-        width: "12%",
+    // Generic cell style — width/align come from TABLE_COLUMNS at render time
+    // so header cells and body cells are always driven by the same numbers.
+    tableCell: {
         padding: 2,
         fontSize: 7,
     },
-    colDetails: {
-        width: "15%",
+    tableCellHeader: {
         padding: 2,
         fontSize: 7,
-        textAlign: "center",
-    },
-    colReceiptNumber: {
-        width: "9%",
-        padding: 2,
-        fontSize: 7,
-    },
-    colPaidAmount: {
-        width: "15%",
-        padding: 2,
-        fontSize: 7,
-        textAlign: "center",
-    },
-    colInstallmentDate: {
-        width: "13%",
-        padding: 2,
-        fontSize: 7,
-        textAlign: "center",
-    },
-    colInstallment: {
-        width: "13%",
-        padding: 2,
-        fontSize: 7,
-        textAlign: "center",
-    },
-    colInstallmentBalance: {
-        width: "12%",
-        padding: 2,
-        fontSize: 7,
-        textAlign: "center",
-    },
-    colContractBalance: {
-        width: "12%",
-        padding: 2,
-        fontSize: 7,
-        textAlign: "center",
+        fontWeight: "bold",
     },
     subHeader: {
         backgroundColor: "#4a6fa5",
@@ -365,6 +394,17 @@ export const ClientStatementDocument: React.FC<ClientStatementProps> = ({
                                                                             footerNotes,
                                                                         }) => {
     const styles = createStyles(primaryColor || DEFAULT_BRAND_COLOR)
+
+    // Merge payments + installments into one row-shaped array instead of
+    // branching on which list is longer and rendering two different JSX
+    // shapes (that divergence was the root cause of the header/body
+    // column misalignment).
+    const rowCount = Math.max(invoices.payments?.length ?? 0, invoices.installments?.length ?? 0)
+    const rows = Array.from({length: rowCount}, (_, i) => ({
+        payment: invoices.payments?.[i] ?? null,
+        installment: invoices.installments?.[i] ?? null,
+    }))
+
     return (
         <Document
             title="Client Statement"
@@ -474,96 +514,133 @@ export const ClientStatementDocument: React.FC<ClientStatementProps> = ({
 
                 {/* Account Details Section */}
                 <View style={styles.accountSection}>
-                    <View style={styles.accountItem}>
+                    <View style={[styles.accountItem, {width: PAYMENTS_GROUP_WIDTH}]}>
                         <Text style={styles.accountValue}>Malipo Yaliyofanyika</Text>
                     </View>
 
-                    <View style={styles.accountItem}>
-                        <Text style={[styles.accountValue, {marginLeft: 130}]}>Orodha Marejesho ya Mkataba</Text>
+                    <View style={[styles.accountItem, {width: SCHEDULE_GROUP_WIDTH}]}>
+                        <Text style={styles.accountValue}>Orodha ya Marejesho ya Mkataba</Text>
                     </View>
                 </View>
 
                 {/* Table Section */}
                 <View style={styles.table}>
-                    {/* Table Header */}
+                    {/* Table Header — widths/labels driven entirely by TABLE_COLUMNS */}
                     <View style={styles.tableHeader}>
-                        <Text style={styles.colPaymentDate}>Tarehe ya Malipo</Text>
-                        <Text style={styles.colDetails}>Taarifa ya Muamala</Text>
-                        <Text style={styles.colPaidAmount}>Kiasi Kilicholipwa</Text>
-                        <Text style={styles.colInstallmentDate}>Tarehe ya Rejesho</Text>
-                        <Text style={styles.colInstallmentDate}>Namba ya Rejesho</Text>
-                        <Text style={styles.colInstallment}>Kiasi cha Rejesho</Text>
-                        <Text style={styles.colInstallmentBalance}>Malipo</Text>
-                        <Text style={styles.colContractBalance}>Salio la Mkataba</Text>
+                        {TABLE_COLUMNS.map((col) => (
+                            <Text
+                                key={col.key}
+                                style={[styles.tableCellHeader, {width: col.width, textAlign: col.align}]}
+                            >
+                                {col.label}
+                            </Text>
+                        ))}
                     </View>
 
-                    {/* Table Rows */}
-                    {invoices.payments?.length >= invoices.installments?.length ?
-                        invoices.payments.map((payment, index) => (
-                            <View key={index} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
-                                <Text style={styles.colPaymentDate}>{formatDate(payment.receivedAt)}</Text>
-                                <Text style={styles.colDetails}>
-                                    {index < invoices.installments.length ? "Malipo ya rejesho" : ""}
-                                </Text>
-                                <Text style={styles.colReceiptNumber}>{payment.reference}</Text>
-                                <Text style={[styles.colPaidAmount, {borderRightWidth: 1, borderRightColor: "#ddd"}]}>
-                                    Tshs. {thousandSeparator(payment.amount)}
-                                </Text>
-                                <Text style={styles.colInstallmentDate}>
-                                    {index < invoices.installments.length ? formatDate(invoices.installments[index].dueDate) : ""}
-                                </Text>
-                                <Text style={styles.colInstallment}>
-                                    {index < invoices.installments.length ? `Tshs. ${thousandSeparator(invoices.installments[index].amountDue)}` : ""}
-                                </Text>
-                                <Text style={styles.colInstallmentBalance}>
-                                    {index < invoices.installments.length ? `Tshs. ${thousandSeparator(invoices.installments[index].amountPaid)}` : ""}
-                                </Text>
-                                <Text style={styles.colContractBalance}>
-                                    {index < invoices.installments.length ? `Tshs. ${invoices.installments[index].status}` : ""}
-                                </Text>
-                            </View>
-                        ))
-                        :
-                        invoices.installments.map((installment, index) => (
-                            <View key={index} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
-                                <Text style={styles.colPaymentDate}>
-                                    {index < invoices.payments.length ? formatDate(invoices.payments[index].receivedAt) : ""}
-                                </Text>
-                                <Text style={styles.colDetails}>
-                                    {index < invoices.payments.length ? "Malipo ya rejesho" : ""}
-                                </Text>
-                                <Text style={[styles.colPaidAmount, {borderRightWidth: 1, borderRightColor: "#ddd"}]}>
-                                    {index < invoices.payments.length ? `Tshs. ${thousandSeparator(invoices.payments[index].amount)}` : ""}
-                                </Text>
-                                <Text style={styles.colInstallmentDate}>
-                                    {formatDate(installment.dueDate)}
-                                </Text>
-                                <Text style={styles.colInstallment}>
-                                    Rejesho Na. {thousandSeparator(installment.installmentNo)}
-                                </Text>
-                                <Text style={styles.colInstallment}>
-                                    Tshs. {thousandSeparator(installment.amountDue)}
-                                </Text>
-                                <Text style={styles.colInstallmentBalance}>
-                                    Tshs. {thousandSeparator(installment.amountPaid)}
-                                </Text>
-                                <Text style={styles.colContractBalance}>
-                                    Tshs. {thousandSeparator(installment.runningTotal)}
-                                </Text>
-                            </View>
-                        ))
-                    }
+                    {/* Table Rows — single row template, same 8 cells every time,
+                        each cell reading its width from the same TABLE_COLUMNS
+                        array as the header above. */}
+                    {rows.map(({payment, installment}, index) => (
+                        <View key={index} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[0].width,
+                                textAlign: TABLE_COLUMNS[0].align
+                            }]}>
+                                {payment ? formatDate(payment.receivedAt) : ""}
+                            </Text>
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[1].width,
+                                textAlign: TABLE_COLUMNS[1].align
+                            }]}>
+                                {payment ? "Malipo ya rejesho" : ""}
+                            </Text>
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[2].width,
+                                textAlign: TABLE_COLUMNS[2].align
+                            }]}>
+                                {payment?.reference ?? ""}
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.tableCell,
+                                    {
+                                        width: TABLE_COLUMNS[3].width,
+                                        textAlign: TABLE_COLUMNS[3].align,
+                                        borderRightWidth: 1,
+                                        borderRightColor: "#ddd",
+                                    },
+                                ]}
+                            >
+                                {payment ? `Tshs. ${thousandSeparator(payment.amount)}` : ""}
+                            </Text>
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[4].width,
+                                textAlign: TABLE_COLUMNS[4].align
+                            }]}>
+                                {installment ? formatDate(installment.dueDate) : ""}
+                            </Text>
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[5].width,
+                                textAlign: TABLE_COLUMNS[5].align
+                            }]}>
+                                {/*
+                                  Explicit null/undefined check (not truthiness) so a legitimate
+                                  installmentNo of 0 still renders. Also don't lean on
+                                  thousandSeparator's own falsy-handling for the number itself —
+                                  format it directly here and only fall back to thousandSeparator
+                                  when the value is a genuinely large number worth comma-grouping.
+                                */}
+                                {installment && installment.installmentNo !== null && installment.installmentNo !== undefined
+                                    // installmentNo is 0-indexed in the data — 0 is the downpayment,
+                                    // not "installment #0", so label it explicitly. Everything after
+                                    // that is a regular installment, shown 1-indexed for the client.
+                                    ? (installment.installmentNo === 0
+                                        ? "Downpayment"
+                                        : `Rejesho Na. ${installment.installmentNo}`)
+                                    : ""}
+                            </Text>
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[6].width,
+                                textAlign: TABLE_COLUMNS[6].align
+                            }]}>
+                                {installment ? `Tshs. ${thousandSeparator(installment.amountDue)}` : ""}
+                            </Text>
+                            {/* Allocation: how much of the payments received was applied to this installment */}
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[7].width,
+                                textAlign: TABLE_COLUMNS[7].align
+                            }]}>
+                                {installment ? `Tshs. ${thousandSeparator(installment.amountPaid)}` : ""}
+                            </Text>
+                            {/* Running total: contract balance remaining after this installment */}
+                            <Text style={[styles.tableCell, {
+                                width: TABLE_COLUMNS[8].width,
+                                textAlign: TABLE_COLUMNS[8].align
+                            }]}>
+                                {installment ? `Tshs. ${thousandSeparator(installment.runningTotal)}` : ""}
+                            </Text>
+                        </View>
+                    ))}
 
-                    {/* Totals Row */}
+                    {/* Totals Row — same TABLE_COLUMNS widths, so it lines up too */}
                     <View style={styles.tableHeader}>
-                        <Text style={styles.colPaymentDate}>Jumla:</Text>
-                        <Text style={styles.colDetails}></Text>
-                        <Text style={styles.colPaidAmount}>{statementDetails.totalPayments}</Text>
-                        <Text style={styles.colInstallmentDate}></Text>
-                        <Text style={styles.colInstallmentBalance}></Text>
-                        <Text style={styles.colInstallment}>{statementDetails.contractValue}</Text>
-                        <Text style={styles.colInstallmentBalance}>{statementDetails.totalPayments}</Text>
-                        <Text style={styles.colContractBalance}>{statementDetails.currentBalance}</Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[0].width}]}>Jumla:</Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[1].width}]}></Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[2].width}]}></Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[3].width, textAlign: "center"}]}>
+                            {statementDetails.totalPayments}
+                        </Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[4].width}]}></Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[5].width}]}></Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[6].width, textAlign: "center"}]}>
+                            {statementDetails.contractValue}
+                        </Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[7].width, textAlign: "center"}]}>
+                            {statementDetails.totalPayments}
+                        </Text>
+                        <Text style={[styles.tableCellHeader, {width: TABLE_COLUMNS[8].width, textAlign: "center"}]}>
+                            {statementDetails.currentBalance}
+                        </Text>
                     </View>
                 </View>
 

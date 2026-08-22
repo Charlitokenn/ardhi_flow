@@ -1,12 +1,11 @@
 import * as React from "react"
-import VerticalTabs, {type VerticalTabItem} from "@/components-reusable/reusable-vertical-tabs.tsx"
 import {PageHero} from "@/components/pageHero"
 import {FileCheck2, FileText, HouseIcon} from "lucide-react"
 import {formatInternationalWithSpaces, thousandSeparator, toProperCase} from "@/lib/utils"
 import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx"
 import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx"
 import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer"
-import {Button} from "@/components/ui/button"
+import {ImportIcon} from "@/assets/icons"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
 import type {ClientContact} from "@/types/contacts.ts"
 import type {DocumentBrandingExtra} from "@/types/branding.ts"
@@ -17,6 +16,7 @@ import {
     isContractFullyPaid,
     withRunningTotals
 } from "@/lib/contract-balance.ts"
+import TabsScrollSwitch from "@/components/custom-tabs.tsx"
 
 export const ViewContactForm = ({contact, extra}: {
     contact: ClientContact
@@ -171,11 +171,11 @@ export const ViewContactForm = ({contact, extra}: {
 
         const tabs: VerticalTabItem[] = [
             {
-                value: "tab-1",
+                id: "tab-1",
                 label: "Overview",
                 icon: HouseIcon,
                 content: (
-                    <div className="rounded border-l-2 border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <PageHero
                             title={contact.fullName}
                             subtitle={`Contact Type: ${toProperCase(contact.contactType?.replace("_", " "))}`}
@@ -188,19 +188,20 @@ export const ViewContactForm = ({contact, extra}: {
 
         if (hasPlots && isClient) {
             tabs.push({
-                value: "tab-2",
+                id: "tab-2",
                 label: "Client Statement",
                 icon: FileText,
                 content: (
-                    <div className="rounded border-l-2 border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <div className="flex justify-between gap-2 mb-2">
                             {plotSelector}
                             <PDFDownloadLink document={statementDocument} fileName={statementFileName}>
-                                {({loading}) => (
-                                    <Button variant="outline" disabled={loading}>
-                                        {loading ? "Preparing..." : "Download"}
-                                    </Button>
-                                )}
+                                {({blob, url, loading, error}) =>
+                                    loading ? <span className="text-sm">Loading document...</span>
+                                        : <span className="flex text-sm">
+                                            <ImportIcon className="size-5"/> Download Statement
+                                        </span>
+                                }
                             </PDFDownloadLink>
                         </div>
                         {latestContract ? (
@@ -218,23 +219,26 @@ export const ViewContactForm = ({contact, extra}: {
             })
 
             tabs.push({
-                value: "tab-3",
+                id: "tab-3",
                 label: "Confirmation Letter",
                 icon: FileCheck2,
                 content: (
-                    <div className="rounded border-l-2 border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <div className="flex justify-between gap-2 mb-2">
                             {plotSelector}
                             {fullyPaid && letterDocument ? (
                                 <PDFDownloadLink document={letterDocument} fileName={letterFileName}>
-                                    {({loading}) => (
-                                        <Button variant="outline" disabled={loading}>
-                                            {loading ? "Preparing..." : "Download"}
-                                        </Button>
-                                    )}
+                                    {({loading}) =>
+                                        loading ? <span className="text-sm">Preparing...</span>
+                                            : <span className="flex text-sm">
+                                            <ImportIcon className="size-5"/> Download Letter
+                                        </span>
+                                    }
                                 </PDFDownloadLink>
                             ) : (
-                                <Button variant="outline" disabled>Download</Button>
+                                <span className="flex text-sm cursor-not-allowed">
+                                   <ImportIcon className="size-5"/> Download Letter
+                                </span>
                             )}
                         </div>
                         {fullyPaid && letterDocument ? (
@@ -256,8 +260,13 @@ export const ViewContactForm = ({contact, extra}: {
     }, [contact, extra, selectedPlot, selectedPlotId, latestContract])
 
     return (
-        <div className="mt-8 ml-2">
-            <VerticalTabs tabs={tabsData} defaultValue="tab-1"/>
+        <div className="mt-6">
+            <TabsScrollSwitch
+                defaultValue="tab-1"
+                tabs={tabsData}
+                skeletonTabCount={4}
+                unstyled
+            />
         </div>
     )
 }
