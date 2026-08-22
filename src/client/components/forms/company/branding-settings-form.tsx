@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/field.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ColorPicker} from "@/components/ui/color-picker.tsx"
+import {ColorSwatchIcon} from "@/assets/icons";
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
 
@@ -109,7 +110,11 @@ export function BrandingSettingsForm() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ["company-settings"]})
-            toast.success("Branding settings saved")
+            toast('Save Successful', {
+                description: `Branding settings saved`,
+                duration: 5000,
+                icon: <ColorSwatchIcon className="size-6"/>,
+            });
         },
         onError: (error) => {
             toast.error(error instanceof Error ? error.message : "Failed to save branding settings")

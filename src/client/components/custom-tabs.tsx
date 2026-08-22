@@ -47,7 +47,7 @@ export interface TabsScrollSwitchProps {
     contentClassName?: string;
     /** Extra classes on each panel card (the bordered box around content). */
     panelClassName?: string;
-    /** Fixed height of the content panel. Defaults to 360px. Pass `undefined`/0 to let content size itself. */
+    /** Fixed height of the content panel. Defaults to 590px. Pass `undefined`/0 to let content size itself. */
     contentHeight?: number;
     /** Hide the built-in icon/label/status header row above each panel's content. */
     hideHeader?: boolean;
@@ -218,13 +218,22 @@ function Pulse({className}: { className?: string }) {
 }
 
 /**
- * Loading placeholder that mirrors TabsScrollSwitch's exact structure —
- * same sidebar width/gaps, same panel padding/border, same stat grid and
- * checklist rows — so there's no layout shift when real data arrives.
+ * Loading placeholder for TabsScrollSwitch. Mirrors the real component's
+ * outer wrapper spacing (so there's no layout shift on the loading →
+ * loaded transition) and sidebar row count/width, but simplifies the
+ * content panel itself down to a single pulsing block rather than
+ * reproducing the panel's internal header/stat-grid/checklist structure.
+ *
+ * `contentHeight` defaults to match `CustomTabs`' default (590px); when
+ * `CustomTabs` renders this internally it always passes its own
+ * `contentHeight` explicitly, so this default only matters if you render
+ * `TabsScrollSwitchSkeleton` standalone (e.g. as a Suspense fallback)
+ * without specifying one — keep it in sync with `CustomTabs`' default if
+ * that ever changes.
  */
 export function TabsScrollSwitchSkeleton({
                                              tabCount = 4,
-                                             contentHeight = 360,
+                                             contentHeight = 545,
                                              className,
                                              sidebarClassName,
                                              contentClassName,
@@ -234,7 +243,7 @@ export function TabsScrollSwitchSkeleton({
                                          }: TabsScrollSwitchSkeletonProps) {
     return (
         <div
-            className={cn("w-full px-4 py-8", !maxWidth && "mx-auto", className)}
+            className={cn("w-full", unstyled ? "w-full" : "py-8", !maxWidth && "mx-auto", className)}
             style={maxWidth ? {maxWidth} : undefined}
             role="status"
             aria-busy="true"
