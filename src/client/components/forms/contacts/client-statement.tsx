@@ -550,7 +550,8 @@ export const ClientStatementDocument: React.FC<ClientStatementProps> = ({
                             </Text>
                             <Text style={[styles.tableCell, {
                                 width: TABLE_COLUMNS[1].width,
-                                textAlign: TABLE_COLUMNS[1].align
+                                textAlign: TABLE_COLUMNS[1].align,
+                                fontWeight: "bold"
                             }]}>
                                 {payment ? "Malipo ya rejesho" : ""}
                             </Text>

@@ -16,7 +16,7 @@ import {
     isContractFullyPaid,
     withRunningTotals
 } from "@/lib/contract-balance.ts"
-import TabsScrollSwitch from "@/components/custom-tabs.tsx"
+import CustomTabs from "@/components/custom-tabs.tsx"
 
 export const ViewContactForm = ({contact, extra}: {
     contact: ClientContact
@@ -28,7 +28,7 @@ export const ViewContactForm = ({contact, extra}: {
     const selectedPlot = contact?.plots?.find((plot) => plot.id === selectedPlotId)
     const latestContract = selectedPlot?.latestContract ?? null
 
-    const tabsData: VerticalTabItem[] = React.useMemo(() => {
+    const tabsData: TabItem[] = React.useMemo(() => {
         const plotsCount = contact?.plots?.length ?? 0
         const hasPlots = plotsCount > 0
         const isClient = contact?.contactType === "CLIENT"
@@ -260,8 +260,8 @@ export const ViewContactForm = ({contact, extra}: {
     }, [contact, extra, selectedPlot, selectedPlotId, latestContract])
 
     return (
-        <div className="mt-6">
-            <TabsScrollSwitch
+        <div className="mt-4">
+            <CustomTabs
                 defaultValue="tab-1"
                 tabs={tabsData}
                 skeletonTabCount={4}

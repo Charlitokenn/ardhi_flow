@@ -283,23 +283,23 @@ export function TabsScrollSwitchSkeleton({
 
 /* ------------------------------------------------------------------ */
 
-export function TabsScrollSwitch({
-                                     tabs = defaultTabs,
-                                     defaultTab,
-                                     activeTab: controlledActiveTab,
-                                     onTabChange,
-                                     className,
-                                     sidebarClassName,
-                                     contentClassName,
-                                     panelClassName,
-                                     contentHeight = 360,
-                                     hideHeader = false,
-                                     unstyled = false,
-                                     transition: transitionProp,
-                                     loading = false,
-                                     skeletonTabCount,
-                                     maxWidth,
-                                 }: TabsScrollSwitchProps) {
+export function CustomTabs({
+                               tabs = defaultTabs,
+                               defaultTab,
+                               activeTab: controlledActiveTab,
+                               onTabChange,
+                               className,
+                               sidebarClassName,
+                               contentClassName,
+                               panelClassName,
+                               contentHeight = 590,
+                               hideHeader = false,
+                               unstyled = false,
+                               transition: transitionProp,
+                               loading = false,
+                               skeletonTabCount,
+                               maxWidth,
+                           }: TabsScrollSwitchProps) {
     const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState(
         defaultTab ?? tabs[0]?.id
     );
@@ -432,8 +432,8 @@ export function TabsScrollSwitch({
                                             panelClassName
                                         )}
                                     >
-                                        {!unstyled && !hideHeader && (
-                                            <>
+                                        {!hideHeader && (
+                                            <div className="ml-8 mr-4">
                                                 <div className="flex items-start justify-between shrink-0">
                                                     <div className="flex items-center gap-3">
                                                         <Icon className="w-6 h-6 text-foreground shrink-0"/>
@@ -451,8 +451,8 @@ export function TabsScrollSwitch({
                                                     )}
                                                 </div>
 
-                                                <div className="h-px bg-border shrink-0"/>
-                                            </>
+                                                <div className="h-px my-2 bg-border shrink-0"/>
+                                            </div>
                                         )}
 
                                         {/* Custom content passed via the `content` prop on the tab */}
@@ -468,4 +468,4 @@ export function TabsScrollSwitch({
     );
 }
 
-export default TabsScrollSwitch;
+export default CustomTabs;
