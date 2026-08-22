@@ -21,7 +21,7 @@ const CustomTabsHorizontal = ({
                               }: TabsWithIconProps) => {
     return (
         <div className={className}>
-            <Tabs defaultValue={defaultValue ?? tabs[0]?.id} className="gap-4">
+            <Tabs defaultValue={defaultValue ?? tabs[0]?.id} className="gap-4" orientation="horizontal">
                 <TabsList>
                     {tabs.map(({icon: Icon, label, id}) => (
                         <TabsTrigger
