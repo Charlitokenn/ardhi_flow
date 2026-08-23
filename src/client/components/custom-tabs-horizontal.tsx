@@ -14,11 +14,11 @@ type TabsWithIconProps = {
     className?: string;
 };
 
-const CustomTabsHorizontal = ({
-                                  tabs,
-                                  defaultValue = "tab-1",
-                                  className = "w-full max-w-md",
-                              }: TabsWithIconProps) => {
+export const CustomTabsHorizontal = ({
+                                         tabs,
+                                         defaultValue = "tab-1",
+                                         className = "w-full max-w-md",
+                                     }: TabsWithIconProps) => {
     return (
         <div className={className}>
             <Tabs defaultValue={defaultValue ?? tabs[0]?.id} className="gap-4" orientation="horizontal">
@@ -35,7 +35,7 @@ const CustomTabsHorizontal = ({
                     ))}
                 </TabsList>
                 {tabs.map((tab) => (
-                    <TabsContent key={tab.id} value={tab.id}>
+                    <TabsContent key={tab.id} value={tab.id} className="w-245">
                         <p className="text-muted-foreground text-sm">{tab.content}</p>
                     </TabsContent>
                 ))}

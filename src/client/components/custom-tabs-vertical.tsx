@@ -11,7 +11,7 @@ import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs";
 
 /* ------------------------------------------------------------------ */
 
-export interface TabItem {
+export interface VerticalTabItem {
     id: string;
     label: string;
     /** Icon shown in the sidebar trigger (and optionally the panel header). */
@@ -32,7 +32,7 @@ export interface TabItem {
 
 export interface TabsScrollSwitchProps {
     /** The tabs to render. Falls back to a small demo set if omitted. */
-    tabs?: TabItem[];
+    tabs?: VerticalTabItem[];
     /** Uncontrolled initial tab id. Defaults to the first tab's id. */
     defaultTab?: string;
     /** Controlled active tab id (pair with onTabChange). */
@@ -110,7 +110,7 @@ function DemoStatsAndFeatures({
     );
 }
 
-const defaultTabs: TabItem[] = [
+const defaultTabs: VerticalTabItem[] = [
     {
         id: "product",
         label: "Product Suite",

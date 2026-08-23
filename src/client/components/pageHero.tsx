@@ -1,15 +1,12 @@
-import {
-    FilesIcon, MoonIcon,
-    SunIcon, SunsetIcon,
-} from 'lucide-react'
-import React, {type JSX } from 'react'
+import {FilesIcon, MoonIcon, SunIcon, SunsetIcon,} from 'lucide-react'
+import React, {type JSX} from 'react'
 import ReusableSheet from '@/components-reusable/reusable-sheet'
 import ReusableTooltip from '@/components-reusable/reusable-tooltip'
 import {Button} from "@/components/ui/button.tsx";
 
 type PageHeroProps = {
     title?: string
-    subtitle?: string
+    subtitle?: string | React.ReactNode
     type: 'greeting' | 'hero'
 
     buttonText?: string
@@ -91,7 +88,7 @@ export const PageHero = ({
                     <ReusableSheet
                         trigger={
                             <ReusableTooltip
-                                trigger={<FilesIcon className="cursor-pointer" />}
+                                trigger={<FilesIcon className="cursor-pointer"/>}
                                 tooltip="Bulk Upload"
                             />
                         }
@@ -115,7 +112,7 @@ export function getTimeBasedIcon(date: Date = new Date()): JSX.Element {
 
     // 🌙 Night: 19 → 04
     if (hour >= 19 || hour < 5) {
-        return <MoonIcon className="size-5" />
+        return <MoonIcon className="size-5"/>
     }
 
     // 🌅 Sunrise: 05 → 08
@@ -125,9 +122,9 @@ export function getTimeBasedIcon(date: Date = new Date()): JSX.Element {
 
     // ☀️ Day: 05 → 16
     if (hour >= 5 && hour < 17) {
-        return <SunIcon className="size-5" />
+        return <SunIcon className="size-5"/>
     }
 
     // 🌇 Sunset: 17 → 18
-    return <SunsetIcon className="size-5" />
+    return <SunsetIcon className="size-5"/>
 }

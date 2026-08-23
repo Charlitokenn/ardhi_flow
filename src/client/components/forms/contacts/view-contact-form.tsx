@@ -1,6 +1,18 @@
 import * as React from "react";
-import {PageHero} from "@/components/pageHero";
-import {FileCheck2, FileText, HouseIcon, MapPlusIcon, UserIcon,} from "lucide-react";
+import {
+    BriefcaseBusinessIcon,
+    FileCheck2,
+    FileText,
+    HouseIcon,
+    Mail,
+    MapPlusIcon,
+    Phone,
+    ShieldCheck,
+    UserIcon,
+    UserRound,
+    Users,
+    WalletIcon,
+} from "lucide-react";
 import {formatInternationalWithSpaces, thousandSeparator, toProperCase,} from "@/lib/utils";
 import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx";
 import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx";
@@ -16,8 +28,11 @@ import {
     isContractFullyPaid,
     withRunningTotals,
 } from "@/lib/contract-balance.ts";
-import CustomTabsVertical from "@/components/custom-tabs-vertical.tsx";
-import CustomTabsHorizontal from "@/components/custom-tabs-horizontal.tsx";
+import CustomTabsVertical, {type VerticalTabItem,} from "@/components/custom-tabs-vertical.tsx";
+import {CustomTabsHorizontal, type HorizontalTabItem,} from "@/components/custom-tabs-horizontal.tsx";
+import {Avatar, AvatarBadge, AvatarFallback, AvatarImage,} from "@/components/ui/avatar.tsx";
+import {Badge} from "@/components/ui/badge.tsx";
+import {ContactSection, DetailItem,} from "@/components/views/contact-overview.tsx";
 
 export const ViewContactForm = ({
                                     contact,
@@ -34,10 +49,15 @@ export const ViewContactForm = ({
     );
     const latestContract = selectedPlot?.latestContract ?? null;
 
-    const tabsData: TabItem[] = React.useMemo(() => {
+    const tabsData: VerticalTabItem[] = React.useMemo(() => {
         const plotsCount = contact?.plots?.length ?? 0;
         const hasPlots = plotsCount > 0;
         const isClient = contact?.contactType === "CLIENT";
+        const isAgent = contact?.contactType === "SALES_AGENT";
+        const isSupplier = contact?.contactType === "LAND_SELLER";
+        const isVendor = !["SALES_AGENT", "CLIENT", "LAND_SELLER"].includes(
+            contact?.contactType ?? "",
+        );
 
         const plotSizeRaw =
             selectedPlot?.surveyedSize ?? selectedPlot?.unsurveyedSize ?? "0";
@@ -193,22 +213,116 @@ export const ViewContactForm = ({
             </Select>
         );
 
-        const horizontalTabs = [
+        const horizontalTabs: HorizontalTabItem[] = [
             {
                 id: "tab-1",
-                label: "My details",
+                label: "Personal Particulars",
                 icon: UserIcon,
                 content: (
-                    <>
-                        Manage your personal{" "}
-                        <span className="text-foreground font-semibold">
-              account details
-            </span>
-                        . Keep everything up to date so we can serve you better.
-                    </>
+                    <div className="space-y-6">
+                        <div className="grid gap-6 lg:grid-cols-2">
+                            <ContactSection title="Personal Information">
+                                <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                                    <DetailItem
+                                        label="Gender"
+                                        value={contact.gender}
+                                        icon={<UserRound className="size-3.5"/>}
+                                    />
+                                    <DetailItem
+                                        label="Alternative Mobile"
+                                        value={contact.altMobileNumber}
+                                        href={
+                                            contact.altMobileNumber
+                                                ? `tel:${contact.altMobileNumber}`
+                                                : undefined
+                                        }
+                                        icon={<Phone className="size-3.5"/>}
+                                    />
+                                </dl>
+                            </ContactSection>
+
+                            <ContactSection title="Identification">
+                                <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                                    <DetailItem
+                                        label="ID Type"
+                                        value={contact.idType}
+                                        icon={<ShieldCheck className="size-3.5"/>}
+                                    />
+                                    <div className="flex min-w-0 flex-col gap-1.5">
+                                        <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                                            <ShieldCheck className="size-3.5"/> ID Number
+                                        </dt>
+                                        <dd className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                      <span className="truncate">
+                        {contact.idNumber || "—"}
+                      </span>
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </ContactSection>
+                        </div>
+                        <ContactSection title="Next of Keen Contacts">
+                            <div className="grid gap-6 md:grid-cols-2">
+                                {[
+                                    {
+                                        label: "First next of kin",
+                                        name: contact.firstNOKName,
+                                        mobile: contact.firstNOKMobile,
+                                        relationship: contact.firstNOKRelationship,
+                                    },
+                                    {
+                                        label: "Second next of kin",
+                                        name: contact.secondNOKName,
+                                        mobile: contact.secondNOKMobile,
+                                        relationship: contact.secondNOKRelationship,
+                                    },
+                                ].map((emergency) => (
+                                    <div
+                                        key={emergency.label}
+                                        className="flex min-w-0 flex-col gap-4 rounded-md border bg-muted/30 p-4"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="size-10">
+                                                <AvatarFallback className="bg-primary/10 text-primary">
+                                                    <Users className="size-4"/>
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                                                    {emergency.label}
+                                                </p>
+                                                <p className="truncate text-sm font-semibold">
+                                                    {emergency.name || "Not provided"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <dl className="grid gap-3 sm:grid-cols-2">
+                                            <DetailItem
+                                                label="Relationship"
+                                                value={emergency.relationship}
+                                            />
+                                            <DetailItem
+                                                label="Mobile"
+                                                value={emergency.mobile}
+                                                href={
+                                                    emergency.mobile
+                                                        ? `tel:${emergency.mobile}`
+                                                        : undefined
+                                                }
+                                                icon={<Phone className="size-3.5"/>}
+                                            />
+                                        </dl>
+                                    </div>
+                                ))}
+                            </div>
+                        </ContactSection>
+                    </div>
                 ),
             },
-            {
+        ];
+
+        if (hasPlots && isClient) {
+            horizontalTabs.push({
                 id: "tab-2",
                 label: "Plots Held",
                 icon: MapPlusIcon,
@@ -221,26 +335,162 @@ export const ViewContactForm = ({
                         . Keep everything up to date so we can serve you better.
                     </>
                 ),
-            },
-        ];
+            });
+        }
 
-        const tabs: VerticalTabItem[] = [
+        if (isSupplier) {
+            horizontalTabs.push({
+                id: "tab-3",
+                label: "Supplier Projects",
+                icon: MapPlusIcon,
+                content: (
+                    <>
+                        Manage your Projects{" "}
+                        <span className="text-foreground font-semibold">
+              account details
+            </span>
+                        . Keep everything up to date so we can serve you better.
+                    </>
+                ),
+            });
+        }
+
+        if (isAgent) {
+            horizontalTabs.push({
+                id: "tab-4",
+                label: "Commission Payments",
+                icon: WalletIcon,
+                content: (
+                    <>
+                        Manage your Commissions{" "}
+                        <span className="text-foreground font-semibold">
+              account details
+            </span>
+                        . Keep everything up to date so we can serve you better.
+                    </>
+                ),
+            });
+            horizontalTabs.push({
+                id: "tab-5",
+                label: "Client Portfolio",
+                icon: BriefcaseBusinessIcon,
+                content: (
+                    <>
+                        Manage your Commissions{" "}
+                        <span className="text-foreground font-semibold">
+              account details
+            </span>
+                        . Keep everything up to date so we can serve you better.
+                    </>
+                ),
+            });
+        }
+
+        if (isVendor) {
+            horizontalTabs.push({
+                id: "tab-6",
+                label: "Assignments/Jobs",
+                icon: BriefcaseBusinessIcon,
+                content: (
+                    <>
+                        Manage your Commissions{" "}
+                        <span className="text-foreground font-semibold">
+              account details
+            </span>
+                        . Keep everything up to date so we can serve you better.
+                    </>
+                ),
+            });
+        }
+
+        const verticalTabs: VerticalTabItem[] = [
             {
                 id: "tab-1",
                 label: "Overview",
                 icon: HouseIcon,
                 content: (
                     <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-                        <PageHero
-                            title={contact.fullName}
-                            subtitle={
-                                <div className="flex text-sm">
-                                    Contact Type:{" "}
-                                    {toProperCase(contact.contactType?.replace("_", " "))}
+                        <div className="flex items-center gap-3 mb-8">
+                            <Avatar size="lg">
+                                <AvatarImage src={contact.clientPhoto ?? undefined} alt=""/>
+                                <AvatarFallback>PP</AvatarFallback>
+                                <AvatarBadge>
+                                    <UserIcon/>
+                                </AvatarBadge>
+                            </Avatar>
+                            <div className="min-w-0 ">
+                                <div className="flex justify-between">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+                                            {contact.fullName}
+                                        </h1>
+                                        <Badge variant="secondary" className="text-xs">
+                                            {toProperCase(contact.contactType?.replace("_", " "))}
+                                        </Badge>
+                                    </div>
+                                    {/*<LabelNumberTicker value={contact.plots.length}/>*/}
                                 </div>
-                            }
-                            type="hero"
-                        />
+                                <div
+                                    className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+                                    {contact.mobileNumber && (
+                                        <a
+                                            href={`tel:${contact.mobileNumber}`}
+                                            className="inline-flex items-center gap-1.5 hover:text-foreground"
+                                        >
+                                            <Phone className="size-3.5 shrink-0"/>
+                                            <span>{contact.mobileNumber}</span>
+                                        </a>
+                                    )}
+
+                                    {contact.email && (
+                                        <>
+                                            {contact.mobileNumber && (
+                                                <span className="hidden sm:inline text-border" aria-hidden="true">
+                    ·
+                </span>
+                                            )}
+
+                                            <a
+                                                href={`mailto:${contact.email}`}
+                                                className="inline-flex min-w-0 items-center gap-1.5 hover:text-foreground"
+                                            >
+                                                <Mail className="size-3.5 shrink-0"/>
+                                                <span className="truncate break-all">{contact.email}</span>
+                                            </a>
+                                        </>
+                                    )}
+
+                                    {(contact.region ||
+                                        contact.district ||
+                                        contact.ward ||
+                                        contact.street) && (
+                                        <>
+                                            {(contact.mobileNumber || contact.email) && (
+                                                <span className="hidden sm:inline text-border" aria-hidden="true">
+                    ·
+                </span>
+                                            )}
+
+                                            <span className="inline-flex min-w-0 items-center gap-1.5">
+                <MapPlusIcon className="size-3.5 shrink-0"/>
+
+                <span className="truncate">
+                    {[
+                        contact.region,
+                        contact.district,
+                        contact.ward,
+                        contact.street,
+                    ]
+                        .filter(Boolean)
+                        .map(toProperCase)
+                        .join(", ")}
+                </span>
+            </span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                         <CustomTabsHorizontal tabs={horizontalTabs}/>
                     </div>
                 ),
@@ -248,7 +498,7 @@ export const ViewContactForm = ({
         ];
 
         if (hasPlots && isClient) {
-            tabs.push({
+            verticalTabs.push({
                 id: "tab-2",
                 label: "Client Statement",
                 icon: FileText,
@@ -260,7 +510,7 @@ export const ViewContactForm = ({
                                 document={statementDocument}
                                 fileName={statementFileName}
                             >
-                                {({blob, url, loading, error}) =>
+                                {({loading}) =>
                                     loading ? (
                                         <span className="text-sm">Loading document...</span>
                                     ) : (
@@ -290,7 +540,7 @@ export const ViewContactForm = ({
                 ),
             });
 
-            tabs.push({
+            verticalTabs.push({
                 id: "tab-3",
                 label: "Confirmation Letter",
                 icon: FileCheck2,
@@ -339,13 +589,101 @@ export const ViewContactForm = ({
             });
         }
 
-        return tabs;
+        if (isSupplier) {
+            verticalTabs.push({
+                id: "tab-4",
+                label: "Supplier Statement",
+                icon: FileText,
+                content: (
+                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+                        <div className="flex justify-between gap-2 mb-2">
+                            {plotSelector}
+                            <PDFDownloadLink
+                                document={statementDocument}
+                                fileName={statementFileName}
+                            >
+                                {({loading}) =>
+                                    loading ? (
+                                        <span className="text-sm">Loading document...</span>
+                                    ) : (
+                                        <span className="flex text-sm">
+                      <ImportIcon className="size-5"/> Download Statement
+                    </span>
+                                    )
+                                }
+                            </PDFDownloadLink>
+                        </div>
+                        {latestContract ? (
+                            <PDFViewer
+                                width="100%"
+                                height={480}
+                                showToolbar={false}
+                                className="rounded-lg"
+                            >
+                                {statementDocument}
+                            </PDFViewer>
+                        ) : (
+                            <div
+                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
+                                This plot has no contract yet.
+                            </div>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
+        if (isVendor) {
+            verticalTabs.push({
+                id: "tab-5",
+                label: "Vendor Statement",
+                icon: FileText,
+                content: (
+                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+                        <div className="flex justify-between gap-2 mb-2">
+                            {plotSelector}
+                            <PDFDownloadLink
+                                document={statementDocument}
+                                fileName={statementFileName}
+                            >
+                                {({loading}) =>
+                                    loading ? (
+                                        <span className="text-sm">Loading document...</span>
+                                    ) : (
+                                        <span className="flex text-sm">
+                      <ImportIcon className="size-5"/> Download Statement
+                    </span>
+                                    )
+                                }
+                            </PDFDownloadLink>
+                        </div>
+                        {latestContract ? (
+                            <PDFViewer
+                                width="100%"
+                                height={480}
+                                showToolbar={false}
+                                className="rounded-lg"
+                            >
+                                {statementDocument}
+                            </PDFViewer>
+                        ) : (
+                            <div
+                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
+                                This plot has no contract yet.
+                            </div>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
+        return verticalTabs;
     }, [contact, extra, selectedPlot, selectedPlotId, latestContract]);
 
     return (
         <div className="mt-4">
             <CustomTabsVertical
-                defaultValue="tab-1"
+                defaultTab="tab-1"
                 tabs={tabsData}
                 skeletonTabCount={4}
                 unstyled
