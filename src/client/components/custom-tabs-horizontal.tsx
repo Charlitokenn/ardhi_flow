@@ -10,18 +10,18 @@ export type HorizontalTabItem = {
 
 type TabsWithIconProps = {
     tabs: HorizontalTabItem[];
-    defaultValue?: string;
+    defaultTab?: string;
     className?: string;
 };
 
 export const CustomTabsHorizontal = ({
                                          tabs,
-                                         defaultValue = "tab-1",
+                                         defaultTab = "tab-1",
                                          className = "w-full max-w-md",
                                      }: TabsWithIconProps) => {
     return (
         <div className={className}>
-            <Tabs defaultValue={defaultValue ?? tabs[0]?.id} className="gap-4" orientation="horizontal">
+            <Tabs defaultValue={defaultTab ?? tabs[0]?.id} className="gap-4" orientation="horizontal">
                 <TabsList>
                     {tabs.map(({icon: Icon, label, id}) => (
                         <TabsTrigger
