@@ -1,4 +1,5 @@
-import * as React from "react";
+import {useMemo, useState} from "react";
+import type {LucideIcon} from "lucide-react";
 import {
     BriefcaseBusinessIcon,
     FileCheck2,
@@ -19,7 +20,7 @@ import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmati
 import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
 import {ImportIcon} from "@/assets/icons";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
-import type {ClientContact} from "@/types/contacts.ts";
+import type {ClientContact, ClientContactContract, ClientContactPlot,} from "@/types/contacts.ts";
 import type {DocumentBrandingExtra} from "@/types/branding.ts";
 import {buildDocumentReferenceNumber} from "@/lib/document-reference.ts";
 import {
@@ -34,6 +35,394 @@ import {Avatar, AvatarBadge, AvatarFallback, AvatarImage,} from "@/components/ui
 import {Badge} from "@/components/ui/badge.tsx";
 import {ContactSection, DetailItem,} from "@/components/views/contact-overview.tsx";
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const CONTACT_TYPE = {
+    CLIENT: "CLIENT",
+    SALES_AGENT: "SALES_AGENT",
+    LAND_SELLER: "LAND_SELLER",
+} as const;
+
+const PLACEHOLDER_COPY = (
+    <>
+        Manage your{" "}
+        <span className="text-foreground font-semibold">account details</span>. Keep
+        everything up to date so we can serve you better.
+    </>
+);
+
+// ---------------------------------------------------------------------------
+// Financial derivation (isolated so it's independently testable)
+// ---------------------------------------------------------------------------
+
+interface ContractFinancials {
+    plotSize: string;
+    plotSizeRaw: number;
+    duration: number;
+    contractValue: number;
+    pricePerSqm: number;
+    totalPayments: number;
+    balance: number;
+    displayBalance: number;
+    fullyPaid: boolean;
+    monthlyInstallment: number;
+    installmentsWithRunning: ReturnType<typeof withRunningTotals>;
+}
+
+function deriveContractFinancials(
+    plot: ClientContactPlot | undefined,
+    contract: ClientContactContract | null,
+): ContractFinancials {
+    const plotSizeRaw = Number(plot?.surveyedSize ?? plot?.unsurveyedSize ?? "0");
+    const contractValue = contract ? Number(contract.totalContractValue) : 0;
+    const pricePerSqm = plotSizeRaw > 0 ? contractValue / plotSizeRaw : 0;
+    const totalPayments = contract ? computeTotalPaid(contract) : 0;
+    const balance = contract ? computeContractBalance(contract) : 0;
+
+    return {
+        plotSize: thousandSeparator(plotSizeRaw),
+        plotSizeRaw,
+        duration: contract?.termMonths ?? 0,
+        contractValue,
+        pricePerSqm,
+        totalPayments,
+        balance,
+        displayBalance: Math.max(balance, 0),
+        fullyPaid: isContractFullyPaid(contract),
+        // Monthly installment follows the contract's own purchase plan. For the
+        // DOWNPAYMENT plan we use the contract's own `financedAmount` (already
+        // totalContractValue minus downpaymentAmount) rather than re-deriving it
+        // from downpaymentPercent, which is stored as a whole number (e.g. 20
+        // meaning 20%), not a 0-1 fraction.
+        monthlyInstallment: (() => {
+            if (!contract) return 0;
+            const {termMonths: months, totalContractValue, purchasePlan} = contract;
+            if (!months) return 0;
+            if (purchasePlan === "FLAT_RATE")
+                return Number(totalContractValue) / months;
+            if (months > 1) return Number(contract.financedAmount) / (months - 1);
+            return 0;
+        })(),
+        installmentsWithRunning: contract
+            ? withRunningTotals(contract, contract.installments)
+            : [],
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Small presentational pieces
+// ---------------------------------------------------------------------------
+
+function ContactHeader({contact}: { contact: ClientContact }) {
+    const locationLabel = [
+        contact.region,
+        contact.district,
+        contact.ward,
+        contact.street,
+    ]
+        .filter(Boolean)
+        .map(toProperCase)
+        .join(", ");
+
+    return (
+        <div className="flex items-center gap-3 mb-8">
+            <Avatar size="lg">
+                <AvatarImage src={contact.clientPhoto ?? undefined} alt=""/>
+                <AvatarFallback>PP</AvatarFallback>
+                <AvatarBadge>
+                    <UserIcon/>
+                </AvatarBadge>
+            </Avatar>
+            <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                    <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+                        {contact.fullName}
+                    </h1>
+                    <Badge variant="secondary" className="text-xs">
+                        {toProperCase(contact.contactType?.replace("_", " "))}
+                    </Badge>
+                </div>
+                <div
+                    className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+                    {contact.mobileNumber && (
+                        <a
+                            href={`tel:${contact.mobileNumber}`}
+                            className="inline-flex items-center gap-1.5 hover:text-foreground"
+                        >
+                            <Phone className="size-3.5 shrink-0"/>
+                            <span>{contact.mobileNumber}</span>
+                        </a>
+                    )}
+
+                    {contact.email && (
+                        <>
+                            {contact.mobileNumber && <Separator/>}
+                            <a
+                                href={`mailto:${contact.email}`}
+                                className="inline-flex min-w-0 items-center gap-1.5 hover:text-foreground"
+                            >
+                                <Mail className="size-3.5 shrink-0"/>
+                                <span className="truncate break-all">{contact.email}</span>
+                            </a>
+                        </>
+                    )}
+
+                    {locationLabel && (
+                        <>
+                            {(contact.mobileNumber || contact.email) && <Separator/>}
+                            <span className="inline-flex min-w-0 items-center gap-1.5">
+                <MapPlusIcon className="size-3.5 shrink-0"/>
+                <span className="truncate">{locationLabel}</span>
+              </span>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Separator() {
+    return (
+        <span className="hidden sm:inline text-border" aria-hidden="true">
+      ·
+    </span>
+    );
+}
+
+function NextOfKinSection({contact}: { contact: ClientContact }) {
+    const contacts = [
+        {
+            label: "First next of kin",
+            name: contact.firstNOKName,
+            mobile: contact.firstNOKMobile,
+            relationship: contact.firstNOKRelationship,
+        },
+        {
+            label: "Second next of kin",
+            name: contact.secondNOKName,
+            mobile: contact.secondNOKMobile,
+            relationship: contact.secondNOKRelationship,
+        },
+    ];
+
+    return (
+        <ContactSection title="Next of Kin Contacts">
+            <div className="grid gap-6 md:grid-cols-2">
+                {contacts.map((entry) => (
+                    <div
+                        key={entry.label}
+                        className="flex min-w-0 flex-col gap-4 rounded-md border bg-muted/30 p-4"
+                    >
+                        <div className="flex items-center gap-3">
+                            <Avatar className="size-10">
+                                <AvatarFallback className="bg-primary/10 text-primary">
+                                    <Users className="size-4"/>
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                                    {entry.label}
+                                </p>
+                                <p className="truncate text-sm font-semibold">
+                                    {entry.name || "Not provided"}
+                                </p>
+                            </div>
+                        </div>
+                        <dl className="grid gap-3 sm:grid-cols-2">
+                            <DetailItem label="Relationship" value={entry.relationship}/>
+                            <DetailItem
+                                label="Mobile"
+                                value={entry.mobile}
+                                href={entry.mobile ? `tel:${entry.mobile}` : undefined}
+                                icon={<Phone className="size-3.5"/>}
+                            />
+                        </dl>
+                    </div>
+                ))}
+            </div>
+        </ContactSection>
+    );
+}
+
+function PersonalParticularsContent({contact}: { contact: ClientContact }) {
+    return (
+        <div className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+                <ContactSection title="Personal Information">
+                    <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                        <DetailItem
+                            label="Gender"
+                            value={contact.gender}
+                            icon={<UserRound className="size-3.5"/>}
+                        />
+                        <DetailItem
+                            label="Alternative Mobile"
+                            value={contact.altMobileNumber}
+                            href={
+                                contact.altMobileNumber
+                                    ? `tel:${contact.altMobileNumber}`
+                                    : undefined
+                            }
+                            icon={<Phone className="size-3.5"/>}
+                        />
+                    </dl>
+                </ContactSection>
+
+                <ContactSection title="Identification">
+                    <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                        <DetailItem
+                            label="ID Type"
+                            value={contact.idType}
+                            icon={<ShieldCheck className="size-3.5"/>}
+                        />
+                        <DetailItem
+                            label="ID Number"
+                            value={contact.idNumber}
+                            icon={<ShieldCheck className="size-3.5"/>}
+                        />
+                    </dl>
+                </ContactSection>
+            </div>
+
+            <NextOfKinSection contact={contact}/>
+        </div>
+    );
+}
+
+function PdfTabHeader({
+                          plotSelector,
+                          document,
+                          fileName,
+                          enabled = true,
+                          loadingLabel = "Loading document...",
+                          actionLabel = "Download Statement",
+                          disabledLabel,
+                      }: {
+    plotSelector: React.ReactNode;
+    document: React.ReactElement;
+    fileName: string;
+    enabled?: boolean;
+    loadingLabel?: string;
+    actionLabel?: string;
+    disabledLabel?: string;
+}) {
+    return (
+        <div className="flex justify-between gap-2 mb-2">
+            {plotSelector}
+            {enabled ? (
+                <PDFDownloadLink document={document} fileName={fileName}>
+                    {({loading}) =>
+                        loading ? (
+                            <span className="text-sm">{loadingLabel}</span>
+                        ) : (
+                            <span className="flex text-sm">
+                <ImportIcon className="size-5"/> {actionLabel}
+              </span>
+                        )
+                    }
+                </PDFDownloadLink>
+            ) : (
+                <span className="flex text-sm cursor-not-allowed text-muted-foreground">
+          <ImportIcon className="size-5"/> {disabledLabel ?? actionLabel}
+        </span>
+            )}
+        </div>
+    );
+}
+
+function EmptyDocumentState({message}: { message: string }) {
+    return (
+        <div
+            className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
+            {message}
+        </div>
+    );
+}
+
+function StatementTabContent({
+                                 plotSelector,
+                                 document,
+                                 fileName,
+                                 hasContract,
+                             }: {
+    plotSelector: React.ReactNode;
+    document: React.ReactElement;
+    fileName: string;
+    hasContract: boolean;
+}) {
+    return (
+        <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+            <PdfTabHeader
+                plotSelector={plotSelector}
+                document={document}
+                fileName={fileName}
+            />
+            {hasContract ? (
+                <PDFViewer
+                    width="100%"
+                    height={480}
+                    showToolbar={false}
+                    className="rounded-lg"
+                >
+                    {document}
+                </PDFViewer>
+            ) : (
+                <EmptyDocumentState message="This plot has no contract yet."/>
+            )}
+        </div>
+    );
+}
+
+function ConfirmationLetterTabContent({
+                                          plotSelector,
+                                          document,
+                                          fileName,
+                                          fullyPaid,
+                                      }: {
+    plotSelector: React.ReactNode;
+    document: React.ReactElement | null;
+    fileName: string;
+    fullyPaid: boolean;
+}) {
+    const available = fullyPaid && document !== null;
+
+    return (
+        <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+            <PdfTabHeader
+                plotSelector={plotSelector}
+                document={document as React.ReactElement}
+                fileName={fileName}
+                enabled={available}
+                loadingLabel="Preparing..."
+                actionLabel="Download Letter"
+            />
+            {available ? (
+                <PDFViewer
+                    width="100%"
+                    height={480}
+                    showToolbar={false}
+                    className="rounded-lg"
+                >
+                    {document}
+                </PDFViewer>
+            ) : (
+                <EmptyDocumentState message="Available when the selected contract balance is fully paid."/>
+            )}
+        </div>
+    );
+}
+
+function PlaceholderTabContent() {
+    return <>{PLACEHOLDER_COPY}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export const ViewContactForm = ({
                                     contact,
                                     extra,
@@ -41,64 +430,33 @@ export const ViewContactForm = ({
     contact: ClientContact;
     extra: DocumentBrandingExtra;
 }) => {
-    const [selectedPlotId, setSelectedPlotId] = React.useState<string>(
+    const [selectedPlotId, setSelectedPlotId] = useState<string>(
         contact?.plots?.[0]?.id ?? "",
     );
-    const selectedPlot = contact?.plots?.find(
-        (plot) => plot.id === selectedPlotId,
-    );
+
+    const selectedPlot = contact.plots.find((plot) => plot.id === selectedPlotId);
     const latestContract = selectedPlot?.latestContract ?? null;
 
-    const tabsData: VerticalTabItem[] = React.useMemo(() => {
-        const plotsCount = contact?.plots?.length ?? 0;
-        const hasPlots = plotsCount > 0;
-        const isClient = contact?.contactType === "CLIENT";
-        const isAgent = contact?.contactType === "SALES_AGENT";
-        const isSupplier = contact?.contactType === "LAND_SELLER";
-        const isVendor = !["SALES_AGENT", "CLIENT", "LAND_SELLER"].includes(
-            contact?.contactType ?? "",
-        );
+    const contactType = contact.contactType;
+    const isClient = contactType === CONTACT_TYPE.CLIENT;
+    const isAgent = contactType === CONTACT_TYPE.SALES_AGENT;
+    const isSupplier = contactType === CONTACT_TYPE.LAND_SELLER;
+    const isVendor = !isClient && !isAgent && !isSupplier;
+    const hasPlots = (contact.plots?.length ?? 0) > 0;
 
-        const plotSizeRaw =
-            selectedPlot?.surveyedSize ?? selectedPlot?.unsurveyedSize ?? "0";
-        const plotSize = thousandSeparator(Number(plotSizeRaw));
+    const financials = useMemo(
+        () => deriveContractFinancials(selectedPlot, latestContract),
+        [selectedPlot, latestContract],
+    );
 
-        const duration = latestContract?.termMonths ?? 0;
-        const contractValue = latestContract
-            ? Number(latestContract.totalContractValue)
-            : 0;
-        const pricePerSqm =
-            Number(plotSizeRaw) > 0 ? contractValue / Number(plotSizeRaw) : 0;
-        const totalPayments = latestContract ? computeTotalPaid(latestContract) : 0;
-        const balance = latestContract ? computeContractBalance(latestContract) : 0;
-        const displayBalance = Math.max(balance, 0);
-        const fullyPaid = isContractFullyPaid(latestContract);
+    const projectName = selectedPlot?.project.projectName ?? "";
 
-        const installmentsWithRunning = latestContract
-            ? withRunningTotals(latestContract, latestContract.installments)
-            : [];
-
-        // Monthly installment, per the contract's own purchase plan. For the
-        // DOWNPAYMENT plan, use the contract's own financedAmount (already
-        // totalContractValue minus downpaymentAmount) rather than re-deriving
-        // it from downpaymentPercent, which is stored as a whole number
-        // (e.g. 20 meaning 20%), not a 0-1 fraction.
-        const monthlyInstallment = (() => {
-            if (!latestContract) return 0;
-            const total = Number(latestContract.totalContractValue);
-            const months = latestContract.termMonths;
-            if (!months) return 0;
-            if (latestContract.purchasePlan === "FLAT_RATE") return total / months;
-            if (months > 1) {
-                return Number(latestContract.financedAmount) / (months - 1);
-            }
-            return 0;
-        })();
-
-        const salesAgentName = latestContract?.salesAgent?.fullName ?? "—";
-        const salesAgentEmail = latestContract?.salesAgent?.email ?? "—";
-
-        const projectName = selectedPlot?.project.projectName ?? "";
+    const {
+        statementDocument,
+        letterDocument,
+        statementFileName,
+        letterFileName,
+    } = useMemo(() => {
         const statementReferenceNumber = buildDocumentReferenceNumber(
             extra.companyName,
             projectName,
@@ -115,10 +473,8 @@ export const ViewContactForm = ({
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")
             .replace(/^-+|-+$/g, "");
-        const statementFileName = `statement-${clientSlug}-${statementReferenceNumber.replace(/\//g, "-")}.pdf`;
-        const letterFileName = `confirmation-${clientSlug}-${letterReferenceNumber.replace(/\//g, "-")}.pdf`;
 
-        const statementDocument = (
+        const statement = (
             <ClientStatementDocument
                 companyName={extra.companyName}
                 companySubtitle={extra.branding.slogan ?? ""}
@@ -134,30 +490,32 @@ export const ViewContactForm = ({
                     region:
                         `${contact.region ?? ""} ${contact.street ?? ""} ${contact.ward ?? ""}`.trim(),
                     projectLocation: `${projectName} - Plot No. ${selectedPlot?.plotNumber ?? ""}`,
-                    plotSize: `Sqm ${plotSize}`,
-                    pricePerSqm: `Tshs. ${thousandSeparator(pricePerSqm)} /Sqm`,
-                    monthlyInstallment: `Tshs. ${thousandSeparator(monthlyInstallment)}`,
-                    duration: `${duration}`,
-                    salesAgent: salesAgentName,
+                    plotSize: `Sqm ${financials.plotSize}`,
+                    pricePerSqm: `Tshs. ${thousandSeparator(financials.pricePerSqm)} /Sqm`,
+                    monthlyInstallment: `Tshs. ${thousandSeparator(financials.monthlyInstallment)}`,
+                    duration: `${financials.duration}`,
+                    salesAgent: latestContract?.salesAgent?.fullName ?? "—",
                 }}
                 statementDetails={{
-                    contractValue: `Tshs. ${thousandSeparator(contractValue)}`,
-                    totalPayments: `Tshs. ${thousandSeparator(totalPayments)}`,
+                    contractValue: `Tshs. ${thousandSeparator(financials.contractValue)}`,
+                    totalPayments: `Tshs. ${thousandSeparator(financials.totalPayments)}`,
                     projectName,
-                    accountRep: salesAgentName,
-                    accountRepEmail: salesAgentEmail,
-                    currentBalance: `Tshs. ${thousandSeparator(displayBalance)}`,
+                    accountRep: latestContract?.salesAgent?.fullName ?? "—",
+                    accountRepEmail: latestContract?.salesAgent?.email ?? "—",
+                    currentBalance: `Tshs. ${thousandSeparator(financials.displayBalance)}`,
                 }}
                 invoices={{
                     payments: (latestContract?.payments ?? [])
                         .filter((payment) => payment.direction === "IN")
                         .map((payment) => ({...payment, amount: Number(payment.amount)})),
-                    installments: installmentsWithRunning.map((installment) => ({
-                        ...installment,
-                        amountDue: Number(installment.amountDue),
-                        amountPaid: Number(installment.amountPaid),
-                        runningTotal: installment.runningTotal ?? 0,
-                    })),
+                    installments: financials.installmentsWithRunning.map(
+                        (installment) => ({
+                            ...installment,
+                            amountDue: Number(installment.amountDue),
+                            amountPaid: Number(installment.amountPaid),
+                            runningTotal: installment.runningTotal ?? 0,
+                        }),
+                    ),
                 }}
                 footer={{
                     email: extra.branding.email,
@@ -168,14 +526,14 @@ export const ViewContactForm = ({
                     website: extra.branding.website,
                 }}
                 footerNotes={
-                    fullyPaid
+                    financials.fullyPaid
                         ? "Umekamilisha kulipa malipo yote. Asante kwa kuwa mteja wetu wa thamani."
-                        : `Salio la mkataba wako ni Tshs. ${thousandSeparator(displayBalance)}. Tafadhali fanya malipo kulipa kiasi kilichobakia kabla ya mkataba kuisha.`
+                        : `Salio la mkataba wako ni Tshs. ${thousandSeparator(financials.displayBalance)}. Tafadhali fanya malipo kulipa kiasi kilichobakia kabla ya mkataba kuisha.`
                 }
             />
         );
 
-        const letterDocument = latestContract && (
+        const letter = latestContract ? (
             <ConfirmationLetterDocument
                 companyName={extra.companyName}
                 logoUrl={extra.logoUrl}
@@ -184,7 +542,7 @@ export const ViewContactForm = ({
                 clientFullName={contact.fullName}
                 projectName={projectName}
                 plotNumber={selectedPlot?.plotNumber ?? ""}
-                plotSize={plotSize}
+                plotSize={financials.plotSize}
                 street={selectedPlot?.project.street ?? ""}
                 ward={selectedPlot?.project.ward ?? ""}
                 district={selectedPlot?.project.district ?? ""}
@@ -195,496 +553,136 @@ export const ViewContactForm = ({
                 website={extra.branding.website}
                 signerTitle={extra.branding.signerTitle}
             />
-        );
+        ) : null;
 
-        const plotSelector = (
+        return {
+            statementDocument: statement,
+            letterDocument: letter,
+            statementFileName: `statement-${clientSlug}-${statementReferenceNumber.replace(/\//g, "-")}.pdf`,
+            letterFileName: `confirmation-${clientSlug}-${letterReferenceNumber.replace(/\//g, "-")}.pdf`,
+        };
+    }, [contact, extra, selectedPlot, projectName, latestContract, financials]);
+
+    const plotSelector = useMemo(
+        () => (
             <Select value={selectedPlotId} onValueChange={setSelectedPlotId}>
                 <SelectTrigger>
                     <SelectValue placeholder="Select Plot/Contract"/>
                 </SelectTrigger>
                 <SelectContent>
-                    {contact.plots.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                            <span>{item.project.projectName}</span> - Plot No.
-                            <span>{item.plotNumber}</span>
+                    {contact.plots.map((plot) => (
+                        <SelectItem key={plot.id} value={plot.id}>
+                            <span>{plot.project.projectName}</span> - Plot No.
+                            <span>{plot.plotNumber}</span>
                         </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
-        );
+        ),
+        [contact.plots, selectedPlotId],
+    );
 
-        const horizontalTabs: HorizontalTabItem[] = [
+    const horizontalTabs: HorizontalTabItem[] = useMemo(() => {
+        const tabs: HorizontalTabItem[] = [
             {
-                id: "tab-1",
+                id: "personal-particulars",
                 label: "Personal Particulars",
                 icon: UserIcon,
-                content: (
-                    <div className="space-y-6">
-                        <div className="grid gap-6 lg:grid-cols-2">
-                            <ContactSection title="Personal Information">
-                                <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                                    <DetailItem
-                                        label="Gender"
-                                        value={contact.gender}
-                                        icon={<UserRound className="size-3.5"/>}
-                                    />
-                                    <DetailItem
-                                        label="Alternative Mobile"
-                                        value={contact.altMobileNumber}
-                                        href={
-                                            contact.altMobileNumber
-                                                ? `tel:${contact.altMobileNumber}`
-                                                : undefined
-                                        }
-                                        icon={<Phone className="size-3.5"/>}
-                                    />
-                                </dl>
-                            </ContactSection>
-
-                            <ContactSection title="Identification">
-                                <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                                    <DetailItem
-                                        label="ID Type"
-                                        value={contact.idType}
-                                        icon={<ShieldCheck className="size-3.5"/>}
-                                    />
-                                    <div className="flex min-w-0 flex-col gap-1.5">
-                                        <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                            <ShieldCheck className="size-3.5"/> ID Number
-                                        </dt>
-                                        <dd className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                      <span className="truncate">
-                        {contact.idNumber || "—"}
-                      </span>
-                                        </dd>
-                                    </div>
-                                </dl>
-                            </ContactSection>
-                        </div>
-                        <ContactSection title="Next of Keen Contacts">
-                            <div className="grid gap-6 md:grid-cols-2">
-                                {[
-                                    {
-                                        label: "First next of kin",
-                                        name: contact.firstNOKName,
-                                        mobile: contact.firstNOKMobile,
-                                        relationship: contact.firstNOKRelationship,
-                                    },
-                                    {
-                                        label: "Second next of kin",
-                                        name: contact.secondNOKName,
-                                        mobile: contact.secondNOKMobile,
-                                        relationship: contact.secondNOKRelationship,
-                                    },
-                                ].map((emergency) => (
-                                    <div
-                                        key={emergency.label}
-                                        className="flex min-w-0 flex-col gap-4 rounded-md border bg-muted/30 p-4"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="size-10">
-                                                <AvatarFallback className="bg-primary/10 text-primary">
-                                                    <Users className="size-4"/>
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                                    {emergency.label}
-                                                </p>
-                                                <p className="truncate text-sm font-semibold">
-                                                    {emergency.name || "Not provided"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <dl className="grid gap-3 sm:grid-cols-2">
-                                            <DetailItem
-                                                label="Relationship"
-                                                value={emergency.relationship}
-                                            />
-                                            <DetailItem
-                                                label="Mobile"
-                                                value={emergency.mobile}
-                                                href={
-                                                    emergency.mobile
-                                                        ? `tel:${emergency.mobile}`
-                                                        : undefined
-                                                }
-                                                icon={<Phone className="size-3.5"/>}
-                                            />
-                                        </dl>
-                                    </div>
-                                ))}
-                            </div>
-                        </ContactSection>
-                    </div>
-                ),
+                content: <PersonalParticularsContent contact={contact}/>,
             },
         ];
 
-        if (hasPlots && isClient) {
-            horizontalTabs.push({
-                id: "tab-2",
-                label: "Plots Held",
-                icon: MapPlusIcon,
-                content: (
-                    <>
-                        Manage your personal{" "}
-                        <span className="text-foreground font-semibold">
-              account details
-            </span>
-                        . Keep everything up to date so we can serve you better.
-                    </>
-                ),
-            });
-        }
+        const roleTab = (id: string, label: string, icon: LucideIcon) =>
+            tabs.push({id, label, icon, content: <PlaceholderTabContent/>});
 
-        if (isSupplier) {
-            horizontalTabs.push({
-                id: "tab-3",
-                label: "Supplier Projects",
-                icon: MapPlusIcon,
-                content: (
-                    <>
-                        Manage your Projects{" "}
-                        <span className="text-foreground font-semibold">
-              account details
-            </span>
-                        . Keep everything up to date so we can serve you better.
-                    </>
-                ),
-            });
-        }
-
+        if (hasPlots && isClient) roleTab("plots-held", "Plots Held", MapPlusIcon);
+        if (isSupplier)
+            roleTab("supplier-projects", "Supplier Projects", MapPlusIcon);
         if (isAgent) {
-            horizontalTabs.push({
-                id: "tab-4",
-                label: "Commission Payments",
-                icon: WalletIcon,
-                content: (
-                    <>
-                        Manage your Commissions{" "}
-                        <span className="text-foreground font-semibold">
-              account details
-            </span>
-                        . Keep everything up to date so we can serve you better.
-                    </>
-                ),
-            });
-            horizontalTabs.push({
-                id: "tab-5",
-                label: "Client Portfolio",
-                icon: BriefcaseBusinessIcon,
-                content: (
-                    <>
-                        Manage your Commissions{" "}
-                        <span className="text-foreground font-semibold">
-              account details
-            </span>
-                        . Keep everything up to date so we can serve you better.
-                    </>
-                ),
-            });
+            roleTab("commission-payments", "Commission Payments", WalletIcon);
+            roleTab("client-portfolio", "Client Portfolio", BriefcaseBusinessIcon);
         }
+        if (isVendor)
+            roleTab("assignments", "Assignments/Jobs", BriefcaseBusinessIcon);
 
-        if (isVendor) {
-            horizontalTabs.push({
-                id: "tab-6",
-                label: "Assignments/Jobs",
-                icon: BriefcaseBusinessIcon,
-                content: (
-                    <>
-                        Manage your Commissions{" "}
-                        <span className="text-foreground font-semibold">
-              account details
-            </span>
-                        . Keep everything up to date so we can serve you better.
-                    </>
-                ),
-            });
-        }
+        return tabs;
+    }, [contact, hasPlots, isClient, isSupplier, isAgent, isVendor]);
 
-        const verticalTabs: VerticalTabItem[] = [
+    const verticalTabs: VerticalTabItem[] = useMemo(() => {
+        const tabs: VerticalTabItem[] = [
             {
-                id: "tab-1",
+                id: "overview",
                 label: "Overview",
                 icon: HouseIcon,
                 content: (
                     <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-                        <div className="flex items-center gap-3 mb-8">
-                            <Avatar size="lg">
-                                <AvatarImage src={contact.clientPhoto ?? undefined} alt=""/>
-                                <AvatarFallback>PP</AvatarFallback>
-                                <AvatarBadge>
-                                    <UserIcon/>
-                                </AvatarBadge>
-                            </Avatar>
-                            <div className="min-w-0 ">
-                                <div className="flex justify-between">
-                                    <div className="flex min-w-0 items-center gap-2">
-                                        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
-                                            {contact.fullName}
-                                        </h1>
-                                        <Badge variant="secondary" className="text-xs">
-                                            {toProperCase(contact.contactType?.replace("_", " "))}
-                                        </Badge>
-                                    </div>
-                                    {/*<LabelNumberTicker value={contact.plots.length}/>*/}
-                                </div>
-                                <div
-                                    className="flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
-                                    {contact.mobileNumber && (
-                                        <a
-                                            href={`tel:${contact.mobileNumber}`}
-                                            className="inline-flex items-center gap-1.5 hover:text-foreground"
-                                        >
-                                            <Phone className="size-3.5 shrink-0"/>
-                                            <span>{contact.mobileNumber}</span>
-                                        </a>
-                                    )}
-
-                                    {contact.email && (
-                                        <>
-                                            {contact.mobileNumber && (
-                                                <span className="hidden sm:inline text-border" aria-hidden="true">
-                    ·
-                </span>
-                                            )}
-
-                                            <a
-                                                href={`mailto:${contact.email}`}
-                                                className="inline-flex min-w-0 items-center gap-1.5 hover:text-foreground"
-                                            >
-                                                <Mail className="size-3.5 shrink-0"/>
-                                                <span className="truncate break-all">{contact.email}</span>
-                                            </a>
-                                        </>
-                                    )}
-
-                                    {(contact.region ||
-                                        contact.district ||
-                                        contact.ward ||
-                                        contact.street) && (
-                                        <>
-                                            {(contact.mobileNumber || contact.email) && (
-                                                <span className="hidden sm:inline text-border" aria-hidden="true">
-                    ·
-                </span>
-                                            )}
-
-                                            <span className="inline-flex min-w-0 items-center gap-1.5">
-                <MapPlusIcon className="size-3.5 shrink-0"/>
-
-                <span className="truncate">
-                    {[
-                        contact.region,
-                        contact.district,
-                        contact.ward,
-                        contact.street,
-                    ]
-                        .filter(Boolean)
-                        .map(toProperCase)
-                        .join(", ")}
-                </span>
-            </span>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <CustomTabsHorizontal tabs={horizontalTabs}/>
+                        <ContactHeader contact={contact}/>
+                        <CustomTabsHorizontal
+                            tabs={horizontalTabs}
+                            defaultTab="personal-particulars"
+                        />
                     </div>
                 ),
             },
         ];
 
-        if (hasPlots && isClient) {
-            verticalTabs.push({
-                id: "tab-2",
-                label: "Client Statement",
+        const statementTab = (id: string, label: string) =>
+            tabs.push({
+                id,
+                label,
                 icon: FileText,
                 content: (
-                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-                        <div className="flex justify-between gap-2 mb-2">
-                            {plotSelector}
-                            <PDFDownloadLink
-                                document={statementDocument}
-                                fileName={statementFileName}
-                            >
-                                {({loading}) =>
-                                    loading ? (
-                                        <span className="text-sm">Loading document...</span>
-                                    ) : (
-                                        <span className="flex text-sm">
-                      <ImportIcon className="size-5"/> Download Statement
-                    </span>
-                                    )
-                                }
-                            </PDFDownloadLink>
-                        </div>
-                        {latestContract ? (
-                            <PDFViewer
-                                width="100%"
-                                height={480}
-                                showToolbar={false}
-                                className="rounded-lg"
-                            >
-                                {statementDocument}
-                            </PDFViewer>
-                        ) : (
-                            <div
-                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
-                                This plot has no contract yet.
-                            </div>
-                        )}
-                    </div>
+                    <StatementTabContent
+                        plotSelector={plotSelector}
+                        document={statementDocument}
+                        fileName={statementFileName}
+                        hasContract={latestContract !== null}
+                    />
                 ),
             });
 
-            verticalTabs.push({
-                id: "tab-3",
+        if (hasPlots && isClient) {
+            statementTab("client-statement", "Client Statement");
+            tabs.push({
+                id: "confirmation-letter",
                 label: "Confirmation Letter",
                 icon: FileCheck2,
                 content: (
-                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-                        <div className="flex justify-between gap-2 mb-2">
-                            {plotSelector}
-                            {fullyPaid && letterDocument ? (
-                                <PDFDownloadLink
-                                    document={letterDocument}
-                                    fileName={letterFileName}
-                                >
-                                    {({loading}) =>
-                                        loading ? (
-                                            <span className="text-sm">Preparing...</span>
-                                        ) : (
-                                            <span className="flex text-sm">
-                        <ImportIcon className="size-5"/> Download Letter
-                      </span>
-                                        )
-                                    }
-                                </PDFDownloadLink>
-                            ) : (
-                                <span className="flex text-sm cursor-not-allowed">
-                  <ImportIcon className="size-5"/> Download Letter
-                </span>
-                            )}
-                        </div>
-                        {fullyPaid && letterDocument ? (
-                            <PDFViewer
-                                width="100%"
-                                height={480}
-                                showToolbar={false}
-                                className="rounded-lg"
-                            >
-                                {letterDocument}
-                            </PDFViewer>
-                        ) : (
-                            <div
-                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
-                                Available when the selected contract balance is fully paid.
-                            </div>
-                        )}
-                    </div>
+                    <ConfirmationLetterTabContent
+                        plotSelector={plotSelector}
+                        document={letterDocument}
+                        fileName={letterFileName}
+                        fullyPaid={financials.fullyPaid}
+                    />
                 ),
             });
         }
 
-        if (isSupplier) {
-            verticalTabs.push({
-                id: "tab-4",
-                label: "Supplier Statement",
-                icon: FileText,
-                content: (
-                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-                        <div className="flex justify-between gap-2 mb-2">
-                            {plotSelector}
-                            <PDFDownloadLink
-                                document={statementDocument}
-                                fileName={statementFileName}
-                            >
-                                {({loading}) =>
-                                    loading ? (
-                                        <span className="text-sm">Loading document...</span>
-                                    ) : (
-                                        <span className="flex text-sm">
-                      <ImportIcon className="size-5"/> Download Statement
-                    </span>
-                                    )
-                                }
-                            </PDFDownloadLink>
-                        </div>
-                        {latestContract ? (
-                            <PDFViewer
-                                width="100%"
-                                height={480}
-                                showToolbar={false}
-                                className="rounded-lg"
-                            >
-                                {statementDocument}
-                            </PDFViewer>
-                        ) : (
-                            <div
-                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
-                                This plot has no contract yet.
-                            </div>
-                        )}
-                    </div>
-                ),
-            });
-        }
+        if (isSupplier) statementTab("supplier-statement", "Supplier Statement");
+        if (isVendor) statementTab("vendor-statement", "Vendor Statement");
 
-        if (isVendor) {
-            verticalTabs.push({
-                id: "tab-5",
-                label: "Vendor Statement",
-                icon: FileText,
-                content: (
-                    <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-                        <div className="flex justify-between gap-2 mb-2">
-                            {plotSelector}
-                            <PDFDownloadLink
-                                document={statementDocument}
-                                fileName={statementFileName}
-                            >
-                                {({loading}) =>
-                                    loading ? (
-                                        <span className="text-sm">Loading document...</span>
-                                    ) : (
-                                        <span className="flex text-sm">
-                      <ImportIcon className="size-5"/> Download Statement
-                    </span>
-                                    )
-                                }
-                            </PDFDownloadLink>
-                        </div>
-                        {latestContract ? (
-                            <PDFViewer
-                                width="100%"
-                                height={480}
-                                showToolbar={false}
-                                className="rounded-lg"
-                            >
-                                {statementDocument}
-                            </PDFViewer>
-                        ) : (
-                            <div
-                                className="flex h-120 items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground px-8">
-                                This plot has no contract yet.
-                            </div>
-                        )}
-                    </div>
-                ),
-            });
-        }
-
-        return verticalTabs;
-    }, [contact, extra, selectedPlot, selectedPlotId, latestContract]);
+        return tabs;
+    }, [
+        contact,
+        horizontalTabs,
+        hasPlots,
+        isClient,
+        isSupplier,
+        isVendor,
+        plotSelector,
+        statementDocument,
+        statementFileName,
+        letterDocument,
+        letterFileName,
+        latestContract,
+        financials.fullyPaid,
+    ]);
 
     return (
         <div className="mt-4">
             <CustomTabsVertical
-                defaultTab="tab-1"
-                tabs={tabsData}
+                defaultTab="overview"
+                tabs={verticalTabs}
                 skeletonTabCount={4}
                 unstyled
             />

@@ -43,7 +43,7 @@ export function DetailItem({label, value, href, icon}: DetailItemProps) {
                 {icon}
                 {label}
             </dt>
-            <dd className="min-w-0 text-sm font-medium text-foreground">
+            <dd className="min-w-0 text-xs font-medium text-foreground">
                 {href && value ? (
                     <a className="wrap-break-word text-primary underline-offset-4 hover:underline" href={href}>
                         {displayValue}
