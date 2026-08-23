@@ -34,6 +34,7 @@ import {CustomTabsHorizontal, type HorizontalTabItem,} from "@/components/custom
 import {Avatar, AvatarBadge, AvatarFallback, AvatarImage,} from "@/components/ui/avatar.tsx";
 import {Badge} from "@/components/ui/badge.tsx";
 import {ContactSection, DetailItem,} from "@/components/views/contact-overview.tsx";
+import {PlotsHeldDataGrid} from "@/components/data-grids/plots-held-datagrid.tsx";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -289,6 +290,14 @@ function PersonalParticularsContent({contact}: { contact: ClientContact }) {
 
             <NextOfKinSection contact={contact}/>
         </div>
+    );
+}
+
+function PlotsHeldTabContent({contact}: { contact: ClientContact }) {
+    return (
+        <ContactSection title="Plots Held">
+            <PlotsHeldDataGrid plots={contact.plots}/>
+        </ContactSection>
     );
 }
 
@@ -595,7 +604,13 @@ export const ViewContactForm = ({
         const roleTab = (id: string, label: string, icon: LucideIcon) =>
             tabs.push({id, label, icon, content: <PlaceholderTabContent/>});
 
-        if (hasPlots && isClient) roleTab("plots-held", "Plots Held", MapPlusIcon);
+        if (hasPlots && isClient)
+            tabs.push({
+                id: "plots-held",
+                label: "Plots Held",
+                icon: MapPlusIcon,
+                content: <PlotsHeldTabContent contact={contact}/>,
+            });
         if (isSupplier)
             roleTab("supplier-projects", "Supplier Projects", MapPlusIcon);
         if (isAgent) {
