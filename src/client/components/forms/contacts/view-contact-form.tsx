@@ -14,7 +14,7 @@ import {
     Users,
     WalletIcon,
 } from "lucide-react";
-import {formatInternationalWithSpaces, getInitials, thousandSeparator, toProperCase,} from "@/lib/utils";
+import {formatInternationalWithSpaces, thousandSeparator, toProperCase,} from "@/lib/utils";
 import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx";
 import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx";
 import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
@@ -35,6 +35,7 @@ import {Avatar, AvatarBadge, AvatarFallback, AvatarImage,} from "@/components/ui
 import {Badge} from "@/components/ui/badge.tsx";
 import {ContactSection, DetailItem,} from "@/components/views/contact-overview.tsx";
 import {PlotsHeldDataGrid} from "@/components/data-grids/plots-held-datagrid.tsx";
+import {CommissionPaymentsDataGrid} from "@/components/data-grids/commission-payments-datagrid.tsx";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -131,7 +132,7 @@ function ContactHeader({contact}: { contact: ClientContact }) {
         <div className="flex items-center gap-3 mb-8">
             <Avatar size="lg">
                 <AvatarImage src={contact.clientPhoto ?? undefined} alt=""/>
-                <AvatarFallback>{getInitials(contact.fullName)}</AvatarFallback>
+                <AvatarFallback>PP</AvatarFallback>
                 <AvatarBadge>
                     <UserIcon/>
                 </AvatarBadge>
@@ -294,7 +295,15 @@ function PersonalParticularsContent({contact}: { contact: ClientContact }) {
 }
 
 function PlotsHeldTabContent({contact}: { contact: ClientContact }) {
-    return <PlotsHeldDataGrid plots={contact.plots}/>
+    return (
+        <ContactSection title="Plots Held">
+            <PlotsHeldDataGrid plots={contact.plots}/>
+        </ContactSection>
+    );
+}
+
+function CommissionPaymentsTabContent({contact}: { contact: ClientContact }) {
+    return <CommissionPaymentsDataGrid contracts={contact.plotSaleContractsAsAgent}/>
 }
 
 function PdfTabHeader({
@@ -610,7 +619,12 @@ export const ViewContactForm = ({
         if (isSupplier)
             roleTab("supplier-projects", "Supplier Projects", MapPlusIcon);
         if (isAgent) {
-            roleTab("commission-payments", "Commission Payments", WalletIcon);
+            tabs.push({
+                id: "commission-payments",
+                label: "Commission Payments",
+                icon: WalletIcon,
+                content: <CommissionPaymentsTabContent contact={contact}/>,
+            });
             roleTab("client-portfolio", "Client Portfolio", BriefcaseBusinessIcon);
         }
         if (isVendor)
