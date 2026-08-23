@@ -153,8 +153,8 @@ function installmentStatusBadge(installment: ClientContactInstallment) {
 // ---------------------------------------------------------------------------
 
 function InstallmentsSubTable({
-                                   installments,
-                               }: {
+                                  installments,
+                              }: {
     installments: ClientContactInstallment[]
 }) {
     const [sorting, setSorting] = useState<SortingState>([
@@ -307,6 +307,7 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
                 cell: ({row}) => {
                     return row.getCanExpand() ? (
                         <Button
+                            type="button"
                             onClick={row.getToggleExpandedHandler()}
                             size="icon-sm"
                             variant="ghost"
@@ -477,7 +478,7 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
                             <DataGridColumnVisibility
                                 table={table}
                                 trigger={
-                                    <Button variant="outline" size="sm">
+                                    <Button type="button" variant="outline" size="sm">
                                         <Columns3Icon className="size-3.5"/>
                                         Columns
                                     </Button>
