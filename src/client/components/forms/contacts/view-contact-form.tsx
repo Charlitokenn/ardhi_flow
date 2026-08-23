@@ -33,7 +33,7 @@ import CustomTabsVertical, {type VerticalTabItem,} from "@/components/custom-tab
 import {CustomTabsHorizontal, type HorizontalTabItem,} from "@/components/custom-tabs-horizontal.tsx";
 import {Avatar, AvatarBadge, AvatarFallback, AvatarImage,} from "@/components/ui/avatar.tsx";
 import {Badge} from "@/components/ui/badge.tsx";
-import {ContactSection, DetailItem} from "@/components/views/contact-overview.tsx";
+import {ContactSection, DetailItem,} from "@/components/views/contact-overview.tsx";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -48,8 +48,8 @@ const CONTACT_TYPE = {
 const PLACEHOLDER_COPY = (
     <>
         Manage your{" "}
-        <span className="text-foreground font-semibold">account details</span>.
-        Keep everything up to date so we can serve you better.
+        <span className="text-foreground font-semibold">account details</span>. Keep
+        everything up to date so we can serve you better.
     </>
 );
 
@@ -100,7 +100,8 @@ function deriveContractFinancials(
             if (!contract) return 0;
             const {termMonths: months, totalContractValue, purchasePlan} = contract;
             if (!months) return 0;
-            if (purchasePlan === "FLAT_RATE") return Number(totalContractValue) / months;
+            if (purchasePlan === "FLAT_RATE")
+                return Number(totalContractValue) / months;
             if (months > 1) return Number(contract.financedAmount) / (months - 1);
             return 0;
         })(),
@@ -115,7 +116,12 @@ function deriveContractFinancials(
 // ---------------------------------------------------------------------------
 
 function ContactHeader({contact}: { contact: ClientContact }) {
-    const locationLabel = [contact.region, contact.district, contact.ward, contact.street]
+    const locationLabel = [
+        contact.region,
+        contact.district,
+        contact.ward,
+        contact.street,
+    ]
         .filter(Boolean)
         .map(toProperCase)
         .join(", ");
@@ -255,7 +261,11 @@ function PersonalParticularsContent({contact}: { contact: ClientContact }) {
                         <DetailItem
                             label="Alternative Mobile"
                             value={contact.altMobileNumber}
-                            href={contact.altMobileNumber ? `tel:${contact.altMobileNumber}` : undefined}
+                            href={
+                                contact.altMobileNumber
+                                    ? `tel:${contact.altMobileNumber}`
+                                    : undefined
+                            }
                             icon={<Phone className="size-3.5"/>}
                         />
                     </dl>
@@ -268,14 +278,11 @@ function PersonalParticularsContent({contact}: { contact: ClientContact }) {
                             value={contact.idType}
                             icon={<ShieldCheck className="size-3.5"/>}
                         />
-                        <div className="flex min-w-0 flex-col gap-1.5">
-                            <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                <ShieldCheck className="size-3.5"/> ID Number
-                            </dt>
-                            <dd className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                                <span className="truncate">{contact.idNumber || "—"}</span>
-                            </dd>
-                        </div>
+                        <DetailItem
+                            label="ID Number"
+                            value={contact.idNumber}
+                            icon={<ShieldCheck className="size-3.5"/>}
+                        />
                     </dl>
                 </ContactSection>
             </div>
@@ -348,9 +355,18 @@ function StatementTabContent({
 }) {
     return (
         <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
-            <PdfTabHeader plotSelector={plotSelector} document={document} fileName={fileName}/>
+            <PdfTabHeader
+                plotSelector={plotSelector}
+                document={document}
+                fileName={fileName}
+            />
             {hasContract ? (
-                <PDFViewer width="100%" height={480} showToolbar={false} className="rounded-lg">
+                <PDFViewer
+                    width="100%"
+                    height={480}
+                    showToolbar={false}
+                    className="rounded-lg"
+                >
                     {document}
                 </PDFViewer>
             ) : (
@@ -384,7 +400,12 @@ function ConfirmationLetterTabContent({
                 actionLabel="Download Letter"
             />
             {available ? (
-                <PDFViewer width="100%" height={480} showToolbar={false} className="rounded-lg">
+                <PDFViewer
+                    width="100%"
+                    height={480}
+                    showToolbar={false}
+                    className="rounded-lg"
+                >
                     {document}
                 </PDFViewer>
             ) : (
@@ -430,122 +451,135 @@ export const ViewContactForm = ({
 
     const projectName = selectedPlot?.project.projectName ?? "";
 
-    const {statementDocument, letterDocument, statementFileName, letterFileName} =
-        useMemo(() => {
-            const statementReferenceNumber = buildDocumentReferenceNumber(
-                extra.companyName,
-                projectName,
-                contact.fullName,
-                "STMT",
-            );
-            const letterReferenceNumber = buildDocumentReferenceNumber(
-                extra.companyName,
-                projectName,
-                contact.fullName,
-                "CONF",
-            );
-            const clientSlug = contact.fullName
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/^-+|-+$/g, "");
+    const {
+        statementDocument,
+        letterDocument,
+        statementFileName,
+        letterFileName,
+    } = useMemo(() => {
+        const statementReferenceNumber = buildDocumentReferenceNumber(
+            extra.companyName,
+            projectName,
+            contact.fullName,
+            "STMT",
+        );
+        const letterReferenceNumber = buildDocumentReferenceNumber(
+            extra.companyName,
+            projectName,
+            contact.fullName,
+            "CONF",
+        );
+        const clientSlug = contact.fullName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
 
-            const statement = (
-                <ClientStatementDocument
-                    companyName={extra.companyName}
-                    companySubtitle={extra.branding.slogan ?? ""}
-                    statementTitle="Taarifa ya Malipo"
-                    logoUrl={extra.logoUrl}
-                    primaryColor={extra.branding.primaryColor}
-                    referenceNumber={statementReferenceNumber}
-                    billTo={{
-                        clientName: contact.fullName,
-                        projectName,
-                        mobile: formatInternationalWithSpaces(contact.mobileNumber ?? "") ?? "",
-                        region: `${contact.region ?? ""} ${contact.street ?? ""} ${contact.ward ?? ""}`.trim(),
-                        projectLocation: `${projectName} - Plot No. ${selectedPlot?.plotNumber ?? ""}`,
-                        plotSize: `Sqm ${financials.plotSize}`,
-                        pricePerSqm: `Tshs. ${thousandSeparator(financials.pricePerSqm)} /Sqm`,
-                        monthlyInstallment: `Tshs. ${thousandSeparator(financials.monthlyInstallment)}`,
-                        duration: `${financials.duration}`,
-                        salesAgent: latestContract?.salesAgent?.fullName ?? "—",
-                    }}
-                    statementDetails={{
-                        contractValue: `Tshs. ${thousandSeparator(financials.contractValue)}`,
-                        totalPayments: `Tshs. ${thousandSeparator(financials.totalPayments)}`,
-                        projectName,
-                        accountRep: latestContract?.salesAgent?.fullName ?? "—",
-                        accountRepEmail: latestContract?.salesAgent?.email ?? "—",
-                        currentBalance: `Tshs. ${thousandSeparator(financials.displayBalance)}`,
-                    }}
-                    invoices={{
-                        payments: (latestContract?.payments ?? [])
-                            .filter((payment) => payment.direction === "IN")
-                            .map((payment) => ({...payment, amount: Number(payment.amount)})),
-                        installments: financials.installmentsWithRunning.map((installment) => ({
+        const statement = (
+            <ClientStatementDocument
+                companyName={extra.companyName}
+                companySubtitle={extra.branding.slogan ?? ""}
+                statementTitle="Taarifa ya Malipo"
+                logoUrl={extra.logoUrl}
+                primaryColor={extra.branding.primaryColor}
+                referenceNumber={statementReferenceNumber}
+                billTo={{
+                    clientName: contact.fullName,
+                    projectName,
+                    mobile:
+                        formatInternationalWithSpaces(contact.mobileNumber ?? "") ?? "",
+                    region:
+                        `${contact.region ?? ""} ${contact.street ?? ""} ${contact.ward ?? ""}`.trim(),
+                    projectLocation: `${projectName} - Plot No. ${selectedPlot?.plotNumber ?? ""}`,
+                    plotSize: `Sqm ${financials.plotSize}`,
+                    pricePerSqm: `Tshs. ${thousandSeparator(financials.pricePerSqm)} /Sqm`,
+                    monthlyInstallment: `Tshs. ${thousandSeparator(financials.monthlyInstallment)}`,
+                    duration: `${financials.duration}`,
+                    salesAgent: latestContract?.salesAgent?.fullName ?? "—",
+                }}
+                statementDetails={{
+                    contractValue: `Tshs. ${thousandSeparator(financials.contractValue)}`,
+                    totalPayments: `Tshs. ${thousandSeparator(financials.totalPayments)}`,
+                    projectName,
+                    accountRep: latestContract?.salesAgent?.fullName ?? "—",
+                    accountRepEmail: latestContract?.salesAgent?.email ?? "—",
+                    currentBalance: `Tshs. ${thousandSeparator(financials.displayBalance)}`,
+                }}
+                invoices={{
+                    payments: (latestContract?.payments ?? [])
+                        .filter((payment) => payment.direction === "IN")
+                        .map((payment) => ({...payment, amount: Number(payment.amount)})),
+                    installments: financials.installmentsWithRunning.map(
+                        (installment) => ({
                             ...installment,
                             amountDue: Number(installment.amountDue),
                             amountPaid: Number(installment.amountPaid),
                             runningTotal: installment.runningTotal ?? 0,
-                        })),
-                    }}
-                    footer={{
-                        email: extra.branding.email,
-                        address: extra.branding.address,
-                        mobile: formatInternationalWithSpaces(extra.branding.mobileNumber ?? ""),
-                        website: extra.branding.website,
-                    }}
-                    footerNotes={
-                        financials.fullyPaid
-                            ? "Umekamilisha kulipa malipo yote. Asante kwa kuwa mteja wetu wa thamani."
-                            : `Salio la mkataba wako ni Tshs. ${thousandSeparator(financials.displayBalance)}. Tafadhali fanya malipo kulipa kiasi kilichobakia kabla ya mkataba kuisha.`
-                    }
-                />
-            );
+                        }),
+                    ),
+                }}
+                footer={{
+                    email: extra.branding.email,
+                    address: extra.branding.address,
+                    mobile: formatInternationalWithSpaces(
+                        extra.branding.mobileNumber ?? "",
+                    ),
+                    website: extra.branding.website,
+                }}
+                footerNotes={
+                    financials.fullyPaid
+                        ? "Umekamilisha kulipa malipo yote. Asante kwa kuwa mteja wetu wa thamani."
+                        : `Salio la mkataba wako ni Tshs. ${thousandSeparator(financials.displayBalance)}. Tafadhali fanya malipo kulipa kiasi kilichobakia kabla ya mkataba kuisha.`
+                }
+            />
+        );
 
-            const letter = latestContract ? (
-                <ConfirmationLetterDocument
-                    companyName={extra.companyName}
-                    logoUrl={extra.logoUrl}
-                    primaryColor={extra.branding.primaryColor}
-                    referenceNumber={letterReferenceNumber}
-                    clientFullName={contact.fullName}
-                    projectName={projectName}
-                    plotNumber={selectedPlot?.plotNumber ?? ""}
-                    plotSize={financials.plotSize}
-                    street={selectedPlot?.project.street ?? ""}
-                    ward={selectedPlot?.project.ward ?? ""}
-                    district={selectedPlot?.project.district ?? ""}
-                    region={selectedPlot?.project.region ?? ""}
-                    mobileNumber={extra.branding.mobileNumber}
-                    email={extra.branding.email}
-                    address={extra.branding.address}
-                    website={extra.branding.website}
-                    signerTitle={extra.branding.signerTitle}
-                />
-            ) : null;
+        const letter = latestContract ? (
+            <ConfirmationLetterDocument
+                companyName={extra.companyName}
+                logoUrl={extra.logoUrl}
+                primaryColor={extra.branding.primaryColor}
+                referenceNumber={letterReferenceNumber}
+                clientFullName={contact.fullName}
+                projectName={projectName}
+                plotNumber={selectedPlot?.plotNumber ?? ""}
+                plotSize={financials.plotSize}
+                street={selectedPlot?.project.street ?? ""}
+                ward={selectedPlot?.project.ward ?? ""}
+                district={selectedPlot?.project.district ?? ""}
+                region={selectedPlot?.project.region ?? ""}
+                mobileNumber={extra.branding.mobileNumber}
+                email={extra.branding.email}
+                address={extra.branding.address}
+                website={extra.branding.website}
+                signerTitle={extra.branding.signerTitle}
+            />
+        ) : null;
 
-            return {
-                statementDocument: statement,
-                letterDocument: letter,
-                statementFileName: `statement-${clientSlug}-${statementReferenceNumber.replace(/\//g, "-")}.pdf`,
-                letterFileName: `confirmation-${clientSlug}-${letterReferenceNumber.replace(/\//g, "-")}.pdf`,
-            };
-        }, [contact, extra, selectedPlot, projectName, latestContract, financials]);
+        return {
+            statementDocument: statement,
+            letterDocument: letter,
+            statementFileName: `statement-${clientSlug}-${statementReferenceNumber.replace(/\//g, "-")}.pdf`,
+            letterFileName: `confirmation-${clientSlug}-${letterReferenceNumber.replace(/\//g, "-")}.pdf`,
+        };
+    }, [contact, extra, selectedPlot, projectName, latestContract, financials]);
 
-    const plotSelector = (
-        <Select value={selectedPlotId} onValueChange={setSelectedPlotId}>
-            <SelectTrigger>
-                <SelectValue placeholder="Select Plot/Contract"/>
-            </SelectTrigger>
-            <SelectContent>
-                {contact.plots.map((plot) => (
-                    <SelectItem key={plot.id} value={plot.id}>
-                        <span>{plot.project.projectName}</span> - Plot No.
-                        <span>{plot.plotNumber}</span>
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+    const plotSelector = useMemo(
+        () => (
+            <Select value={selectedPlotId} onValueChange={setSelectedPlotId}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Select Plot/Contract"/>
+                </SelectTrigger>
+                <SelectContent>
+                    {contact.plots.map((plot) => (
+                        <SelectItem key={plot.id} value={plot.id}>
+                            <span>{plot.project.projectName}</span> - Plot No.
+                            <span>{plot.plotNumber}</span>
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        ),
+        [contact.plots, selectedPlotId],
     );
 
     const horizontalTabs: HorizontalTabItem[] = useMemo(() => {
@@ -562,12 +596,14 @@ export const ViewContactForm = ({
             tabs.push({id, label, icon, content: <PlaceholderTabContent/>});
 
         if (hasPlots && isClient) roleTab("plots-held", "Plots Held", MapPlusIcon);
-        if (isSupplier) roleTab("supplier-projects", "Supplier Projects", MapPlusIcon);
+        if (isSupplier)
+            roleTab("supplier-projects", "Supplier Projects", MapPlusIcon);
         if (isAgent) {
             roleTab("commission-payments", "Commission Payments", WalletIcon);
             roleTab("client-portfolio", "Client Portfolio", BriefcaseBusinessIcon);
         }
-        if (isVendor) roleTab("assignments", "Assignments/Jobs", BriefcaseBusinessIcon);
+        if (isVendor)
+            roleTab("assignments", "Assignments/Jobs", BriefcaseBusinessIcon);
 
         return tabs;
     }, [contact, hasPlots, isClient, isSupplier, isAgent, isVendor]);
@@ -581,7 +617,10 @@ export const ViewContactForm = ({
                 content: (
                     <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
                         <ContactHeader contact={contact}/>
-                        <CustomTabsHorizontal tabs={horizontalTabs} defaultTab="personal-particulars"/>
+                        <CustomTabsHorizontal
+                            tabs={horizontalTabs}
+                            defaultTab="personal-particulars"
+                        />
                     </div>
                 ),
             },
