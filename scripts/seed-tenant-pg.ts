@@ -78,7 +78,6 @@ async function main() {
     // --- Helpers ---
     const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
     const randomElement = <T>(arr: T[] | readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
-    const randomAmount = (min: number, max: number) => (Math.random() * (max - min) + min).toFixed(2)
     const randomPhone = () => `+255${randomInt(6, 7)}${randomInt(10000000, 99999999)}`
     const addMonths = (dateStr: string, months: number) => {
         const d = new Date(dateStr)
