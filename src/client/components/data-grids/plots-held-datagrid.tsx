@@ -32,7 +32,7 @@ import {
 } from "@tanstack/react-table"
 
 import {Button} from "@/components/ui/button.tsx"
-import {Card, CardAction, CardHeader, CardTitle} from "@/components/ui/card.tsx"
+import {Card, CardAction, CardTitle} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
 import type {ClientContactInstallment, ClientContactPlot} from "@/types/contacts.ts"
 import {ChevronDownIcon, ChevronUpIcon, Columns3Icon} from "lucide-react"
@@ -344,7 +344,7 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
                         column={column}
                     />
                 ),
-                cell: (info) => info.getValue() as string,
+                cell: (info) => "Plot No. " + info.getValue() as string,
                 enableSorting: true,
                 enableHiding: true,
                 size: 140,
@@ -442,6 +442,13 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
             columnOrder,
             columnVisibility,
         },
+
+        initialState: {
+            columnPinning: {
+                start: ["projectName"],
+                end: [],
+            },
+        },
         onPaginationChange: setPagination,
         onSortingChange: setSorting,
         onExpandedChange: setExpandedRows,
@@ -469,10 +476,10 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
             emptyMessage="No plots are recorded for this client yet."
         >
             <div className="w-full space-y-2.5">
-                <Card className="p-0">
-                    <CardHeader className="flex-row items-center justify-between gap-2 border-b py-3">
+                <div className="border rounded-md">
+                    <div className="p-2 flex flex-row items-center justify-between border-b py-2">
                         <CardTitle className="text-muted-foreground text-sm font-medium">
-                            {rows.length} {rows.length === 1 ? "plot" : "plots"} held
+                            {rows.length} {rows.length === 1 ? "Plot" : "Plots"} held
                         </CardTitle>
                         <CardAction>
                             <DataGridColumnVisibility
@@ -485,13 +492,13 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
                                 }
                             />
                         </CardAction>
-                    </CardHeader>
+                    </div>
                     <DataGridContainer>
                         <DataGridScrollArea>
                             <DataGridTable/>
                         </DataGridScrollArea>
                     </DataGridContainer>
-                </Card>
+                </div>
                 <DataGridPagination/>
             </div>
         </DataGrid>

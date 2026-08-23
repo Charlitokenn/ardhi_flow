@@ -14,7 +14,7 @@ import {
     Users,
     WalletIcon,
 } from "lucide-react";
-import {formatInternationalWithSpaces, thousandSeparator, toProperCase,} from "@/lib/utils";
+import {formatInternationalWithSpaces, getInitials, thousandSeparator, toProperCase,} from "@/lib/utils";
 import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx";
 import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx";
 import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
@@ -131,7 +131,7 @@ function ContactHeader({contact}: { contact: ClientContact }) {
         <div className="flex items-center gap-3 mb-8">
             <Avatar size="lg">
                 <AvatarImage src={contact.clientPhoto ?? undefined} alt=""/>
-                <AvatarFallback>PP</AvatarFallback>
+                <AvatarFallback>{getInitials(contact.fullName)}</AvatarFallback>
                 <AvatarBadge>
                     <UserIcon/>
                 </AvatarBadge>
@@ -294,11 +294,7 @@ function PersonalParticularsContent({contact}: { contact: ClientContact }) {
 }
 
 function PlotsHeldTabContent({contact}: { contact: ClientContact }) {
-    return (
-        <ContactSection title="Plots Held">
-            <PlotsHeldDataGrid plots={contact.plots}/>
-        </ContactSection>
-    );
+    return <PlotsHeldDataGrid plots={contact.plots}/>
 }
 
 function PdfTabHeader({
