@@ -72,6 +72,7 @@ async function main() {
         await db.delete(schema.contacts)
         await db.delete(schema.accounts)
         await db.delete(schema.commissionSettings)
+        await db.delete(schema.companySettings)
         console.log('  ✓ Data cleaned.')
     }
 
@@ -194,6 +195,21 @@ async function main() {
         defaultCommissionPercent: '5',
         defaultPayoutMonths: 3,
     }).returning()
+
+    // --- Company Settings ---
+    // Singleton row (fixed id) — branding details used on generated client
+    // statements/confirmation letters.
+    console.log('  → Seeding company settings...')
+    await db.insert(schema.companySettings).values({
+        id: schema.COMPANY_SETTINGS_ID,
+        slogan: 'Your Trusted Land Partner',
+        primaryColor: '#0F6B3D',
+        email: 'info@ardhiflow.co.tz',
+        mobileNumber: '+255754000000',
+        address: 'Kigamboni, Dar es Salaam',
+        website: 'https://ardhiflow.co.tz',
+        signerTitle: 'Managing Director',
+    })
 
     // --- Contracts ---
     console.log('  → Seeding contracts...')
@@ -368,6 +384,27 @@ async function main() {
                     }
                 }
             }
+        }
+
+        // --- Contract Events (comments plumbing) ---
+        // A routine follow-up note on every contract, plus a system-generated
+        // delinquency marker for contracts in that state.
+        await db.insert(schema.contractEvents).values({
+            contractId: contract.id,
+            eventType: 'FOLLOWUP_COMMENT',
+            message: `Called ${client.fullName} to confirm the payment schedule.`,
+            createdBy: agent.fullName,
+        })
+
+        if (status === 'DELINQUENT') {
+            const overdueInst = insertedInsts.find((inst) => inst.status === 'PARTIAL')
+            await db.insert(schema.contractEvents).values({
+                contractId: contract.id,
+                installmentId: overdueInst?.id,
+                eventType: 'DELINQUENT_MARKED',
+                message: 'Contract marked delinquent after a missed installment.',
+                isInternal: true,
+            })
         }
     }
 
