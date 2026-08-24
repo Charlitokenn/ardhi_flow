@@ -625,7 +625,7 @@ export const ViewContactForm = ({
                 icon: WalletIcon,
                 content: <CommissionPaymentsTabContent contact={contact}/>,
             });
-            roleTab("client-portfolio", "Client Portfolio", BriefcaseBusinessIcon);
+            // roleTab("client-portfolio", "Client Portfolio", BriefcaseBusinessIcon);
         }
         if (isVendor)
             roleTab("assignments", "Assignments/Jobs", BriefcaseBusinessIcon);

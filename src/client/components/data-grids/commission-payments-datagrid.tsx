@@ -16,9 +16,14 @@ import {
 import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
 import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
 import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
-import {DataGridTable} from "@/components/reui/data-grid/data-grid-table.tsx"
+import {
+    DataGridTable,
+    DataGridTableFootRow,
+    DataGridTableFootRowCell,
+} from "@/components/reui/data-grid/data-grid-table.tsx"
 import {
     type ColumnDef,
+    type ColumnPinningState,
     type ExpandedState,
     type PaginationState,
     type SortingState,
@@ -93,6 +98,25 @@ function payoutStatusBadge(status: ClientContactCommissionPayout["status"]) {
     }
 }
 
+/** Layout for a totals footer row: how many visible columns sit before the
+ * target column (the label spans those) and how many sit after (rendered
+ * as one empty trailing cell) — derived from the table's actual visible
+ * columns so the footer stays aligned under its target even if a column
+ * between it and the table edge gets hidden. Returns null if the target
+ * column itself is currently hidden, since there's nowhere to anchor the
+ * total in that case. */
+function footerColumnSpan(
+    visibleColumnIds: string[],
+    targetColumnId: string
+): { leading: number; trailing: number } | null {
+    const targetIndex = visibleColumnIds.indexOf(targetColumnId)
+    if (targetIndex === -1) return null
+    return {
+        leading: targetIndex,
+        trailing: visibleColumnIds.length - targetIndex - 1,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Sub-table: commission payout schedule for one contract
 // ---------------------------------------------------------------------------
@@ -130,7 +154,7 @@ function CommissionPayoutsSubTable({
                 accessorKey: "targetMonth",
                 id: "targetMonth",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Target Month" column={column}/>
+                    <DataGridColumnHeader title="Payout Month" column={column}/>
                 ),
                 cell: (info) => formatMonth(info.getValue() as string),
                 enableSorting: true,
@@ -184,6 +208,35 @@ function CommissionPayoutsSubTable({
         getRowId: (row: ClientContactCommissionPayout) => row.id,
     })
 
+    const totalPaid = useMemo(
+        () =>
+            payouts
+                .filter((payout) => payout.status === "PAID")
+                .reduce((sum, payout) => sum + Number(payout.amount), 0),
+        [payouts]
+    )
+
+    const amountSpan = footerColumnSpan(
+        table.getVisibleLeafColumns().map((column) => column.id),
+        "amount"
+    )
+
+    const footer = amountSpan && (
+        <DataGridTableFootRow>
+            {amountSpan.leading > 0 && (
+                <DataGridTableFootRowCell colSpan={amountSpan.leading}>
+                    <span className="text-muted-foreground">Total Paid</span>
+                </DataGridTableFootRowCell>
+            )}
+            <DataGridTableFootRowCell className="font-bold tabular-nums">
+                {formatTzs(totalPaid.toString())}
+            </DataGridTableFootRowCell>
+            {amountSpan.trailing > 0 && (
+                <DataGridTableFootRowCell colSpan={amountSpan.trailing}/>
+            )}
+        </DataGridTableFootRow>
+    )
+
     return (
         <div className="bg-background min-w-0">
             <DataGrid
@@ -198,7 +251,7 @@ function CommissionPayoutsSubTable({
                     <Card className="p-0">
                         <DataGridContainer className="min-w-0">
                             <DataGridScrollArea className="min-w-0">
-                                <DataGridTable/>
+                                <DataGridTable footerContent={footer}/>
                             </DataGridScrollArea>
                         </DataGridContainer>
                     </Card>
@@ -224,6 +277,15 @@ export function CommissionPaymentsDataGrid({
     })
     const [sorting, setSorting] = useState<SortingState>([])
     const [expandedRows, setExpandedRows] = useState<ExpandedState>({})
+    // The contract identity (client/plot/project) is what makes any other
+    // column on this row meaningful, so it — and the expand toggle right
+    // next to it — stay pinned as the grid scrolls horizontally. Still a
+    // controlled state (not just an initial value) so the header's own
+    // Pin/Unpin control can move it, same as any other pinned column.
+    const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({
+        start: ["expand", "contract"],
+        end: [],
+    })
 
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientContactAsAgentContract>[]>(
         () => [
@@ -252,7 +314,7 @@ export function CommissionPaymentsDataGrid({
                         </Button>
                     ) : null
                 },
-                size: 25,
+                size: 45,
                 enableResizing: false,
                 meta: {
                     expandedContent: (row) => (
@@ -344,7 +406,7 @@ export function CommissionPaymentsDataGrid({
                 id: "status",
                 header: ({column}) => (
                     <DataGridColumnHeader
-                        title="Status"
+                        title="Contract Status"
                         visibility={true}
                         column={column}
                     />
@@ -369,16 +431,12 @@ export function CommissionPaymentsDataGrid({
             pagination,
             sorting,
             expanded: expandedRows,
-        },
-        initialState: {
-            columnPinning: {
-                start: ["contract"],
-                end: [],
-            },
+            columnPinning,
         },
         onPaginationChange: setPagination,
         onSortingChange: setSorting,
         onExpandedChange: setExpandedRows,
+        onColumnPinningChange: setColumnPinning,
     })
 
     if (contracts.length === 0) {
@@ -389,12 +447,39 @@ export function CommissionPaymentsDataGrid({
         )
     }
 
+    const totalCommission = contracts.reduce(
+        (sum, contract) => sum + Number(contract.commissionAmount),
+        0
+    )
+
+    const commissionAmountSpan = footerColumnSpan(
+        table.getVisibleLeafColumns().map((column) => column.id),
+        "commissionAmount"
+    )
+
+    const footer = commissionAmountSpan && (
+        <DataGridTableFootRow>
+            {commissionAmountSpan.leading > 0 && (
+                <DataGridTableFootRowCell colSpan={commissionAmountSpan.leading}>
+                    <span className="text-muted-foreground">Total Commission Amount</span>
+                </DataGridTableFootRowCell>
+            )}
+            <DataGridTableFootRowCell className="font-bold tabular-nums">
+                {formatTzs(totalCommission.toString())}
+            </DataGridTableFootRowCell>
+            {commissionAmountSpan.trailing > 0 && (
+                <DataGridTableFootRowCell colSpan={commissionAmountSpan.trailing}/>
+            )}
+        </DataGridTableFootRow>
+    )
+
     return (
         <DataGrid
             table={table}
             recordCount={contracts.length}
             tableLayout={{
                 columnsVisibility: true,
+                columnsPinnable: true,
             }}
             emptyMessage="No commissioned contracts are recorded for this agent yet."
         >
@@ -402,7 +487,7 @@ export function CommissionPaymentsDataGrid({
                 <Card className="p-0">
                     <DataGridContainer>
                         <DataGridScrollArea>
-                            <DataGridTable/>
+                            <DataGridTable footerContent={footer}/>
                         </DataGridScrollArea>
                     </DataGridContainer>
                 </Card>
