@@ -483,10 +483,12 @@ export function CommissionPaymentsDataGrid({
         )
     }
 
-    const totalCommission = contracts.reduce(
-        (sum, contract) => sum + Number(contract.commissionAmount),
-        0
-    )
+    const totalCommission = contracts
+        .filter((contract) => contract.status !== "CANCELLED")
+        .reduce(
+            (sum, contract) => sum + Number(contract.commissionAmount),
+            0
+        )
 
     const commissionAmountSpan = footerColumnSpan(
         table.getVisibleLeafColumns().map((column) => column.id),
