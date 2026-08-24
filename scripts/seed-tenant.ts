@@ -68,6 +68,10 @@ async function main() {
         // We need to clear plots.activeContractId before deleting plotSaleContracts
         await db.update(schema.plots).set({activeContractId: null})
         await db.delete(schema.plotSaleContracts)
+        await db.delete(schema.vendorJobProjects)
+        await db.delete(schema.vendorJobs)
+        await db.delete(schema.projectAcquisitionInstallments)
+        await db.delete(schema.projectAcquisitions)
         await db.delete(schema.plots)
         await db.delete(schema.projects)
         await db.delete(schema.contacts)
@@ -145,11 +149,14 @@ async function main() {
     // Others
     contactData.push({fullName: 'Landowner Leonard', contactType: 'LAND_SELLER', mobileNumber: randomPhone()})
     contactData.push({fullName: 'Surveyor Sam', contactType: 'SURVEYOR', mobileNumber: randomPhone()})
+    contactData.push({fullName: 'Auditor Anna', contactType: 'AUDITOR', mobileNumber: randomPhone()})
 
     const contactRows = await db.insert(schema.contacts).values(contactData).returning()
     const clients = contactRows.filter(c => c.contactType === 'CLIENT')
     const agents = contactRows.filter(c => c.contactType === 'SALES_AGENT')
     const landSellers = contactRows.filter(c => c.contactType === 'LAND_SELLER')
+    const surveyors = contactRows.filter(c => c.contactType === 'SURVEYOR')
+    const auditors = contactRows.filter(c => c.contactType === 'AUDITOR')
 
     // --- Projects ---
     console.log('  → Seeding projects...')
@@ -436,6 +443,193 @@ async function main() {
             paidAt: new Date('2025-05-10'),
         }
     ])
+
+    // --- Vendor Jobs ---
+    console.log('  → Seeding vendor jobs...')
+    const [surveyorJob] = await db.insert(schema.vendorJobs).values({
+        vendorContactId: surveyors[0].id,
+        title: 'Kigamboni Boundary Survey',
+        description: 'Full boundary survey and beacon placement for Kigamboni Greens',
+        agreedAmount: '3500000',
+        status: 'COMPLETED',
+        startDate: '2025-01-20',
+        dueDate: '2025-02-15',
+        completedAt: new Date('2025-02-10T10:00:00Z'),
+    }).returning()
+
+    const [auditorJob] = await db.insert(schema.vendorJobs).values({
+        vendorContactId: auditors[0].id,
+        title: 'Mbweni Due Diligence Audit',
+        description: 'Legal and title audit for Mbweni Heights acquisition',
+        agreedAmount: '2500000',
+        status: 'IN_PROGRESS',
+        startDate: '2025-03-25',
+        dueDate: '2025-04-30',
+    }).returning()
+
+    await db.insert(schema.vendorJobProjects).values([
+        {jobId: surveyorJob.id, projectId: projectRows[0].id, allocatedAmount: '3500000'},
+        {jobId: auditorJob.id, projectId: projectRows[1].id, allocatedAmount: '2500000'},
+    ])
+
+    // --- Project Acquisitions ---
+    console.log('  → Seeding project acquisitions...')
+    const [kigamboniAcquisition] = await db.insert(schema.projectAcquisitions).values({
+        projectId: projectRows[0].id,
+        sellerContactId: landSellers[0].id,
+        dealDate: '2025-01-15',
+        totalPurchaseValue: '500000000',
+        paymentPlan: 'INSTALLMENT',
+        description: 'Primary acquisition for Kigamboni Greens',
+    }).returning()
+
+    const [mbweniAcquisition] = await db.insert(schema.projectAcquisitions).values({
+        projectId: projectRows[1].id,
+        sellerContactId: landSellers[0].id,
+        dealDate: '2025-03-20',
+        totalPurchaseValue: '450000000',
+        paymentPlan: 'CASH',
+        description: 'Primary acquisition for Mbweni Heights',
+    }).returning()
+
+    // --- Project Acquisition Installments ---
+    console.log('  → Seeding project acquisition installments...')
+    const acquisitionInstallmentRows = await db.insert(schema.projectAcquisitionInstallments).values([
+        // Kigamboni - installment deal
+        {
+            acquisitionId: kigamboniAcquisition.id,
+            installmentNo: 1,
+            dueDate: '2025-01-15',
+            amountDue: '200000000',
+            amountPaid: '200000000',
+            status: 'PAID',
+            paidAt: new Date('2025-01-15T10:00:00Z'),
+        },
+        {
+            acquisitionId: kigamboniAcquisition.id,
+            installmentNo: 2,
+            dueDate: '2025-04-15',
+            amountDue: '150000000',
+            amountPaid: '150000000',
+            status: 'PAID',
+            paidAt: new Date('2025-04-15T10:00:00Z'),
+        },
+        {
+            acquisitionId: kigamboniAcquisition.id,
+            installmentNo: 3,
+            dueDate: '2025-07-15',
+            amountDue: '150000000',
+            status: 'DUE',
+        },
+        // Mbweni - cash deal
+        {
+            acquisitionId: mbweniAcquisition.id,
+            installmentNo: 1,
+            dueDate: '2025-03-20',
+            amountDue: '450000000',
+            amountPaid: '450000000',
+            status: 'PAID',
+            paidAt: new Date('2025-03-20T10:00:00Z'),
+        },
+    ]).returning()
+
+    // --- Vendor Job & Acquisition Expenses ---
+    console.log('  → Seeding vendor job and acquisition expenses...')
+    await db.insert(schema.expenses).values([
+        {
+            category: 'VENDOR_JOB_PAYMENT',
+            amount: '3500000',
+            accountId: accountRows[0].id,
+            payeeContactId: surveyors[0].id,
+            vendorJobId: surveyorJob.id,
+            projectId: projectRows[0].id,
+            description: 'Final payment for Kigamboni boundary survey',
+            paidAt: new Date('2025-02-15'),
+        },
+        {
+            category: 'VENDOR_JOB_PAYMENT',
+            amount: '1000000',
+            accountId: accountRows[0].id,
+            payeeContactId: auditors[0].id,
+            vendorJobId: auditorJob.id,
+            projectId: projectRows[1].id,
+            description: 'Initial payment for Mbweni audit',
+            paidAt: new Date('2025-03-30'),
+        },
+        {
+            category: 'PROFESSIONAL_FEES',
+            amount: '800000',
+            accountId: accountRows[0].id,
+            description: 'Legal consultation fees',
+            paidAt: new Date('2025-04-05'),
+        },
+        {
+            category: 'LAND_ACQUISITION',
+            amount: '200000000',
+            accountId: accountRows[0].id,
+            payeeContactId: landSellers[0].id,
+            projectId: projectRows[0].id,
+            acquisitionInstallmentId: acquisitionInstallmentRows[0].id,
+            description: 'First installment for Kigamboni acquisition',
+            paidAt: new Date('2025-01-15'),
+        },
+        {
+            category: 'LAND_ACQUISITION',
+            amount: '150000000',
+            accountId: accountRows[0].id,
+            payeeContactId: landSellers[0].id,
+            projectId: projectRows[0].id,
+            acquisitionInstallmentId: acquisitionInstallmentRows[1].id,
+            description: 'Second installment for Kigamboni acquisition',
+            paidAt: new Date('2025-04-15'),
+        },
+    ])
+
+    // --- SMS Campaigns & Messages ---
+    console.log('  → Seeding SMS campaigns...')
+    const [reminderCampaign] = await db.insert(schema.smsCampaigns).values({
+        name: 'May Payment Reminder',
+        type: 'PAYMENT_REMINDER',
+        templateBody: 'Hello {clientName}, your installment of TZS {amountDue} for plot {plotNumber} is due on {dueDate}. Please pay promptly. - Ardhi Flow',
+        senderId: 'ARDHIFLOW',
+        status: 'SENT',
+        recipientCount: 3,
+        createdBy: 'System',
+    }).returning()
+
+    console.log('  → Seeding SMS messages...')
+    const activeContracts = contracts.filter(c => c.status === 'ACTIVE' || c.status === 'DELINQUENT')
+    const messageData: schema.NewSmsMessage[] = []
+
+    for (let i = 0; i < Math.min(3, activeContracts.length); i++) {
+        const contract = activeContracts[i]
+        const client = clients.find(c => c.id === contract.clientContactId)
+        if (!client) continue
+
+        messageData.push({
+            campaignId: reminderCampaign.id,
+            contactId: client.id,
+            contractId: contract.id,
+            phoneNumber: client.mobileNumber || randomPhone(),
+            body: `Hello ${client.fullName}, your installment for plot ${saleAssignments[i].plot.plotNumber} is due soon. Please pay promptly. - Ardhi Flow`,
+            status: 'DELIVERED',
+            providerMessageId: `NEXTSMS-${randomInt(100000, 999999)}`,
+            sentAt: new Date('2025-05-10T09:00:00Z'),
+            deliveredAt: new Date('2025-05-10T09:00:05Z'),
+        })
+    }
+
+    const messageRows = await db.insert(schema.smsMessages).values(messageData).returning()
+
+    console.log('  → Seeding SMS delivery events...')
+    for (const msg of messageRows) {
+        await db.insert(schema.smsDeliveryEvents).values({
+            messageId: msg.id,
+            status: 'Delivered',
+            rawPayload: {status: 'Delivered', messageId: msg.providerMessageId},
+            receivedAt: msg.deliveredAt || new Date(),
+        })
+    }
 
     console.log('\n✓ Seeding complete!')
 }
