@@ -564,7 +564,7 @@ async function main() {
         },
         {
             category: 'LAND_ACQUISITION',
-            amount: '200000000',
+            amount: '250000000',
             accountId: accountRows[0].id,
             payeeContactId: landSellers[0].id,
             projectId: projectRows[0].id,
