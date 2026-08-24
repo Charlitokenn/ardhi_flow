@@ -36,6 +36,7 @@ import {Card} from "@/components/ui/card.tsx"
 import {thousandSeparator} from "@/lib/utils"
 import type {ClientContactAsAgentContract, ClientContactCommissionPayout,} from "@/types/contacts.ts"
 import {ChevronDownIcon, ChevronUpIcon} from "lucide-react"
+import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -74,13 +75,33 @@ function formatMonth(date: string | null): string {
 function contractStatusBadge(status: ClientContactAsAgentContract["status"]) {
     switch (status) {
         case "ACTIVE":
-            return <Badge variant="success-outline">Active</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="success-outline">Active</Badge>}
+                    tooltip="Contract is in good standing, with payments on schedule."
+                />
+            )
         case "DELINQUENT":
-            return <Badge variant="destructive-outline">Delinquent</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="destructive-outline">Delinquent</Badge>}
+                    tooltip="Contract has one or more overdue installments."
+                />
+            )
         case "COMPLETED":
-            return <Badge variant="info-outline">Completed</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="info-outline">Completed</Badge>}
+                    tooltip="Contract has been paid off in full."
+                />
+            )
         case "CANCELLED":
-            return <Badge variant="secondary">Cancelled</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="secondary">Cancelled</Badge>}
+                    tooltip="Contract was cancelled before completion."
+                />
+            )
         default:
             return <Badge variant="secondary">{status}</Badge>
     }
@@ -89,12 +110,27 @@ function contractStatusBadge(status: ClientContactAsAgentContract["status"]) {
 function payoutStatusBadge(status: ClientContactCommissionPayout["status"]) {
     switch (status) {
         case "PAID":
-            return <Badge variant="success-light">Paid</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="success-light">Paid</Badge>}
+                    tooltip="This commission has been released to the sales person."
+                />
+            )
         case "CANCELLED":
-            return <Badge variant="secondary">Cancelled</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="secondary">Cancelled</Badge>}
+                    tooltip="This commission will not be paid out."
+                />
+            )
         case "PENDING":
         default:
-            return <Badge variant="warning-light">Pending</Badge>
+            return (
+                <ReusableTooltip
+                    trigger={<Badge variant="warning-light">Pending</Badge>}
+                    tooltip="This commission is scheduled but not yet released."
+                />
+            )
     }
 }
 
