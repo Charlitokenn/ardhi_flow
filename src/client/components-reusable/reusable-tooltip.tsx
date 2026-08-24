@@ -3,7 +3,7 @@ import React from "react";
 
 interface Props {
     trigger: React.ReactNode
-    tooltip: string | ReactNode;
+    tooltip: string | React.ReactNode;
 }
 
 const ReusableTooltip = ({trigger, tooltip}: Props) => (

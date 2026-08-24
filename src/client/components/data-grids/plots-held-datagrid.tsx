@@ -442,7 +442,6 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
             columnOrder,
             columnVisibility,
         },
-
         initialState: {
             columnPinning: {
                 start: ["projectName"],

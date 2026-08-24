@@ -4,21 +4,21 @@
  */
 
 import {
-    varchar,
-    uuid,
-    pgTable,
-    pgEnum,
-    date,
-    timestamp,
-    text,
-    numeric,
     boolean,
+    date,
     index,
-    uniqueIndex,
     integer,
     jsonb,
+    numeric,
+    pgEnum,
+    pgTable,
+    text,
+    timestamp,
+    uniqueIndex,
+    uuid,
+    varchar,
 } from 'drizzle-orm/pg-core';
-import { relations, sql } from 'drizzle-orm';
+import {relations, sql} from 'drizzle-orm';
 
 export const APPROVAL_STATUS_ENUM = pgEnum('approval_status', ['APPROVED', 'REJECTED', 'PENDING']);
 export const GENDER_ENUM = pgEnum('gender', ['MALE', 'FEMALE']);
@@ -54,6 +54,7 @@ export const PURCHASE_PLAN_ENUM = pgEnum('purchase_plan', ['FLAT_RATE', 'DOWNPAY
 export const EXPENSE_CATEGORY = pgEnum('expense_category', [
     'LAND_ACQUISITION',
     'SALES_COMMISSION',
+    'VENDOR_JOB_PAYMENT',
     'SALARY',
     'RENT',
     'UTILITIES',
@@ -66,6 +67,12 @@ export const EXPENSE_CATEGORY = pgEnum('expense_category', [
 
 // Commission payout tranche state.
 export const COMMISSION_PAYOUT_STATUS = pgEnum('commission_payout_status', ['PENDING', 'PAID', 'CANCELLED']);
+
+// Vendor job (surveyor/auditor/ICT support engagement) lifecycle.
+export const VENDOR_JOB_STATUS = pgEnum('vendor_job_status', ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
+
+// How a land seller is being paid for a project acquisition.
+export const ACQUISITION_PAYMENT_PLAN_ENUM = pgEnum('acquisition_payment_plan', ['CASH', 'INSTALLMENT']);
 
 // SMS campaign/message tracking (NextSMS integration).
 export const SMS_CAMPAIGN_TYPE = pgEnum('sms_campaign_type', [
@@ -126,14 +133,22 @@ export const contacts = pgTable('contacts', {
     // rather than dropping the constraint.
     clerkUserId: text('clerk_user_id').unique(),
     isDeleted: boolean('is_deleted').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
 
 export const projects = pgTable('projects', {
     id: uuid('id').primaryKey().defaultRandom(),
     projectName: text('project_name').notNull(),
     projectDetails: text('project_details'),
+    // NOTE: acquisitionDate/acquisitionValue/supplierName below assume a single
+    // seller/deal per project. Now that a project can be assembled from multiple
+    // purchase deals (see projectAcquisitions), treat these three as the legacy/
+    // first-deal snapshot only — not touched here since existing app code likely
+    // reads/writes them. Going forward, prefer SUM(projectAcquisitions.totalPurchaseValue)
+    // for a project's true total acquisition cost, and projectAcquisitions.sellerContactId
+    // (a real FK to contacts) over supplierName (a bare uuid with no FK, likely a
+    // pre-existing bug — worth fixing once app code no longer depends on it).
     acquisitionDate: date('acquisition_date').notNull(),
     sqmBought: numeric('sqm_bought'),
     acquisitionValue: numeric('acquisition_value').notNull(),
@@ -159,21 +174,21 @@ export const projects = pgTable('projects', {
     surveyUrl: text('survey_url'),
     addedBy: text('added_by'),
     isDeleted: boolean('is_deleted').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 })
 
 export const accounts = pgTable('accounts', {
     id: uuid('id').primaryKey().defaultRandom(),
-    accountName: varchar('account_name', { length: 255 }).notNull(),
-    accountNumber: varchar('account_number', { length: 20 }).notNull().unique(),
-    bankName: varchar('bank_name', { length: 255 }).notNull(),
+    accountName: varchar('account_name', {length: 255}).notNull(),
+    accountNumber: varchar('account_number', {length: 20}).notNull().unique(),
+    bankName: varchar('bank_name', {length: 255}).notNull(),
     accountType: ACCOUNT_TYPE('account_type').notNull(),
-    telcoName: varchar('telco_name', { length: 100 }),
-    telcoNumber: varchar('telco_number', { length: 20 }),
+    telcoName: varchar('telco_name', {length: 100}),
+    telcoNumber: varchar('telco_number', {length: 20}),
     isDeleted: boolean('is_deleted').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
 
 export const plots = pgTable(
@@ -181,7 +196,7 @@ export const plots = pgTable(
     {
         id: uuid('id').primaryKey().defaultRandom(),
         plotNumber: numeric('plot_number').notNull(),
-        surveyedPlotNumber: varchar('surveyed_plot_number', { length: 50 }),
+        surveyedPlotNumber: varchar('surveyed_plot_number', {length: 50}),
         availability: PLOT_AVAILABILITY_ENUM('availability').default('AVAILABLE').notNull(),
 
         // Holds the currently active/delinquent contract (plot is not sellable while set)
@@ -195,14 +210,14 @@ export const plots = pgTable(
         // 🔗 Project → Plot (many plots belong to one project)
         projectId: uuid('project_id')
             .notNull()
-            .references(() => projects.id, { onDelete: 'restrict' }),
+            .references(() => projects.id, {onDelete: 'restrict'}),
 
         // 🔗 Contact → Plot (current payer/owner; cleared on cancellation)
-        contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+        contactId: uuid('contact_id').references(() => contacts.id, {onDelete: 'set null'}),
 
         isDeleted: boolean('is_deleted').default(false).notNull(),
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-        updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('plots_project_idx').on(table.projectId),
@@ -224,11 +239,11 @@ export const plotSaleContracts = pgTable(
         // that activeContractId has. Safe to declare at the Drizzle level.
         plotId: uuid('plot_id')
             .notNull()
-            .references(() => plots.id, { onDelete: 'restrict' }),
+            .references(() => plots.id, {onDelete: 'restrict'}),
 
         clientContactId: uuid('client_contact_id')
             .notNull()
-            .references(() => contacts.id, { onDelete: 'restrict' }),
+            .references(() => contacts.id, {onDelete: 'restrict'}),
 
         // Who closed the sale (Clerk user id) — matches addedBy pattern used elsewhere.
         createdBy: text('created_by'),
@@ -251,7 +266,7 @@ export const plotSaleContracts = pgTable(
 
         graceDays: integer('grace_days').default(0).notNull(),
         delinquentDaysThreshold: integer('delinquent_days_threshold').default(1).notNull(),
-        delinquentSince: timestamp('delinquent_since', { withTimezone: true }),
+        delinquentSince: timestamp('delinquent_since', {withTimezone: true}),
 
         // --- Sales agent / commission ---
         // Nullable: not every contract necessarily has a commissioned agent attached.
@@ -269,15 +284,15 @@ export const plotSaleContracts = pgTable(
         // target month) that the client makes any payment — see commissionPayouts.
         commissionPayoutMonths: integer('commission_payout_months').default(1).notNull(),
 
-        completedAt: timestamp('completed_at', { withTimezone: true }),
-        cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+        completedAt: timestamp('completed_at', {withTimezone: true}),
+        cancelledAt: timestamp('cancelled_at', {withTimezone: true}),
         cancelledBy: text('cancelled_by'),
         cancellationFeeAmount: numeric('cancellation_fee_amount'),
         refundedAmount: numeric('refunded_amount'),
         cancellationReason: text('cancellation_reason'),
 
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-        updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('plot_sale_contracts_plot_idx').on(table.plotId),
@@ -289,7 +304,8 @@ export const plotSaleContracts = pgTable(
         // Requires drizzle-orm >= 0.31 for uniqueIndex().where().
         uniqueIndex('plot_sale_contracts_one_active_per_plot')
             .on(table.plotId)
-            .where(sql`status IN ('ACTIVE', 'DELINQUENT')`),
+            .where(sql`status
+            IN ('ACTIVE', 'DELINQUENT')`),
     ],
 );
 
@@ -299,7 +315,7 @@ export const contractInstallments = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         contractId: uuid('contract_id')
             .notNull()
-            .references(() => plotSaleContracts.id, { onDelete: 'cascade' }),
+            .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
 
         // installment_no = 0 is reserved for an optional downpayment installment
         installmentNo: integer('installment_no').notNull(),
@@ -320,10 +336,10 @@ export const contractInstallments = pgTable(
         waivedAmount: numeric('waived_amount').default('0').notNull(),
 
         status: INSTALLMENT_STATUS_ENUM('status').default('DUE').notNull(),
-        paidAt: timestamp('paid_at', { withTimezone: true }),
+        paidAt: timestamp('paid_at', {withTimezone: true}),
 
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-        updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('contract_installments_contract_idx').on(table.contractId),
@@ -340,25 +356,25 @@ export const contractPayments = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         contractId: uuid('contract_id')
             .notNull()
-            .references(() => plotSaleContracts.id, { onDelete: 'cascade' }),
+            .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
         clientContactId: uuid('client_contact_id')
             .notNull()
-            .references(() => contacts.id, { onDelete: 'restrict' }),
+            .references(() => contacts.id, {onDelete: 'restrict'}),
 
         // Which bank account/mobile wallet received this payment. Nullable to avoid
         // breaking any existing rows on migration; make it notNull going forward once
         // backfilled. Added now so income-side cash flow can be reconciled against
         // accounts the same way the new expenses table does for outflows.
-        accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'restrict' }),
+        accountId: uuid('account_id').references(() => accounts.id, {onDelete: 'restrict'}),
 
         direction: PAYMENT_DIRECTION_ENUM('direction').notNull(),
         amount: numeric('amount').notNull(),
-        receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull(),
+        receivedAt: timestamp('received_at', {withTimezone: true}).defaultNow().notNull(),
         method: text('method'),
         reference: text('reference'),
         createdBy: text('created_by'),
 
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('contract_payments_contract_idx').on(table.contractId),
@@ -374,12 +390,12 @@ export const contractPaymentAllocations = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         paymentId: uuid('payment_id')
             .notNull()
-            .references(() => contractPayments.id, { onDelete: 'cascade' }),
+            .references(() => contractPayments.id, {onDelete: 'cascade'}),
         installmentId: uuid('installment_id')
             .notNull()
-            .references(() => contractInstallments.id, { onDelete: 'restrict' }),
+            .references(() => contractInstallments.id, {onDelete: 'restrict'}),
         amount: numeric('amount').notNull(),
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('contract_payment_allocations_payment_idx').on(table.paymentId),
@@ -393,7 +409,7 @@ export const contractEvents = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         contractId: uuid('contract_id')
             .notNull()
-            .references(() => plotSaleContracts.id, { onDelete: 'cascade' }),
+            .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
         // Optional: scopes this row to one specific installment/invoice — this is what
         // lets a follow-up comment show up on a specific invoice rather than only the
         // contract as a whole. Left null for contract-level events (cancellation, etc).
@@ -411,7 +427,7 @@ export const contractEvents = pgTable(
         // flip this if you deliberately want a client-visible comment thread.
         isInternal: boolean('is_internal').default(true).notNull(),
         createdBy: text('created_by'),
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('contract_events_contract_idx').on(table.contractId),
@@ -429,7 +445,7 @@ export const commissionSettings = pgTable('commission_settings', {
     id: uuid('id').primaryKey().defaultRandom(),
     defaultCommissionPercent: numeric('default_commission_percent').notNull().default('5'),
     defaultPayoutMonths: integer('default_payout_months').notNull().default(1),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
 
 export const commissionPayouts = pgTable(
@@ -438,12 +454,12 @@ export const commissionPayouts = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         contractId: uuid('contract_id')
             .notNull()
-            .references(() => plotSaleContracts.id, { onDelete: 'cascade' }),
+            .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
         // Denormalized from the contract for fast "all payouts owed to Agent X"
         // queries without joining through plotSaleContracts every time.
         salesAgentContactId: uuid('sales_agent_contact_id')
             .notNull()
-            .references(() => contacts.id, { onDelete: 'restrict' }),
+            .references(() => contacts.id, {onDelete: 'restrict'}),
 
         trancheNumber: integer('tranche_number').notNull(), // 1..commissionPayoutMonths
         amount: numeric('amount').notNull(),
@@ -460,14 +476,14 @@ export const commissionPayouts = pgTable(
             onDelete: 'set null',
         }),
 
-        paidAt: timestamp('paid_at', { withTimezone: true }),
+        paidAt: timestamp('paid_at', {withTimezone: true}),
         // Actual calendar month released in — may be later than targetMonth if the
         // client skipped a month (e.g. targetMonth = Month 2, client pays in Month 3
         // instead, so this tranche is released with paidMonth = Month 3).
         paidMonth: date('paid_month'),
 
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-        updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('commission_payouts_contract_idx').on(table.contractId),
@@ -477,17 +493,152 @@ export const commissionPayouts = pgTable(
     ],
 );
 
+// --- Vendors / Jobs (auditors, surveyors, ICT support) ---
+// A vendor engagement is a "job": a single agreed fee for a piece of work,
+// tracked through to completion, with payments logged against it as they
+// happen (no predefined payment schedule — per your call, this stays simple).
+export const vendorJobs = pgTable(
+    'vendor_jobs',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        // Typically a SURVEYOR / AUDITOR / ICT_SUPPORT contact. Not enforced at the
+        // DB level (Postgres can't cheaply check another table's column) — validate
+        // contactType at the app layer when assigning a job.
+        vendorContactId: uuid('vendor_contact_id')
+            .notNull()
+            .references(() => contacts.id, {onDelete: 'restrict'}),
+
+        title: text('title').notNull(),
+        description: text('description'),
+
+        agreedAmount: numeric('agreed_amount').notNull(),
+
+        status: VENDOR_JOB_STATUS('status').default('ASSIGNED').notNull(),
+
+        startDate: date('start_date'),
+        dueDate: date('due_date'),
+        completedAt: timestamp('completed_at', {withTimezone: true}),
+        cancelledAt: timestamp('cancelled_at', {withTimezone: true}),
+
+        createdBy: text('created_by'),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
+    },
+    (table) => [
+        index('vendor_jobs_vendor_idx').on(table.vendorContactId),
+        index('vendor_jobs_status_idx').on(table.status),
+    ],
+);
+
+// Which project(s) a job applies to. Zero rows = general (the normal case for
+// AUDITOR/ICT_SUPPORT jobs). One row = tied to a single project. Multiple rows =
+// a surveyor job spanning several projects — allocatedAmount is agreedAmount
+// split evenly across the linked projects (per your call), snapshotted here so
+// project-cost reports don't need to recompute the split every time. If a job's
+// project list or agreedAmount changes after creation, recalculate and update
+// allocatedAmount on every row for that job.
+export const vendorJobProjects = pgTable(
+    'vendor_job_projects',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        jobId: uuid('job_id')
+            .notNull()
+            .references(() => vendorJobs.id, {onDelete: 'cascade'}),
+        projectId: uuid('project_id')
+            .notNull()
+            .references(() => projects.id, {onDelete: 'restrict'}),
+
+        allocatedAmount: numeric('allocated_amount').notNull(),
+
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    },
+    (table) => [
+        index('vendor_job_projects_job_idx').on(table.jobId),
+        index('vendor_job_projects_project_idx').on(table.projectId),
+        uniqueIndex('vendor_job_projects_unique').on(table.jobId, table.projectId),
+    ],
+);
+
+// --- Land acquisition (buying projects from land sellers) ---
+// One row per purchase deal. A project can have more than one — per your call,
+// a project may be assembled from several parcels bought from different sellers
+// at different times — so this is a proper one-to-many off `projects`, not flat
+// fields on it. `projects.acquisitionValue`/`acquisitionDate`/`supplierName`
+// stay as-is for backward compatibility; treat this table as the source of
+// truth going forward (see the note on `projects` above).
+export const projectAcquisitions = pgTable(
+    'project_acquisitions',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        projectId: uuid('project_id')
+            .notNull()
+            .references(() => projects.id, {onDelete: 'restrict'}),
+        // The LAND_SELLER contact this specific deal was bought from.
+        sellerContactId: uuid('seller_contact_id')
+            .notNull()
+            .references(() => contacts.id, {onDelete: 'restrict'}),
+
+        dealDate: date('deal_date').notNull(),
+        totalPurchaseValue: numeric('total_purchase_value').notNull(),
+        paymentPlan: ACQUISITION_PAYMENT_PLAN_ENUM('payment_plan').default('CASH').notNull(),
+        // Useful when a project has multiple deals, e.g. "Northern parcel, 2.5 acres".
+        description: text('description'),
+
+        createdBy: text('created_by'),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
+    },
+    (table) => [
+        index('project_acquisitions_project_idx').on(table.projectId),
+        index('project_acquisitions_seller_idx').on(table.sellerContactId),
+    ],
+);
+
+// The payment schedule for a deal. For a CASH deal, generate exactly one row
+// (installmentNo 1, dueDate = dealDate, amountDue = totalPurchaseValue) so
+// "how much is paid / outstanding" always follows the same code path whether
+// the deal is cash or installment — same pattern as commissionPayoutMonths = 1
+// on the client-sale side.
+export const projectAcquisitionInstallments = pgTable(
+    'project_acquisition_installments',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        acquisitionId: uuid('acquisition_id')
+            .notNull()
+            .references(() => projectAcquisitions.id, {onDelete: 'cascade'}),
+
+        installmentNo: integer('installment_no').notNull(),
+        dueDate: date('due_date').notNull(),
+        amountDue: numeric('amount_due').notNull(),
+        amountPaid: numeric('amount_paid').default('0').notNull(),
+        status: INSTALLMENT_STATUS_ENUM('status').default('DUE').notNull(),
+        paidAt: timestamp('paid_at', {withTimezone: true}),
+
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
+    },
+    (table) => [
+        index('project_acquisition_installments_acquisition_idx').on(table.acquisitionId),
+        index('project_acquisition_installments_due_idx').on(table.dueDate),
+        index('project_acquisition_installments_status_due_idx').on(table.status, table.dueDate),
+        uniqueIndex('project_acquisition_installments_unique').on(table.acquisitionId, table.installmentNo),
+    ],
+);
+
 // --- Expenses (cash outflows) ---
 // Covers two things that had nowhere to live before:
+
 //   1. Payments made to acquire a project's land (category = LAND_ACQUISITION).
 //      `projects.acquisitionValue` is the expected/agreed total — same target-vs-actual
-//      relationship as totalContractValue vs contractPayments on the sales side. Sum
-//      expenses WHERE category = 'LAND_ACQUISITION' AND projectId = X to get amount
-//      actually paid, and diff against acquisitionValue for what's still owed to the seller.
+//      relationship as totalContractValue vs contractPayments on the sales side. Prefer
+//      linking to a specific projectAcquisitionInstallments row (acquisitionInstallmentId
+//      below) now that acquisitions can be broken into a schedule; sum by that row's
+//      acquisitionId for a given deal, or join through to projectId for a whole project.
 //   2. General operating expenses not tied to any project (salaries, rent, utilities, etc).
-// Also gives commission payouts an actual cash record: when a commissionPayouts row
-// is marked PAID, write a matching expenses row (category = SALES_COMMISSION,
-// commissionPayoutId set) so it's reflected in account balances and expense reports.
+// Also gives commission payouts and vendor job payments an actual cash record: when a
+// commissionPayouts row is marked PAID, or a vendorJobs payment is logged, write a
+// matching expenses row (commissionPayoutId / vendorJobId set) so it's reflected in
+// account balances and expense reports.
 export const expenses = pgTable(
     'expenses',
     {
@@ -497,28 +648,44 @@ export const expenses = pgTable(
         amount: numeric('amount').notNull(),
 
         // Which account the money actually left from.
-        accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'restrict' }),
+        accountId: uuid('account_id').references(() => accounts.id, {onDelete: 'restrict'}),
 
         // Who was paid. Typically the LAND_SELLER contact for LAND_ACQUISITION, the
-        // landlord for RENT, the agent for SALES_COMMISSION, etc. Nullable — salaries
+        // vendor for VENDOR_JOB_PAYMENT, the landlord for RENT, etc. Nullable — salaries
         // or misc spend may not warrant a contacts row.
-        payeeContactId: uuid('payee_contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+        payeeContactId: uuid('payee_contact_id').references(() => contacts.id, {onDelete: 'set null'}),
 
-        // Attributes this expense to a project. Effectively required (in practice) for
-        // LAND_ACQUISITION, left null for company-wide overhead.
-        projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+        // Attributes this expense to a single project. Set directly for LAND_ACQUISITION
+        // (each acquisition deal belongs to exactly one project) and single-project vendor
+        // jobs. Left null for company-wide overhead AND for multi-project vendor job
+        // payments — a job spanning several projects has no single projectId; its
+        // per-project cost lives in vendorJobProjects.allocatedAmount instead.
+        projectId: uuid('project_id').references(() => projects.id, {onDelete: 'set null'}),
 
         // Links a SALES_COMMISSION expense back to the payout tranche it settles.
         commissionPayoutId: uuid('commission_payout_id').references(() => commissionPayouts.id, {
             onDelete: 'set null',
         }),
 
-        paidAt: timestamp('paid_at', { withTimezone: true }).defaultNow().notNull(),
+        // Links a VENDOR_JOB_PAYMENT expense back to the job it pays against. Sum
+        // expenses WHERE vendorJobId = X to get total paid vs vendorJobs.agreedAmount.
+        vendorJobId: uuid('vendor_job_id').references(() => vendorJobs.id, {onDelete: 'set null'}),
+
+        // Links a LAND_ACQUISITION expense to the specific installment it settles.
+        // One payment = one installment (no split-across-installments support here,
+        // unlike the client-sale side) — log two rows if a payment needs to cover two
+        // installments at once.
+        acquisitionInstallmentId: uuid('acquisition_installment_id').references(
+            () => projectAcquisitionInstallments.id,
+            {onDelete: 'set null'},
+        ),
+
+        paidAt: timestamp('paid_at', {withTimezone: true}).defaultNow().notNull(),
         method: text('method'),
         reference: text('reference'),
         createdBy: text('created_by'),
 
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('expenses_category_idx').on(table.category),
@@ -527,8 +694,11 @@ export const expenses = pgTable(
         index('expenses_account_idx').on(table.accountId),
         index('expenses_paid_idx').on(table.paidAt),
         index('expenses_commission_payout_idx').on(table.commissionPayoutId),
+        index('expenses_vendor_job_idx').on(table.vendorJobId),
+        index('expenses_acquisition_installment_idx').on(table.acquisitionInstallmentId),
     ],
 );
+
 
 // --- Company branding settings ---
 // Singleton row (fixed id) holding the branding details generated documents
@@ -547,8 +717,8 @@ export const companySettings = pgTable('company_settings', {
     address: text('address'),
     website: text('website'),
     signerTitle: text('signer_title'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
 
 // --- SMS (NextSMS) ---
@@ -561,11 +731,11 @@ export const smsCampaigns = pgTable('sms_campaigns', {
     templateBody: text('template_body').notNull(),
     senderId: text('sender_id'), // NextSMS sender ID used for this campaign
     status: SMS_CAMPAIGN_STATUS('status').default('DRAFT').notNull(),
-    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    scheduledAt: timestamp('scheduled_at', {withTimezone: true}),
     createdBy: text('created_by'),
     recipientCount: integer('recipient_count').default(0).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
 
 export const smsMessages = pgTable(
@@ -573,11 +743,11 @@ export const smsMessages = pgTable(
     {
         id: uuid('id').primaryKey().defaultRandom(),
         // Nullable — one-off/ad-hoc sends don't need a campaign wrapper.
-        campaignId: uuid('campaign_id').references(() => smsCampaigns.id, { onDelete: 'set null' }),
-        contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+        campaignId: uuid('campaign_id').references(() => smsCampaigns.id, {onDelete: 'set null'}),
+        contactId: uuid('contact_id').references(() => contacts.id, {onDelete: 'set null'}),
         // Optional links back to what this message concerns — used to dedupe reminders
         // and to measure "did this reminder lead to a payment".
-        contractId: uuid('contract_id').references(() => plotSaleContracts.id, { onDelete: 'set null' }),
+        contractId: uuid('contract_id').references(() => plotSaleContracts.id, {onDelete: 'set null'}),
         installmentId: uuid('installment_id').references(() => contractInstallments.id, {
             onDelete: 'set null',
         }),
@@ -591,10 +761,10 @@ export const smsMessages = pgTable(
         segmentsCount: integer('segments_count').default(1).notNull(),
         errorReason: text('error_reason'),
 
-        sentAt: timestamp('sent_at', { withTimezone: true }),
-        deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+        sentAt: timestamp('sent_at', {withTimezone: true}),
+        deliveredAt: timestamp('delivered_at', {withTimezone: true}),
 
-        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
         index('sms_messages_campaign_idx').on(table.campaignId),
@@ -614,10 +784,10 @@ export const smsDeliveryEvents = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         messageId: uuid('message_id')
             .notNull()
-            .references(() => smsMessages.id, { onDelete: 'cascade' }),
+            .references(() => smsMessages.id, {onDelete: 'cascade'}),
         status: text('status').notNull(), // raw status/code exactly as received from NextSMS
         rawPayload: jsonb('raw_payload'), // full webhook body, for debugging/audit
-        receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow(),
+        receivedAt: timestamp('received_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [index('sms_delivery_events_message_idx').on(table.messageId)],
 );
@@ -645,6 +815,14 @@ export type CommissionSetting = typeof commissionSettings.$inferSelect;
 export type NewCommissionSetting = typeof commissionSettings.$inferInsert;
 export type CommissionPayout = typeof commissionPayouts.$inferSelect;
 export type NewCommissionPayout = typeof commissionPayouts.$inferInsert;
+export type VendorJob = typeof vendorJobs.$inferSelect;
+export type NewVendorJob = typeof vendorJobs.$inferInsert;
+export type VendorJobProject = typeof vendorJobProjects.$inferSelect;
+export type NewVendorJobProject = typeof vendorJobProjects.$inferInsert;
+export type ProjectAcquisition = typeof projectAcquisitions.$inferSelect;
+export type NewProjectAcquisition = typeof projectAcquisitions.$inferInsert;
+export type ProjectAcquisitionInstallment = typeof projectAcquisitionInstallments.$inferSelect;
+export type NewProjectAcquisitionInstallment = typeof projectAcquisitionInstallments.$inferInsert;
 export type Expense = typeof expenses.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
 export type SmsCampaign = typeof smsCampaigns.$inferSelect;
@@ -660,26 +838,30 @@ export type ProjectWithPlots = Project & {
 };
 
 // Relations
-export const projectsRelations = relations(projects, ({ many }) => ({
+export const projectsRelations = relations(projects, ({many}) => ({
     plots: many(plots),
     expenses: many(expenses),
+    acquisitions: many(projectAcquisitions),
+    vendorJobProjects: many(vendorJobProjects),
 }));
 
-export const contactsRelations = relations(contacts, ({ many }) => ({
+export const contactsRelations = relations(contacts, ({many}) => ({
     plots: many(plots),
     // NOTE: renamed from `plotSaleContracts` — a contact can now be linked to a
     // contract either as the buying client OR as the commissioned sales agent,
     // so the two relations need distinct names. Update any existing queries that
     // did `with: { plotSaleContracts: true }` on a contact to use
     // `plotSaleContractsAsClient` instead.
-    plotSaleContractsAsClient: many(plotSaleContracts, { relationName: 'clientContact' }),
-    plotSaleContractsAsAgent: many(plotSaleContracts, { relationName: 'salesAgentContact' }),
+    plotSaleContractsAsClient: many(plotSaleContracts, {relationName: 'clientContact'}),
+    plotSaleContractsAsAgent: many(plotSaleContracts, {relationName: 'salesAgentContact'}),
     smsMessages: many(smsMessages),
     commissionPayouts: many(commissionPayouts),
     expensesAsPayee: many(expenses),
+    vendorJobs: many(vendorJobs),
+    projectAcquisitionsAsSeller: many(projectAcquisitions),
 }));
 
-export const plotsRelations = relations(plots, ({ one, many }) => ({
+export const plotsRelations = relations(plots, ({one, many}) => ({
     project: one(projects, {
         fields: [plots.projectId],
         references: [projects.id],
@@ -695,7 +877,7 @@ export const plotsRelations = relations(plots, ({ one, many }) => ({
     contracts: many(plotSaleContracts),
 }));
 
-export const plotSaleContractsRelations = relations(plotSaleContracts, ({ one, many }) => ({
+export const plotSaleContractsRelations = relations(plotSaleContracts, ({one, many}) => ({
     plot: one(plots, {
         fields: [plotSaleContracts.plotId],
         references: [plots.id],
@@ -717,7 +899,7 @@ export const plotSaleContractsRelations = relations(plotSaleContracts, ({ one, m
     smsMessages: many(smsMessages),
 }));
 
-export const contractInstallmentsRelations = relations(contractInstallments, ({ one, many }) => ({
+export const contractInstallmentsRelations = relations(contractInstallments, ({one, many}) => ({
     contract: one(plotSaleContracts, {
         fields: [contractInstallments.contractId],
         references: [plotSaleContracts.id],
@@ -727,7 +909,7 @@ export const contractInstallmentsRelations = relations(contractInstallments, ({ 
     comments: many(contractEvents),
 }));
 
-export const contractPaymentsRelations = relations(contractPayments, ({ one, many }) => ({
+export const contractPaymentsRelations = relations(contractPayments, ({one, many}) => ({
     contract: one(plotSaleContracts, {
         fields: [contractPayments.contractId],
         references: [plotSaleContracts.id],
@@ -744,7 +926,7 @@ export const contractPaymentsRelations = relations(contractPayments, ({ one, man
     triggeredCommissionPayouts: many(commissionPayouts),
 }));
 
-export const contractPaymentAllocationsRelations = relations(contractPaymentAllocations, ({ one }) => ({
+export const contractPaymentAllocationsRelations = relations(contractPaymentAllocations, ({one}) => ({
     payment: one(contractPayments, {
         fields: [contractPaymentAllocations.paymentId],
         references: [contractPayments.id],
@@ -755,7 +937,7 @@ export const contractPaymentAllocationsRelations = relations(contractPaymentAllo
     }),
 }));
 
-export const contractEventsRelations = relations(contractEvents, ({ one }) => ({
+export const contractEventsRelations = relations(contractEvents, ({one}) => ({
     contract: one(plotSaleContracts, {
         fields: [contractEvents.contractId],
         references: [plotSaleContracts.id],
@@ -766,7 +948,7 @@ export const contractEventsRelations = relations(contractEvents, ({ one }) => ({
     }),
 }));
 
-export const commissionPayoutsRelations = relations(commissionPayouts, ({ one, many }) => ({
+export const commissionPayoutsRelations = relations(commissionPayouts, ({one, many}) => ({
     contract: one(plotSaleContracts, {
         fields: [commissionPayouts.contractId],
         references: [plotSaleContracts.id],
@@ -782,12 +964,55 @@ export const commissionPayoutsRelations = relations(commissionPayouts, ({ one, m
     settlementExpenses: many(expenses),
 }));
 
-export const accountsRelations = relations(accounts, ({ many }) => ({
+export const vendorJobsRelations = relations(vendorJobs, ({one, many}) => ({
+    vendor: one(contacts, {
+        fields: [vendorJobs.vendorContactId],
+        references: [contacts.id],
+    }),
+    projectLinks: many(vendorJobProjects),
+    payments: many(expenses),
+}));
+
+export const vendorJobProjectsRelations = relations(vendorJobProjects, ({one}) => ({
+    job: one(vendorJobs, {
+        fields: [vendorJobProjects.jobId],
+        references: [vendorJobs.id],
+    }),
+    project: one(projects, {
+        fields: [vendorJobProjects.projectId],
+        references: [projects.id],
+    }),
+}));
+
+export const projectAcquisitionsRelations = relations(projectAcquisitions, ({one, many}) => ({
+    project: one(projects, {
+        fields: [projectAcquisitions.projectId],
+        references: [projects.id],
+    }),
+    seller: one(contacts, {
+        fields: [projectAcquisitions.sellerContactId],
+        references: [contacts.id],
+    }),
+    installments: many(projectAcquisitionInstallments),
+}));
+
+export const projectAcquisitionInstallmentsRelations = relations(
+    projectAcquisitionInstallments,
+    ({one, many}) => ({
+        acquisition: one(projectAcquisitions, {
+            fields: [projectAcquisitionInstallments.acquisitionId],
+            references: [projectAcquisitions.id],
+        }),
+        payments: many(expenses),
+    }),
+);
+
+export const accountsRelations = relations(accounts, ({many}) => ({
     contractPayments: many(contractPayments),
     expenses: many(expenses),
 }));
 
-export const expensesRelations = relations(expenses, ({ one }) => ({
+export const expensesRelations = relations(expenses, ({one}) => ({
     account: one(accounts, {
         fields: [expenses.accountId],
         references: [accounts.id],
@@ -804,13 +1029,21 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
         fields: [expenses.commissionPayoutId],
         references: [commissionPayouts.id],
     }),
+    vendorJob: one(vendorJobs, {
+        fields: [expenses.vendorJobId],
+        references: [vendorJobs.id],
+    }),
+    acquisitionInstallment: one(projectAcquisitionInstallments, {
+        fields: [expenses.acquisitionInstallmentId],
+        references: [projectAcquisitionInstallments.id],
+    }),
 }));
 
-export const smsCampaignsRelations = relations(smsCampaigns, ({ many }) => ({
+export const smsCampaignsRelations = relations(smsCampaigns, ({many}) => ({
     messages: many(smsMessages),
 }));
 
-export const smsMessagesRelations = relations(smsMessages, ({ one, many }) => ({
+export const smsMessagesRelations = relations(smsMessages, ({one, many}) => ({
     campaign: one(smsCampaigns, {
         fields: [smsMessages.campaignId],
         references: [smsCampaigns.id],
@@ -830,7 +1063,7 @@ export const smsMessagesRelations = relations(smsMessages, ({ one, many }) => ({
     deliveryEvents: many(smsDeliveryEvents),
 }));
 
-export const smsDeliveryEventsRelations = relations(smsDeliveryEvents, ({ one }) => ({
+export const smsDeliveryEventsRelations = relations(smsDeliveryEvents, ({one}) => ({
     message: one(smsMessages, {
         fields: [smsDeliveryEvents.messageId],
         references: [smsMessages.id],
