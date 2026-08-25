@@ -680,26 +680,18 @@ export function ContactsDataGrid() {
                 }
             />
 
-            <ReusableSheet
-                title="Edit contact"
-                description="Update this contact's details."
-                open={isEditSheetOpen}
-                onOpenChange={(open) => {
-                    if (!open) setEditingRow(null)
-                }}
-                hideFooter
-                popupClass="w-full sm:max-w-2xl"
-                formContent={
-                    editingRow && (
-                        <AddEditContactForm
-                            mode="edit"
-                            contactId={editingRow.id}
-                            initialData={editingRow}
-                            onSuccess={() => setEditingRow(null)}
-                        />
-                    )
-                }
-            />
+            {editingRow && (
+                <AddEditContactForm
+                    mode="edit"
+                    contactId={editingRow.id}
+                    initialData={editingRow}
+                    open={isEditSheetOpen}
+                    onOpenChange={(open) => {
+                        if (!open) setEditingRow(null)
+                    }}
+                    onSuccess={() => setEditingRow(null)}
+                />
+            )}
 
             <AlertDialog
                 open={isDeleteDialogOpen}

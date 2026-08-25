@@ -2,7 +2,8 @@ import {useState} from "react";
 import {
     ArchiveIcon,
     CalendarSyncIcon,
-    CreditCardIcon, HandCoinsIcon,
+    CreditCardIcon,
+    HandCoinsIcon,
     ShoppingCartIcon,
     UserPlusIcon,
     ZapIcon
@@ -13,7 +14,8 @@ import {
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator, DropdownMenuTrigger,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button.tsx";
 import ReusableSheet from "@/components-reusable/reusable-sheet";
@@ -120,7 +122,7 @@ export function QuickActionsMenu({
                 <DropdownMenuContent side={side} className={className}>
                     {actionGroups.map((group, groupIndex) => (
                         <div key={group.label}>
-                            {groupIndex > 0 && <DropdownMenuSeparator />}
+                            {groupIndex > 0 && <DropdownMenuSeparator/>}
 
                             <DropdownMenuGroup>
                                 <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
@@ -134,7 +136,7 @@ export function QuickActionsMenu({
                                             onClick={() => setActiveLabel(item.label)}
                                             className="cursor-pointer"
                                         >
-                                            <Icon />
+                                            <Icon/>
                                             {item.label}
                                         </DropdownMenuItem>
                                     );
@@ -162,11 +164,18 @@ export function QuickActionsMenu({
                 }}
                 title={activeItem?.sheetTitle ?? ""}
                 description={activeItem?.sheetDescription}
-                hideFooter={activeItem?.label === "Add Contact"}
-                popupClass={activeItem?.label === "Add Contact" ? "w-full sm:max-w-2xl" : undefined}
-                formContent={
+                footer={activeItem?.label === "Add Contact"}
+                widthClassName={activeItem?.label === "Add Contact" ? "w-full sm:max-w-2xl" : undefined}
+                children={
                     activeItem?.label === "Add Contact" ? (
-                        <AddEditContactForm mode="add" onSuccess={() => setActiveLabel(null)} />
+                        <AddEditContactForm
+                            mode="add"
+                            open={activeItem?.label === "Add Contact"}
+                            onOpenChange={(open) => {
+                                if (!open) setActiveLabel(null)
+                            }}
+                            onSuccess={() => setActiveLabel(null)}
+                        />
                     ) : (
                         <div className="text-sm text-muted-foreground">
                             {/* TODO: replace with the real form for "{activeItem?.label}" once it exists. */}
