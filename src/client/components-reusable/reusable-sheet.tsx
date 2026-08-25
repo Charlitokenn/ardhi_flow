@@ -1,184 +1,145 @@
-import React, { createContext, useContext, useState } from 'react'
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
+"use client"
 
-interface Props {
-    /**
-     * Element that opens the sheet when clicked (e.g. a Button).
-     * Optional — omit it when you want to open the sheet programmatically
-     * via the controlled `open`/`onOpenChange` props instead (e.g. from a
-     * row's "Edit" dropdown item in a data grid).
-     */
-    trigger?: React.ReactNode
-    title: string
-    description?: string
-    formContent: React.ReactNode
-    isInset?: boolean
-    saveButtonText?: string
-    titleIcon?: React.ReactNode
-    hideHeader?: boolean
-    hideFooter?: boolean
-    popupClass?: string
+import type {ComponentProps, ReactNode} from "react"
+import {createContext, useContext, useState} from "react"
+import {Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,} from "@/components/ui/sheet.tsx"
+import {cn} from "@/lib/utils.ts"
 
-    /**
-     * Optional id used to programmatically identify the trigger.
-     */
-    triggerId?: string
+// ============================================================================
+// SheetControl — lets whatever you pass as `children` close itself (e.g. a
+// form calling `sheetControl?.close()` from its mutation's onSuccess), without
+// that form needing to own or be handed the open/close state itself. This is
+// what AddEditContactForm's `useSheetControl()` import resolves to.
+// ============================================================================
 
-    /**
-     * Optional submit handler for the sheet form.
-     */
-    // Bug fix: `React.SubmitEvent` does not exist — the correct React type
-    // for a <form onSubmit> handler is `React.FormEvent<HTMLFormElement>`.
-    onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void
-
-    /**
-     * Optional side of the screen where the sheet appears.
-     */
-    side?: 'left' | 'right'
-
-    /**
-     * Controlled open state. Provide this together with `onOpenChange` when
-     * the sheet needs to be opened from outside (e.g. an "Edit" row action
-     * in a data grid) instead of from the built-in `trigger`.
-     * When omitted, the sheet manages its own open state internally.
-     */
-    open?: boolean
-
-    /**
-     * Called whenever the sheet requests to change its open state
-     * (closing via Cancel/overlay, or the internal Save submit).
-     * Required when using the controlled `open` prop.
-     */
-    onOpenChange?: (open: boolean) => void
-}
-
-interface SheetControlContextValue {
+interface SheetControlValue {
+    isOpen: boolean
+    open: () => void
     close: () => void
 }
 
-const SheetControlContext =
-    createContext<SheetControlContextValue | null>(null)
+const SheetControlContext = createContext<SheetControlValue | null>(null)
 
-/**
- * Lets content rendered as `formContent` close its own sheet (e.g. after a
- * successful save) without the parent needing to manage the `open` state
- * itself. Returns `null` when rendered outside a `ReusableSheet`.
- */
 export function useSheetControl() {
     return useContext(SheetControlContext)
 }
 
-export default function ReusableSheet({
-                                          trigger,
-                                          title,
-                                          description,
-                                          formContent,
-                                          isInset = true,
-                                          saveButtonText = 'Save',
-                                          titleIcon,
-                                          hideHeader = false,
-                                          hideFooter = false,
-                                          popupClass,
-                                          triggerId,
-                                          onSubmit,
-                                          side = 'right',
-                                          open: controlledOpen,
-                                          onOpenChange: setControlledOpen,
-                                      }: Props) {
-    // Uncontrolled fallback state — used when the caller doesn't pass
-    // `open`/`onOpenChange` (i.e. the sheet is opened via `trigger`).
-    const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+// ============================================================================
+// ReusableSheet — the only thing this component is responsible for is the
+// chrome (trigger, open state, title bar, sizing, scroll containment) and the
+// SheetControl context. It has zero opinions about what's inside: a fully
+// self-contained multi-step form like AddEditContactForm (own Stepper, own
+// Back/Next/Save row) drops straight in as `children` and just works. Content
+// that wants a *pinned* action bar instead — buttons that never scroll away —
+// can use the separate `footer` slot.
+// ============================================================================
 
-    const isControlled = controlledOpen !== undefined
-    const open = isControlled ? controlledOpen : uncontrolledOpen
-    const setOpen = isControlled ? setControlledOpen! : setUncontrolledOpen
+export interface ReusableSheetProps {
+    /** Element that opens the sheet, e.g. a <Button>. Wrapped in SheetTrigger's
+     *  asChild, so pass exactly one focusable element. Omit for fully
+     *  controlled usage (drive `open`/`onOpenChange` yourself instead). */
+    trigger?: ReactNode
+    title: string
+    description?: string
+    side?: "right" | "left"
+    /** Tailwind width classes, e.g. "sm:max-w-xl" or "sm:max-w-3xl" for a
+     *  wide multi-column form. Mobile is always full width. */
+    widthClassName?: string
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
+    /** Pinned below the scroll area, border-t, safe-area aware. Use this for
+     *  content that has no footer of its own. Skip it — the common case — when
+     *  the form you pass as `children` renders its own action row; those
+     *  buttons just scroll with the rest of the form, which reads fine inside
+     *  a sheet and is how AddEditContactForm already works. */
+    footer?: ReactNode
+    /** Wraps the body + footer in a single native <form>, so a submit button
+     *  in `footer` works with Enter-to-submit and normal form semantics even
+     *  though it isn't a DOM descendant of `children`. Only use this when
+     *  `children` is NOT itself (or does not contain) a <form> — forms can't
+     *  nest. AddEditContactForm already owns its own <form>, so leave this
+     *  unset for Pattern A; it's for content built directly against the
+     *  `footer` slot instead (Pattern B). */
+    onSubmit?: ComponentProps<"form">["onSubmit"]
+    children: ReactNode
+}
 
-    const close = () => setOpen(false)
+export function ReusableSheet({
+                                  trigger,
+                                  title,
+                                  description,
+                                  side = "right",
+                                  widthClassName = "sm:max-w-xl",
+                                  open: openProp,
+                                  onOpenChange,
+                                  footer,
+                                  onSubmit,
+                                  children,
+                              }: ReusableSheetProps) {
+    const [internalOpen, setInternalOpen] = useState(false)
+    const isControlled = openProp !== undefined
+    const isOpen = isControlled ? openProp : internalOpen
+
+    const setOpen = (next: boolean) => {
+        if (!isControlled) setInternalOpen(next)
+        onOpenChange?.(next)
+    }
+
+    const control: SheetControlValue = {
+        isOpen,
+        open: () => setOpen(true),
+        close: () => setOpen(false),
+    }
+
+    const bodyAndFooter = (
+        <>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
+                <SheetControlContext.Provider value={control}>
+                    {children}
+                </SheetControlContext.Provider>
+            </div>
+
+            {footer && (
+                <div className="shrink-0 border-t px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                    {footer}
+                </div>
+            )}
+        </>
+    )
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
-            {trigger && (
-                <SheetTrigger
-                    data-sheet-trigger-id={triggerId}
-                    className="contents"
-                >
-                    {trigger}
-                </SheetTrigger>
-            )}
+        <Sheet open={isOpen} onOpenChange={setOpen}>
+            {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
 
+            {/*
+              shadcn's SheetContent for side="right"/"left" is already
+              `fixed inset-y-0 ... h-full` — pinned to the real viewport, not
+              a percentage of some parent, so it can't be clipped by an
+              ancestor's overflow and doesn't need a dvh workaround. We turn
+              it into a flex column (gap-0, p-0) and own the three regions
+              ourselves: header (shrink-0), scrollable body, optional pinned
+              footer (shrink-0). Neither the header nor the footer can ever
+              be pushed off-screen, on any screen height.
+            */}
             <SheetContent
                 side={side}
-                className={cn(
-                    'overflow-y-auto',
-                    '[&::-webkit-scrollbar]:hidden',
-                    'scrollbar-none',
-                    '[-ms-overflow-style:none]',
-                    isInset && 'm-2 h-[calc(100vh-1rem)] rounded-lg',
-                    popupClass
-                )}
+                className={cn("flex w-full flex-col gap-0 p-0", widthClassName)}
             >
-                <SheetControlContext.Provider value={{ close }}>
-                    {!hideHeader && (
-                        <SheetHeader className="p-4">
-                            <SheetTitle className="flex items-center gap-2">
-                                {titleIcon && (
-                                    <span className="shrink-0">
-                                        {titleIcon}
-                                    </span>
-                                )}
+                <SheetHeader className="shrink-0 gap-1 border-b pt-[calc(1.25rem+env(safe-area-inset-top))]">
+                    <SheetTitle>{title}</SheetTitle>
+                    {description && <SheetDescription>{description}</SheetDescription>}
+                </SheetHeader>
 
-                                <span>{title}</span>
-                            </SheetTitle>
-
-                            {description && (
-                                <SheetDescription>
-                                    {description}
-                                </SheetDescription>
-                            )}
-
-                            <Separator className="mt-2" />
-                        </SheetHeader>
-                    )}
-
-                    <form
-                        className="flex min-h-0 flex-1 flex-col"
-                        onSubmit={onSubmit}
-                    >
-                        <div className="flex-1 px-4 pb-4">
-                            {formContent}
-                        </div>
-
-                        {!hideFooter && (
-                            <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={close}
-                                >
-                                    Cancel
-                                </Button>
-
-                                <Button
-                                    type="submit"
-                                    className="cursor-pointer"
-                                >
-                                    {saveButtonText}
-                                </Button>
-                            </div>
-                        )}
+                {onSubmit ? (
+                    <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+                        {bodyAndFooter}
                     </form>
-                </SheetControlContext.Provider>
+                ) : (
+                    bodyAndFooter
+                )}
             </SheetContent>
         </Sheet>
     )
 }
+
+export default ReusableSheet

@@ -192,21 +192,16 @@ export function BrandingSettingsForm() {
                         <FieldLabel htmlFor="primaryColor">Brand color</FieldLabel>
                         <div className="flex items-center gap-2">
                             <ColorPicker
+                                id="primaryColor"
                                 label="Brand Color"
-                                value="#fffff"
+                                value={values.primaryColor || "#0F6B3D"}
+                                onChange={(hex) => update("primaryColor", hex)}
+                                showAlpha={false}
                             />
                             <span
                                 className="size-9 shrink-0 rounded-md border"
                                 style={{backgroundColor: HEX_COLOR_REGEX.test(values.primaryColor) ? values.primaryColor : undefined}}
                             />
-                            <Input
-                                id="primaryColor"
-                                value={values.primaryColor}
-                                onChange={(e) => update("primaryColor", e.target.value)}
-                                placeholder="#1e3a5f"
-                                aria-invalid={!!errors.primaryColor}
-                            />
-
                         </div>
                         <FieldError errors={errors.primaryColor ? [{message: errors.primaryColor}] : undefined}/>
                     </Field>
