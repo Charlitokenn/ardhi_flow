@@ -18,6 +18,7 @@ import {
     DataGridTableRowSelect,
     DataGridTableRowSelectAll,
 } from "@/components/reui/data-grid/data-grid-table.tsx"
+import {DataGridColumnVisibility} from "@/components/reui/data-grid/data-grid-column-visibility"
 import {
     type ColumnDef,
     type PaginationState,
@@ -28,12 +29,20 @@ import {
 } from "@tanstack/react-table"
 import {toast} from "sonner"
 import {Button} from "@/components/ui/button.tsx"
-import {Card, CardAction, CardContent, CardFooter, CardHeader,} from "@/components/ui/card.tsx"
+import {Card, CardAction, CardContent, CardFooter, CardHeader} from "@/components/ui/card.tsx"
 import {Checkbox} from "@/components/ui/checkbox.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
 import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx"
-import {EyeDashedIcon, FunnelIcon, MessageCircleIcon, MoreHorizontalIcon, SearchIcon, XIcon,} from "lucide-react"
+import {
+    EyeDashedIcon,
+    FunnelIcon,
+    MessageCircleIcon,
+    MoreHorizontalIcon,
+    SearchIcon,
+    Settings2Icon,
+    XIcon
+} from "lucide-react"
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
@@ -113,13 +122,9 @@ const REMINDER_STATUSES: ReminderStatus[] = ["OVERDUE", "UPCOMING", "OPEN", "PAI
 function computeReminderStatus(installment: IInstallment): ReminderStatus {
     if (installment.status === "PAID") return "PAID"
 
-    const parts = installment.dueDate.split("-")
-    if (parts.length !== 3) return "OPEN"
-    const year = Number.parseInt(parts[0], 10)
-    const month = Number.parseInt(parts[1], 10)
-    const day = Number.parseInt(parts[2], 10)
-    const due = new Date(year, month - 1, day)
+    const due = new Date(installment.dueDate)
     if (Number.isNaN(due.getTime())) return "OPEN"
+    due.setHours(0, 0, 0, 0)
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -221,6 +226,7 @@ const exportColumns: ExportColumn<IInstallment>[] = [
     {header: "Due Date", accessor: (d) => d.dueDate},
     {header: "Client", accessor: (d) => d.contract?.client?.fullName ?? null},
     {header: "Project", accessor: (d) => d.contract?.plot?.project?.projectName ?? null},
+    {header: "Plot", accessor: (d) => d.contract?.plot?.plotNumber ?? null},
     {header: "Installment Amount", accessor: (d) => d.amountDue},
     {header: "Installment No.", accessor: (d) => formatInstallmentLabel(d.installmentNo)},
     {header: "Penalty", accessor: (d) => d.penaltyAmount},
@@ -262,7 +268,19 @@ export function InstallmentsReminderDataGrid() {
         pageIndex: 0,
         pageSize: 8,
     })
-    const [sorting, setSorting] = useState<SortingState>([{id: "dueDate", desc: false}])
+    // Groups installments by client, then — since one client can hold
+    // several plots (same project or different ones) — by project and plot
+    // so each contract's own schedule stays contiguous, then orders within
+    // that schedule by installment number (0 = downpayment first, then 1,
+    // 2, 3...). Sorting state is a priority list, applied left to right as
+    // tie-breakers. Clicking a column header still re-sorts normally — this
+    // only sets the initial/default view.
+    const [sorting, setSorting] = useState<SortingState>([
+        {id: "clientName", desc: false},
+        {id: "projectName", desc: false},
+        {id: "plotNumber", desc: false},
+        {id: "installmentNo", desc: false},
+    ])
     const [searchQuery, setSearchQuery] = useState("")
     const [selectedStatuses, setSelectedStatuses] = useState<ReminderStatus[]>([])
 
@@ -333,7 +351,6 @@ export function InstallmentsReminderDataGrid() {
         setSelectedStatuses((prev = []) =>
             checked ? [...prev, value] : prev.filter((v) => v !== value)
         )
-        setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
     const hasActiveFilters = searchQuery.length > 0 || selectedStatuses.length > 0
@@ -341,7 +358,6 @@ export function InstallmentsReminderDataGrid() {
     const handleClearFilters = () => {
         setSearchQuery("")
         setSelectedStatuses([])
-        setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
     const columns = useMemo<ColumnDef<DataGridFeatures, IInstallment>[]>(
@@ -403,16 +419,46 @@ export function InstallmentsReminderDataGrid() {
                     <DataGridColumnHeader title="Project" visibility={true} column={column}/>
                 ),
                 cell: ({row}) => (
-                    <div className="space-y-px">
-                        <div className="text-foreground font-medium">
-                            {row.original.contract?.plot?.project?.projectName ?? "—"}
-                        </div>
-                        <div className="text-muted-foreground">
-                            Plot {row.original.contract?.plot?.plotNumber ?? "—"}
-                        </div>
+                    <div className="text-foreground font-medium">
+                        {row.original.contract?.plot?.project?.projectName ?? "—"}
                     </div>
                 ),
-                size: 190,
+                size: 170,
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
+                enableSorting: true,
+                enableHiding: true,
+                enableResizing: true,
+            },
+            {
+                id: "plotNumber",
+                // A client can hold several plots — same project or
+                // different ones — so this is its own sortable column
+                // rather than folded into the project cell, both for
+                // readability and so it can anchor the default sort's
+                // per-contract grouping (see the `sorting` state above).
+                accessorFn: (row) => row.contract?.plot?.plotNumber ?? "",
+                header: ({column}) => (
+                    <DataGridColumnHeader title="Plot" visibility={true} column={column}/>
+                ),
+                cell: ({row}) => (
+                    <div className="text-foreground font-medium">
+                        Plot No. {row.original.contract?.plot?.plotNumber ?? "—"}
+                    </div>
+                ),
+                size: 110,
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
+                enableSorting: true,
+                enableHiding: true,
+                enableResizing: true,
+            },
+            {
+                accessorKey: "installmentNo",
+                id: "installmentNo",
+                header: ({column}) => (
+                    <DataGridColumnHeader title="Installment No." visibility={true} column={column}/>
+                ),
+                cell: (info) => formatInstallmentLabel(info.getValue() as number),
+                size: 150,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
                 enableHiding: true,
@@ -428,19 +474,6 @@ export function InstallmentsReminderDataGrid() {
                     <div className="text-foreground font-medium">{formatTzs(info.getValue() as string)}</div>
                 ),
                 size: 170,
-                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
-                enableSorting: true,
-                enableHiding: true,
-                enableResizing: true,
-            },
-            {
-                accessorKey: "installmentNo",
-                id: "installmentNo",
-                header: ({column}) => (
-                    <DataGridColumnHeader title="Installment No." visibility={true} column={column}/>
-                ),
-                cell: (info) => formatInstallmentLabel(info.getValue() as number),
-                size: 150,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
                 enableHiding: true,
@@ -540,18 +573,6 @@ export function InstallmentsReminderDataGrid() {
                 enableHiding: true,
                 enableResizing: true,
             },
-            {
-                id: "actions",
-                header: "",
-                cell: ({row}) => (
-                    <ActionsCell row={row} onView={(rowData) => setViewingRow(rowData)}/>
-                ),
-                size: 60,
-                meta: {skeleton: <Skeleton className="h-6 w-6"/>},
-                enableSorting: false,
-                enableHiding: false,
-                enableResizing: false,
-            },
         ],
         []
     )
@@ -567,6 +588,14 @@ export function InstallmentsReminderDataGrid() {
         getRowId: (row: IInstallment) => row.id,
         enableRowSelection: true,
         state: {pagination, sorting, columnOrder, rowSelection},
+        initialState: {
+            columnVisibility: {
+                id: false,
+                penaltyAmount: false,
+                paidAt: false,
+                amountPaid: false,
+            },
+        },
         onRowSelectionChange: setRowSelection,
         onColumnOrderChange: setColumnOrder,
         onPaginationChange: setPagination,
@@ -625,10 +654,7 @@ export function InstallmentsReminderDataGrid() {
                                 <InputGroupInput
                                     placeholder="Search client or project..."
                                     value={searchQuery}
-                                    onChange={(e) => {
-                                        setSearchQuery(e.target.value)
-                                        setPagination((prev) => ({...prev, pageIndex: 0}))
-                                    }}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                                 {searchQuery.length > 0 && (
                                     <InputGroupAddon align="inline-end">
@@ -680,6 +706,15 @@ export function InstallmentsReminderDataGrid() {
                             </Popover>
                         </div>
                         <CardAction/>
+                        <DataGridColumnVisibility
+                            table={table}
+                            trigger={
+                                <Button variant="outline" size="sm">
+                                    <Settings2Icon aria-hidden="true"/>
+                                    Columns
+                                </Button>
+                            }
+                        />
                     </CardHeader>
                     <CardContent className="p-0.5">
                         <Card className="p-0">
