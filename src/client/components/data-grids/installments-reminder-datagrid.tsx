@@ -113,9 +113,13 @@ const REMINDER_STATUSES: ReminderStatus[] = ["OVERDUE", "UPCOMING", "OPEN", "PAI
 function computeReminderStatus(installment: IInstallment): ReminderStatus {
     if (installment.status === "PAID") return "PAID"
 
-    const due = new Date(installment.dueDate)
+    const parts = installment.dueDate.split("-")
+    if (parts.length !== 3) return "OPEN"
+    const year = Number.parseInt(parts[0], 10)
+    const month = Number.parseInt(parts[1], 10)
+    const day = Number.parseInt(parts[2], 10)
+    const due = new Date(year, month - 1, day)
     if (Number.isNaN(due.getTime())) return "OPEN"
-    due.setHours(0, 0, 0, 0)
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -329,6 +333,7 @@ export function InstallmentsReminderDataGrid() {
         setSelectedStatuses((prev = []) =>
             checked ? [...prev, value] : prev.filter((v) => v !== value)
         )
+        setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
     const hasActiveFilters = searchQuery.length > 0 || selectedStatuses.length > 0
@@ -336,6 +341,7 @@ export function InstallmentsReminderDataGrid() {
     const handleClearFilters = () => {
         setSearchQuery("")
         setSelectedStatuses([])
+        setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
     const columns = useMemo<ColumnDef<DataGridFeatures, IInstallment>[]>(
@@ -619,7 +625,10 @@ export function InstallmentsReminderDataGrid() {
                                 <InputGroupInput
                                     placeholder="Search client or project..."
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value)
+                                        setPagination((prev) => ({...prev, pageIndex: 0}))
+                                    }}
                                 />
                                 {searchQuery.length > 0 && (
                                     <InputGroupAddon align="inline-end">
