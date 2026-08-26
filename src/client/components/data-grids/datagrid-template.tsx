@@ -1255,13 +1255,14 @@ export function DataTablePattern() {
         opens this second, independent `ReusableSheet` instance with that
         row's data.
 
-        Deliberately left as an *empty container* for now — `formContent`
-        below only proves the row data reaches the sheet (it prints the id/
-        name so you can see it working), and `hideFooter` is set because a
-        pure "view" doesn't need Save/Cancel actions. When you're ready to
-        build the real view for your dataset:
-          1. Replace the placeholder `formContent` below with your read-only
-             layout for `viewingRow` (e.g. a details grid, tabs, etc.).
+        Deliberately left as an *empty container* for now — the `children`
+        below only prove the row data reaches the sheet (printing the id/
+        name so you can see it working). No `footer` prop is provided
+        because a pure "view" doesn't need Save/Cancel actions. When you're
+        ready to build the real view for your dataset:
+          1. Replace the placeholder content inside `children` below with
+             your read-only layout for `viewingRow` (e.g. a details grid,
+             tabs, etc.).
           2. Everything else — state, the dropdown item, opening/closing —
              already works and doesn't need to change. */}
             <ReusableSheet
@@ -1271,19 +1272,17 @@ export function DataTablePattern() {
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null)
                 }}
-                hideFooter
-                formContent={
-                    viewingRow && (
-                        // Placeholder content only — swap this for the actual read-only
-                        // view once it's designed. `viewingRow` already carries the full
-                        // record, so no extra data-fetching is needed here.
-                        <div className="text-muted-foreground text-sm">
-                            Viewing <span className="text-foreground font-medium">{viewingRow.name}</span>{" "}
-                            (id: {viewingRow.id}) — build the real read-only view here.
-                        </div>
-                    )
-                }
-            />
+            >
+                {viewingRow && (
+                    // Placeholder content only — swap this for the actual read-only
+                    // view once it's designed. `viewingRow` already carries the full
+                    // record, so no extra data-fetching is needed here.
+                    <div className="text-muted-foreground text-sm">
+                        Viewing <span className="text-foreground font-medium">{viewingRow.name}</span>{" "}
+                        (id: {viewingRow.id}) — build the real read-only view here.
+                    </div>
+                )}
+            </ReusableSheet>
 
             {/* ------------------------------------------------------------------
         DELETE CONFIRMATION — how to hook a row's "Delete" action
