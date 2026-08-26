@@ -687,10 +687,6 @@ export const ViewContactForm = ({
                 ),
             });
         }
-
-        if (isSupplier) statementTab("supplier-statement", "Supplier Statement");
-        if (isVendor) statementTab("vendor-statement", "Vendor Statement");
-
         return tabs;
     }, [
         contact,
