@@ -452,7 +452,7 @@ export const ViewContactForm = ({
     const isClient = contactType === CONTACT_TYPE.CLIENT;
     const isAgent = contactType === CONTACT_TYPE.SALES_AGENT;
     const isSupplier = contactType === CONTACT_TYPE.LAND_SELLER;
-    const isVendor = !isClient && !isAgent && !isSupplier;
+    const isVendor = contactType === "AUDITOR" || contactType === "ICT_SUPPORT" || contactType === "SURVEYOR";
     const hasPlots = (contact.plots?.length ?? 0) > 0;
 
     const financials = useMemo(

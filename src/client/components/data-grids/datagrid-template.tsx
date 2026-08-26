@@ -2,26 +2,26 @@ import {type FormEvent, type ReactNode, useEffect, useMemo, useState} from "reac
 import {useCopyToClipboard} from "@/hooks/use-copy-to-clipboard.ts"
 import {Badge} from "@/components/reui/badge.tsx"
 import {
-    DataGrid,
-    DataGridContainer,
-    dataGridFeatures,
-    type DataGridFeatures,
+  DataGrid,
+  DataGridContainer,
+  dataGridFeatures,
+  type DataGridFeatures,
 } from "@/components/reui/data-grid/data-grid.tsx"
 import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
 import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
 import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
 import {
-    DataGridTable,
-    DataGridTableRowSelect,
-    DataGridTableRowSelectAll,
+  DataGridTable,
+  DataGridTableRowSelect,
+  DataGridTableRowSelectAll,
 } from "@/components/reui/data-grid/data-grid-table.tsx"
 import {
-    type ColumnDef,
-    type PaginationState,
-    type Row,
-    type RowSelectionState,
-    type SortingState,
-    useTable,
+  type ColumnDef,
+  type PaginationState,
+  type Row,
+  type RowSelectionState,
+  type SortingState,
+  useTable,
 } from "@tanstack/react-table"
 import {toast} from "sonner"
 
@@ -30,25 +30,25 @@ import {Button} from "@/components/ui/button.tsx"
 import {Card, CardAction, CardContent, CardFooter, CardHeader,} from "@/components/ui/card.tsx"
 import {Checkbox} from "@/components/ui/checkbox.tsx"
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
 import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx"
 import {
-    ClipboardIcon,
-    EyeDashedIcon,
-    FunnelIcon,
-    MoreHorizontalIcon,
-    SearchIcon,
-    SquarePenIcon,
-    Trash2Icon,
-    UserPlusIcon,
-    XIcon
+  ClipboardIcon,
+  EyeDashedIcon,
+  FunnelIcon,
+  MoreHorizontalIcon,
+  SearchIcon,
+  SquarePenIcon,
+  Trash2Icon,
+  UserPlusIcon,
+  XIcon
 } from "lucide-react"
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
@@ -59,14 +59,14 @@ import {type ExportColumn} from "@/lib/export-csv.ts"
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
 import {Input} from "@/components/ui/input.tsx"
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
@@ -1255,13 +1255,14 @@ export function DataTablePattern() {
         opens this second, independent `ReusableSheet` instance with that
         row's data.
 
-        Deliberately left as an *empty container* for now — `formContent`
-        below only proves the row data reaches the sheet (it prints the id/
-        name so you can see it working), and `hideFooter` is set because a
-        pure "view" doesn't need Save/Cancel actions. When you're ready to
-        build the real view for your dataset:
-          1. Replace the placeholder `formContent` below with your read-only
-             layout for `viewingRow` (e.g. a details grid, tabs, etc.).
+        Deliberately left as an *empty container* for now — the `children`
+        below only prove the row data reaches the sheet (printing the id/
+        name so you can see it working). No `footer` prop is provided
+        because a pure "view" doesn't need Save/Cancel actions. When you're
+        ready to build the real view for your dataset:
+          1. Replace the placeholder content inside `children` below with
+             your read-only layout for `viewingRow` (e.g. a details grid,
+             tabs, etc.).
           2. Everything else — state, the dropdown item, opening/closing —
              already works and doesn't need to change. */}
             <ReusableSheet
@@ -1271,18 +1272,17 @@ export function DataTablePattern() {
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null)
                 }}
-                children={
-                    viewingRow && (
-                        // Placeholder content only — swap this for the actual read-only
-                        // view once it's designed. `viewingRow` already carries the full
-                        // record, so no extra data-fetching is needed here.
-                        <div className="text-muted-foreground text-sm">
-                            Viewing <span className="text-foreground font-medium">{viewingRow.name}</span>{" "}
-                            (id: {viewingRow.id}) — build the real read-only view here.
-                        </div>
-                    )
-                }
-            />
+            >
+                {viewingRow && (
+                    // Placeholder content only — swap this for the actual read-only
+                    // view once it's designed. `viewingRow` already carries the full
+                    // record, so no extra data-fetching is needed here.
+                    <div className="text-muted-foreground text-sm">
+                        Viewing <span className="text-foreground font-medium">{viewingRow.name}</span>{" "}
+                        (id: {viewingRow.id}) — build the real read-only view here.
+                    </div>
+                )}
+            </ReusableSheet>
 
             {/* ------------------------------------------------------------------
         DELETE CONFIRMATION — how to hook a row's "Delete" action
