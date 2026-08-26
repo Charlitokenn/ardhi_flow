@@ -42,19 +42,10 @@ import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
 import {type ExportColumn} from "@/lib/export-csv.ts";
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog.tsx";
 import {Skeleton} from "@/components/ui/skeleton.tsx";
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
 import {ArchiveIcon} from "@/assets/icons";
+import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
 
 interface IPlot {
     id: string;
@@ -689,28 +680,15 @@ export function ProjectsDataGrid() {
                 }
             />
 
-            <AlertDialog
+            <ReusableDeleteDialog
                 open={isDeleteDialogOpen}
                 onOpenChange={(open) => {
                     if (!open) setDeletingRow(null);
                 }}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete project</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete {deletingRow?.projectName}? This
-                            action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                icon={<Trash2Icon className="size-5"/>}
+                description={`This action will delete ${deletingRow?.projectName} project`}
+                onDelete={() => handleConfirmDelete(deletingRow?.id)}
+            />
         </>
     );
 }

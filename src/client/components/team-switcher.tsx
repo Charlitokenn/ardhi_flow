@@ -72,14 +72,15 @@ export function TeamSwitcher() {
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent
                     showCloseButton={false}
-                    className="p-2 items-center bg-transparent overflow-hidden sm:max-w-4xl h-[85vh] sm:h-180"
+                    className="bg-transparent border-none shadow-none p-0 sm:max-w-fit w-[calc(100vw-1rem)] max-h-[calc(100vh-1rem)] overflow-hidden"
                 >
                     <OrganizationProfile
                         routing="hash"
                         appearance={{
                             elements: {
-                                rootBox: "w-full h-full",
-                                cardBox: "w-full h-full shadow-none border-none",
+                                rootBox: "w-fit h-fit",
+                                cardBox: "w-fit h-fit shadow-none border-none",
+                                navbar: "border-r border-border/50",
                             },
                         }}
                     >

@@ -52,16 +52,6 @@ import {
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ReusableEmpty,} from "@/components-reusable/reusable-empty.tsx"
 import {UsersIcon} from "@/assets/icons"
@@ -73,6 +63,7 @@ import type {ClientContact} from "@/types/contacts.ts"
 import {type DocumentBrandingExtra, EMPTY_BRANDING_EXTRA} from "@/types/branding.ts"
 import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
+import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
 
 // Extends `ContactRecord` with the extra fields the grid itself needs
 // (`clientPhoto`, `createdAt`). The list endpoint already returns the full
@@ -690,25 +681,15 @@ export function ContactsDataGrid() {
                 />
             )}
 
-            <AlertDialog
+            <ReusableDeleteDialog
                 open={isDeleteDialogOpen}
                 onOpenChange={(open) => {
-                    if (!open) setDeletingRow(null)
+                    if (!open) setDeletingRow(null);
                 }}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete contact</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete {deletingRow?.fullName}? This action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                icon={<Trash2Icon className="size-5"/>}
+                description={`This action will delete ${deletingRow?.fullName}`}
+                onDelete={() => handleConfirmDelete(deletingRow?.id)}
+            />
         </>
     )
 }
