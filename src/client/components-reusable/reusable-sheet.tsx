@@ -28,7 +28,7 @@ export function useSheetControl() {
 // ReusableSheet — the only thing this component is responsible for is the
 // chrome (trigger, open state, title bar, sizing, scroll containment) and the
 // SheetControl context. It has zero opinions about what's inside: a fully
-// self-contained multi-step form like AddEditContactForm (own Stepper, own
+// self-contained multistep form like AddEditContactForm (own Stepper, own
 // Back/Next/Save row) drops straight in as `children` and just works. Content
 // that wants a *pinned* action bar instead — buttons that never scroll away —
 // can use the separate `footer` slot.
