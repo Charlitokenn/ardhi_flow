@@ -1,10 +1,11 @@
+import type {ReactNode} from "react"
 import {useState} from "react"
 import {useAuth} from "@clerk/react"
 import {useMutation, useQueryClient} from "@tanstack/react-query"
 import {toast} from "sonner"
 import {z} from "zod"
 import {apiClient} from "@/lib/api.ts"
-import {useSheetControl} from "@/components-reusable/reusable-sheet.tsx"
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 import {TanzaniaLocationFields} from "@/components-reusable/reusable-locations.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {Input} from "@/components/ui/input.tsx"
@@ -183,9 +184,7 @@ const relationshipOptions: { value: Relationship; label: string }[] = [
 ]
 
 // ============================================================================
-// Zod validation (per step) — mirrors the field groups of the original
-// add-contact-form.tsx / edit-contact-form.tsx "Contact Info" / "Address" /
-// "Next of Kin" steps, adapted to this project's contacts schema/enums.
+// Zod validation (per step) — unchanged from the original.
 // ============================================================================
 
 const PHONE_REGEX = /^\+[1-9]\d{6,14}$/
@@ -264,14 +263,45 @@ interface AddEditContactFormProps {
     // it directly to populate its fields, so it renders with all the data
     // immediately instead of fetching the record itself.
     initialData?: ContactRecord
+    // Sheet ownership — this component now renders its own ReusableSheet
+    // (Pattern B needs `footer`/`onSubmit` on that call, and only the
+    // component invoking ReusableSheet can supply those). Two ways to use it:
+    //   - uncontrolled: pass `trigger`, e.g. an "Add contact" button. The
+    //     sheet manages its own open state internally.
+    //   - controlled: pass `open`/`onOpenChange` instead, e.g. wired to
+    //     "currently editing this row" state in a data grid. Omit `trigger`.
+    trigger?: ReactNode
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
 }
 
-export function AddEditContactForm({mode, contactId, onSuccess, initialData}: AddEditContactFormProps) {
+export function AddEditContactForm({
+                                       mode,
+                                       contactId,
+                                       onSuccess,
+                                       initialData,
+                                       trigger,
+                                       open: openProp,
+                                       onOpenChange,
+                                   }: AddEditContactFormProps) {
     const {getToken} = useAuth()
     const queryClient = useQueryClient()
     const api = apiClient(getToken)
-    const sheetControl = useSheetControl()
     const isEdit = mode === "edit"
+
+    // Same controlled/uncontrolled split ReusableSheet uses internally — kept
+    // here too, rather than reached via useSheetControl(), because this
+    // component now sits ABOVE the ReusableSheet it renders. useSheetControl()
+    // only resolves for content nested inside someone else's ReusableSheet
+    // `children` (Pattern A); a component that owns the ReusableSheet call
+    // itself needs direct access to close it.
+    const [internalOpen, setInternalOpen] = useState(false)
+    const isControlled = openProp !== undefined
+    const isOpen = isControlled ? openProp : internalOpen
+    const setOpen = (next: boolean) => {
+        if (!isControlled) setInternalOpen(next)
+        onOpenChange?.(next)
+    }
 
     const [values, setValues] = useState<FormValues>(() =>
         isEdit && initialData ? toFormValues(initialData) : EMPTY_VALUES
@@ -324,7 +354,16 @@ export function AddEditContactForm({mode, contactId, onSuccess, initialData}: Ad
             invalidate()
             toast.success(`${values.fullName} was added`)
             onSuccess?.()
-            sheetControl?.close()
+            setOpen(false)
+            // Uncontrolled ("add") case only — the sheet stays mounted behind
+            // its trigger, so without this the next open would show whatever
+            // was left over from the contact that was just created.
+            if (!isControlled) {
+                setValues(EMPTY_VALUES)
+                setErrors({})
+                setCurrentStep(1)
+                setHighestStep(1)
+            }
         },
         onError: (error) => {
             toast.error(error instanceof Error ? error.message : "Failed to create contact")
@@ -352,7 +391,7 @@ export function AddEditContactForm({mode, contactId, onSuccess, initialData}: Ad
                 icon: <UserCheckIcon className="size-6"/>,
             });
             onSuccess?.()
-            sheetControl?.close()
+            setOpen(false)
         },
         onError: (error) => {
             toast.error(error instanceof Error ? error.message : "Failed to update contact")
@@ -413,9 +452,55 @@ export function AddEditContactForm({mode, contactId, onSuccess, initialData}: Ad
     }
 
     const isLastStep = currentStep === TOTAL_STEPS
+    const currentStepDef = steps.find((s) => s.step === currentStep)!
 
     return (
-        <div className="space-y-6">
+        <ReusableSheet
+            trigger={trigger}
+            title={isEdit ? "Edit contact" : "Add contact"}
+            description={`Step ${currentStep} of ${TOTAL_STEPS}: ${currentStepDef.title}`}
+            widthClassName="sm:max-w-2xl"
+            open={isOpen}
+            onOpenChange={(next) => {
+                if (isSaving) return // ignore Escape/overlay click mid-request
+                setOpen(next)
+            }}
+            // Wraps the scrollable body + footer in one native <form> — safe
+            // here since nothing below brings its own nested <form>. Has to
+            // stay step-aware: on every step but the last, "submit" (Enter in
+            // a field, or clicking the footer's submit button) means
+            // "validate this step and advance," not "save."
+            onSubmit={(event) => {
+                event.preventDefault()
+                if (isLastStep) {
+                    handleSave()
+                } else {
+                    handleNext()
+                }
+            }}
+            footer={
+                <div className="flex items-center justify-between gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleBack}
+                        disabled={currentStep === 1 || isSaving}
+                    >
+                        Back
+                    </Button>
+
+                    {isLastStep ? (
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving ? "Saving..." : isEdit ? "Update contact" : "Save contact"}
+                        </Button>
+                    ) : (
+                        <Button type="submit" disabled={isSaving}>
+                            Next
+                        </Button>
+                    )}
+                </div>
+            }
+        >
             <Stepper value={currentStep} onValueChange={goToStep} className="gap-6">
                 <StepperNav>
                     {steps.map(({step, title}, index) => (
@@ -699,22 +784,6 @@ export function AddEditContactForm({mode, contactId, onSuccess, initialData}: Ad
                     </StepperContent>
                 </StepperPanel>
             </Stepper>
-
-            <div className="flex items-center justify-between gap-2 border-t pt-4">
-                <Button type="button" variant="outline" onClick={handleBack} disabled={currentStep === 1 || isSaving}>
-                    Back
-                </Button>
-
-                {isLastStep ? (
-                    <Button type="button" onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? "Saving..." : isEdit ? "Update contact" : "Save contact"}
-                    </Button>
-                ) : (
-                    <Button type="button" onClick={handleNext} disabled={isSaving}>
-                        Next
-                    </Button>
-                )}
-            </div>
-        </div>
+        </ReusableSheet>
     )
 }

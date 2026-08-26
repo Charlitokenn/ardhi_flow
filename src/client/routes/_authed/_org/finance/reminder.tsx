@@ -16,7 +16,7 @@ function RouteComponent() {
                 type="hero"
                 title="Reminder"
                 subtitle="Followup on outstanding payments"
-                buttonIcon={<BellRingIcon unstyled={false}/>}
+                buttonIcon={<BellRingIcon/>}
             />
         </section>
     )
