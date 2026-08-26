@@ -52,7 +52,6 @@ import {
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
-import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -73,6 +72,7 @@ import {ViewContactForm} from "@/components/forms/contacts/view-contact-form.tsx
 import type {ClientContact} from "@/types/contacts.ts"
 import {type DocumentBrandingExtra, EMPTY_BRANDING_EXTRA} from "@/types/branding.ts"
 import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 
 // Extends `ContactRecord` with the extra fields the grid itself needs
 // (`clientPhoto`, `createdAt`). The list endpoint already returns the full
@@ -664,16 +664,12 @@ export function ContactsDataGrid() {
             </DataGrid>
 
             <ReusableSheet
-                title="View contact"
-                description="Read-only details for this contact."
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null)
                 }}
-                hideHeader
-                hideFooter
-                popupClass="w-full sm:min-w-2xl"
-                formContent={
+                widthClassName="sm:max-w-full"
+                children={
                     viewingRow && (
                         <ViewSheetContent viewingRowId={viewingRow.id}/>
                     )

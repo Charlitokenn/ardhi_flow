@@ -704,13 +704,11 @@ export const ViewContactForm = ({
     ]);
 
     return (
-        <div className="mt-4">
-            <CustomTabsVertical
-                defaultTab="overview"
-                tabs={verticalTabs}
-                skeletonTabCount={4}
-                unstyled
-            />
-        </div>
+        <CustomTabsVertical
+            defaultTab="overview"
+            tabs={verticalTabs}
+            skeletonTabCount={4}
+            unstyled
+        />
     );
 };

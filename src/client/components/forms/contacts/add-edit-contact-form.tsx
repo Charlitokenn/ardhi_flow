@@ -11,27 +11,9 @@ import {Button} from "@/components/ui/button.tsx"
 import {Input} from "@/components/ui/input.tsx"
 import {Checkbox} from "@/components/ui/checkbox.tsx"
 import {PhoneInput} from "@/components/reui/phone-input.tsx"
-import {
-    Field,
-    FieldContent,
-    FieldError,
-    FieldGroup,
-    FieldLabel,
-    FieldLegend,
-    FieldSet,
-} from "@/components/ui/field.tsx"
+import {Field, FieldContent, FieldError, FieldGroup, FieldLabel, FieldSet,} from "@/components/ui/field.tsx"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select.tsx"
-import {
-    Stepper,
-    StepperContent,
-    StepperIndicator,
-    StepperItem,
-    StepperNav,
-    StepperPanel,
-    StepperSeparator,
-    StepperTitle,
-    StepperTrigger,
-} from "@/components/reui/stepper.tsx"
+import {Stepper, StepperContent, StepperPanel,} from "@/components/reui/stepper.tsx"
 import {UserCheckIcon} from "@/assets/icons";
 
 type Gender = "MALE" | "FEMALE"
@@ -352,7 +334,11 @@ export function AddEditContactForm({
         },
         onSuccess: () => {
             invalidate()
-            toast.success(`${values.fullName} was added`)
+            toast('Contact added', {
+                description: `${values.fullName} has been added to contacts`,
+                duration: 5000,
+                icon: <UserCheckIcon className="size-6"/>,
+            });
             onSuccess?.()
             setOpen(false)
             // Uncontrolled ("add") case only — the sheet stays mounted behind
@@ -502,24 +488,10 @@ export function AddEditContactForm({
             }
         >
             <Stepper value={currentStep} onValueChange={goToStep} className="gap-6">
-                <StepperNav>
-                    {steps.map(({step, title}, index) => (
-                        <StepperItem key={step} step={step} completed={step < currentStep}
-                                     disabled={step > highestStep}>
-                            <StepperTrigger className="flex-col gap-2">
-                                <StepperIndicator>{step}</StepperIndicator>
-                                <StepperTitle className="hidden text-center sm:block">{title}</StepperTitle>
-                            </StepperTrigger>
-                            {index < steps.length - 1 && <StepperSeparator/>}
-                        </StepperItem>
-                    ))}
-                </StepperNav>
-
                 <StepperPanel className="mt-6">
                     <StepperContent value={1}>
                         <div className="space-y-6">
                             <FieldSet>
-                                <FieldLegend variant="label">Contact info</FieldLegend>
                                 <FieldGroup>
                                     <Field data-invalid={!!errors.fullName}>
                                         <FieldLabel htmlFor="fullName">
@@ -654,7 +626,6 @@ export function AddEditContactForm({
                     <StepperContent value={2}>
                         <div className="space-y-6">
                             <FieldSet>
-                                <FieldLegend variant="label">Contact&apos;s address</FieldLegend>
                                 <FieldGroup>
                                     <TanzaniaLocationFields
                                         value={{
@@ -680,7 +651,6 @@ export function AddEditContactForm({
                     <StepperContent value={3}>
                         <div className="space-y-6">
                             <FieldSet>
-                                <FieldLegend variant="label">Next of kin details</FieldLegend>
                                 <FieldGroup>
                                     <Field orientation="responsive">
                                         <FieldContent>

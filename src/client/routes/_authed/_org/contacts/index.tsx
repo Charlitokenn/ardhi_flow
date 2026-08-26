@@ -2,12 +2,18 @@ import {createFileRoute} from '@tanstack/react-router'
 import {useAuth} from "@clerk/react"
 import {useQueryClient} from "@tanstack/react-query"
 import {PageHero} from "@/components/pageHero.tsx";
-import {UserPlusIcon} from "lucide-react";
 import {ContactsDataGrid} from "@/components/data-grids/contacts-datagrid.tsx";
-import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
-import {ReusableCSVUploader, type CsvFieldConfig, type CsvImportSummary} from "@/components-reusable/reusable-csv-uploader.tsx"
+import {
+    type CsvFieldConfig,
+    type CsvImportSummary,
+    ReusableCSVUploader
+} from "@/components-reusable/reusable-csv-uploader.tsx"
 import {apiClient} from "@/lib/api.ts"
 import type {NewContact} from "../../../../../../drizzle/tenant/schema"
+import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx"
+import {Button} from "@/components/ui/button.tsx"
+import {FilesIcon, UserPlusIcon} from "lucide-react"
+import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
 
 export const Route = createFileRoute('/_authed/_org/contacts/')({
     staticData: {
@@ -78,35 +84,32 @@ function RouteComponent() {
 
     return (
         <section className="-mt-4 -ml-1">
-            <PageHero
-                type="hero"
-                title="Contacts"
-                subtitle="Manage all contacts i.e. clients and suppliers"
-                showButton={true}
-                buttonText="New Contact"
-                buttonIcon={<UserPlusIcon/>}
-
-                //Add Contact Sheet
-                sheetTitle="Add contact"
-                sheetDescription="Create a new client, supplier, or other contact."
-                sheetIcon={<UserPlusIcon/>}
-                hideSheetFooter
-                sheetSizeClass="w-full sm:max-w-2xl"
-                sheetContent={<AddEditContactForm mode="add"/>}
-
-                //Bulk Uploading Sheet
-                showBulkUploader={true}
-                hideBulkUploaderFooter
-                hideBulkUploaderHeader
-                bulkUploaderClass="w-full sm:max-w-3xl"
-                bulkUploader={
-                    <ReusableCSVUploader
-                        entityName='Contacts'
-                        fields={contactFields}
-                        onSubmit={handleBulkImport}
+            <div className="flex justify-between items-center">
+                <PageHero
+                    type="hero"
+                    title="Contacts"
+                    subtitle="Manage all contacts i.e. clients and suppliers"
+                />
+                <div className="flex gap-2 items-center">
+                    <AddEditContactForm
+                        mode="add"
+                        trigger={<Button><UserPlusIcon/> New Contact</Button>}
                     />
-                }
-            />
+
+                    <ReusableSheet
+                        title="Contacts Bulk Upload"
+                        trigger={<FilesIcon className="size-5 cursor-pointer"/>}
+                        widthClassName="sm:max-w-full"
+                        children={
+                            <ReusableCSVUploader
+                                entityName="contacts"
+                                fields={contactFields}
+                                onSubmit={handleBulkImport}
+                            />
+                        }
+                    />
+                </div>
+            </div>
             <ContactsDataGrid/>
         </section>
     )
