@@ -1,5 +1,4 @@
 import React, {useMemo, useState} from "react";
-import type {LucideIcon} from "lucide-react";
 import {
     BriefcaseBusinessIcon,
     FileCheck2,
@@ -36,6 +35,8 @@ import {Badge} from "@/components/ui/badge.tsx";
 import {ContactSection, DetailItem,} from "@/components/views/contact-overview.tsx";
 import {PlotsHeldDataGrid} from "@/components/data-grids/plots-held-datagrid.tsx";
 import {CommissionPaymentsDataGrid} from "@/components/data-grids/commission-payments-datagrid.tsx";
+import {SupplierProjectsDataGrid} from "@/components/data-grids/supplier-projects-datagrid.tsx";
+import {VendorJobsDataGrid} from "@/components/data-grids/vendor-jobs-datagrid.tsx";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -46,14 +47,6 @@ const CONTACT_TYPE = {
     SALES_AGENT: "SALES_AGENT",
     LAND_SELLER: "LAND_SELLER",
 } as const;
-
-const PLACEHOLDER_COPY = (
-    <>
-        Manage your{" "}
-        <span className="text-foreground font-semibold">account details</span>. Keep
-        everything up to date so we can serve you better.
-    </>
-);
 
 // ---------------------------------------------------------------------------
 // Financial derivation (isolated so it's independently testable)
@@ -306,6 +299,14 @@ function CommissionPaymentsTabContent({contact}: { contact: ClientContact }) {
     return <CommissionPaymentsDataGrid contracts={contact.plotSaleContractsAsAgent}/>
 }
 
+function SupplierProjectsTabContent({contact}: { contact: ClientContact }) {
+    return <SupplierProjectsDataGrid acquisitions={contact.projectAcquisitionsAsSeller}/>
+}
+
+function VendorJobsTabContent({contact}: { contact: ClientContact }) {
+    return <VendorJobsDataGrid jobs={contact.vendorJobs}/>
+}
+
 function PdfTabHeader({
                           plotSelector,
                           document,
@@ -427,10 +428,6 @@ function ConfirmationLetterTabContent({
             )}
         </div>
     );
-}
-
-function PlaceholderTabContent() {
-    return <>{PLACEHOLDER_COPY}</>;
 }
 
 // ---------------------------------------------------------------------------
@@ -606,9 +603,6 @@ export const ViewContactForm = ({
             },
         ];
 
-        const roleTab = (id: string, label: string, icon: LucideIcon) =>
-            tabs.push({id, label, icon, content: <PlaceholderTabContent/>});
-
         if (hasPlots && isClient)
             tabs.push({
                 id: "plots-held",
@@ -617,7 +611,12 @@ export const ViewContactForm = ({
                 content: <PlotsHeldTabContent contact={contact}/>,
             });
         if (isSupplier)
-            roleTab("supplier-projects", "Supplier Projects", MapPlusIcon);
+            tabs.push({
+                id: "supplier-projects",
+                label: "Supplier Projects",
+                icon: MapPlusIcon,
+                content: <SupplierProjectsTabContent contact={contact}/>,
+            });
         if (isAgent) {
             tabs.push({
                 id: "commission-payments",
@@ -625,10 +624,16 @@ export const ViewContactForm = ({
                 icon: WalletIcon,
                 content: <CommissionPaymentsTabContent contact={contact}/>,
             });
-            // roleTab("client-portfolio", "Client Portfolio", BriefcaseBusinessIcon);
+            // TODO: a future "Client Portfolio" tab (BriefcaseBusinessIcon) could
+            // list the clients this agent has sold to.
         }
         if (isVendor)
-            roleTab("assignments", "Assignments/Jobs", BriefcaseBusinessIcon);
+            tabs.push({
+                id: "assignments",
+                label: "Assignments/Jobs",
+                icon: BriefcaseBusinessIcon,
+                content: <VendorJobsTabContent contact={contact}/>,
+            });
 
         return tabs;
     }, [contact, hasPlots, isClient, isSupplier, isAgent, isVendor]);

@@ -5,12 +5,16 @@ import {and, asc, desc, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import type {Env, Variables} from '../types'
 import {
-  commissionPayouts,
-  contacts,
-  contractInstallments,
-  contractPayments,
-  plots,
-  plotSaleContracts
+    commissionPayouts,
+    contacts,
+    contractInstallments,
+    contractPayments,
+    expenses,
+    plots,
+    plotSaleContracts,
+    projectAcquisitionInstallments,
+    projectAcquisitions,
+    vendorJobs,
 } from '../../../drizzle/tenant/schema'
 
 const insertContactSchema = createInsertSchema(contacts).omit({id: true, createdAt: true, updatedAt: true})
@@ -98,6 +102,13 @@ const contactsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     // Also carries `plotSaleContractsAsAgent` — every contract this contact
     // earns commission on (as the sales agent, not the buyer), each with its
     // full commission payout schedule. Powers the "Commission Payments" tab.
+    // Also carries `projectAcquisitionsAsSeller` — every project purchase deal
+    // this contact sold as a LAND_SELLER, each with its payment installments
+    // and the individual (expense) payments logged against each installment.
+    // Powers the "Supplier Projects" tab. And `vendorJobs` — every job/
+    // assignment given to this contact as a vendor (surveyor/auditor/ICT
+    // support), each with its linked projects and logged payments. Powers the
+    // "Assignments/Jobs" tab.
     .get('/:id/statement-data', async (c) => {
         const id = c.req.param('id')
         const row = await c.get('tenantDb')
@@ -134,6 +145,28 @@ const contactsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                             plot: {with: {project: true}},
                             client: true,
                             commissionPayouts: {orderBy: [asc(commissionPayouts.trancheNumber)]},
+                        },
+                    },
+                    projectAcquisitionsAsSeller: {
+                        orderBy: [desc(projectAcquisitions.dealDate), desc(projectAcquisitions.createdAt)],
+                        with: {
+                            project: true,
+                            installments: {
+                                orderBy: [asc(projectAcquisitionInstallments.installmentNo)],
+                                with: {
+                                    // The actual dated cash payments logged against this
+                                    // installment — same "raw payments, not the aggregate"
+                                    // convention as `contractPayments` above.
+                                    payments: {orderBy: [asc(expenses.paidAt)]},
+                                },
+                            },
+                        },
+                    },
+                    vendorJobs: {
+                        orderBy: [desc(vendorJobs.startDate), desc(vendorJobs.createdAt)],
+                        with: {
+                            payments: {orderBy: [asc(expenses.paidAt)]},
+                            projectLinks: {with: {project: true}},
                         },
                     },
                 },
