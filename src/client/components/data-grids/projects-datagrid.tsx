@@ -58,7 +58,7 @@ import {ArchiveIcon} from "@/assets/icons";
 
 interface IPlot {
     id: string;
-    status?: string | null;
+    availability: 'AVAILABLE' | 'SOLD';
 }
 
 interface IProject {
@@ -115,6 +115,22 @@ function formatCurrency(value: string | null) {
 
 function formatDate(value: string | null) {
     if (!value) return "—";
+
+    // Handle YYYY-MM-DD date-only strings as local calendar dates
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (dateOnlyMatch) {
+        const [, year, month, day] = dateOnlyMatch;
+        const date = new Date(Number(year), Number(month) - 1, Number(day));
+        if (!Number.isNaN(date.getTime())) {
+            return date.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            });
+        }
+    }
+
+    // Fallback to standard parsing for other formats
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "—";
     return date.toLocaleDateString("en-GB", {
@@ -122,21 +138,6 @@ function formatDate(value: string | null) {
         month: "short",
         year: "numeric",
     });
-}
-
-function statusBadge(status: string | null) {
-    if (!status) return <Badge variant="secondary">—</Badge>;
-    const normalized = status.toUpperCase();
-    switch (normalized) {
-        case "COMPLETED":
-        case "APPROVED":
-            return <Badge variant="success-outline">{status}</Badge>;
-        case "PENDING":
-        case "IN_PROGRESS":
-            return <Badge variant="warning-outline">{status}</Badge>;
-        default:
-            return <Badge variant="info-outline">{status}</Badge>;
-    }
 }
 
 function ActionsCell({
@@ -401,7 +402,7 @@ export function ProjectsDataGrid() {
                 enableResizing: true,
             },
             {
-                accessorKey: "numberOfPlots",
+                accessorFn: (row) => row.plots?.length ?? 0,
                 id: "numberOfPlots",
                 header: ({column}) => (
                     <DataGridColumnHeader
@@ -414,7 +415,7 @@ export function ProjectsDataGrid() {
                     <Skeleton className="h-7 w-auto"/>,
                     (row) => (
                         <span className="text-foreground font-medium">
-              {row.original.plots.length ?? 0}
+              {row.original.plots?.length ?? 0}
             </span>
                     ),
                 ),
