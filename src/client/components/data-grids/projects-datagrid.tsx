@@ -58,7 +58,7 @@ import {ArchiveIcon} from "@/assets/icons";
 
 interface IPlot {
     id: string;
-    status?: string | null;
+    availability?: string | null;
 }
 
 interface IProject {
