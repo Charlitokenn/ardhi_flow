@@ -688,7 +688,7 @@ export function ContactsDataGrid() {
                 }}
                 icon={<Trash2Icon className="size-5"/>}
                 description={`This action will delete ${deletingRow?.fullName}`}
-                onDelete={() => handleConfirmDelete(deletingRow?.id)}
+                onDelete={handleConfirmDelete}
             />
         </>
     )

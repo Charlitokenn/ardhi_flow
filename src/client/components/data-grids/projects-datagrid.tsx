@@ -687,7 +687,7 @@ export function ProjectsDataGrid() {
                 }}
                 icon={<Trash2Icon className="size-5"/>}
                 description={`This action will delete ${deletingRow?.projectName} project`}
-                onDelete={() => handleConfirmDelete(deletingRow?.id)}
+                onDelete={handleConfirmDelete}
             />
         </>
     );

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface ReusableDeleteDialogProps {
-    trigger: ReactNode;
+    trigger?: ReactNode;
     icon?: ReactNode;
     title?: ReactNode;
     description: ReactNode;
@@ -44,9 +44,11 @@ export function ReusableDeleteDialog({
                                      }: ReusableDeleteDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogTrigger asChild>
-                {trigger}
-            </DialogTrigger>
+            {trigger && (
+                <DialogTrigger asChild>
+                    {trigger}
+                </DialogTrigger>
+            )}
 
             <DialogContent>
                 <DialogHeader className="border-b-2">

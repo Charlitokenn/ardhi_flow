@@ -29,6 +29,19 @@ const projectFields: CsvFieldConfig<NewProject>[] = [
         type: "number",
         required: true,
     },
+    {
+        key: "acquisitionDate",
+        label: "Acquisition Date",
+        type: "string",
+        required: true,
+        parse: (value: string) => value,
+    },
+    {
+        key: "acquisitionValue",
+        label: "Acquisition Value",
+        type: "number",
+        required: true,
+    },
 ];
 
 function RouteComponent() {
