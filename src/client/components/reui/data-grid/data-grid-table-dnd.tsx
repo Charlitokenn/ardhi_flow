@@ -3,7 +3,7 @@
 import type {CSSProperties, ReactNode} from "react"
 import {Fragment, memo, useEffect, useId, useMemo, useRef, useState,} from "react"
 import type {DataGridFeatures, DataGridTableInstance,} from "@/components/reui/data-grid/data-grid"
-import {useDataGrid} from "@/components/reui/data-grid/data-grid"
+import {useDataGrid} from "@/components/reui/data-grid/data-grid-context"
 import {
   DataGridTableBase,
   DataGridTableBody,

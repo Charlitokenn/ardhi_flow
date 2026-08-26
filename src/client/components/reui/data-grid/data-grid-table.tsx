@@ -10,7 +10,7 @@ import type {
 } from "react"
 import {Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef,} from "react"
 import type {DataGridFeatures, DataGridTableInstance,} from "@/components/reui/data-grid/data-grid"
-import {useDataGrid} from "@/components/reui/data-grid/data-grid"
+import {useDataGrid} from "@/components/reui/data-grid/data-grid-context"
 import type {Cell, Column, Header, Row} from "@tanstack/react-table"
 import {flexRender, Subscribe} from "@tanstack/react-table"
 

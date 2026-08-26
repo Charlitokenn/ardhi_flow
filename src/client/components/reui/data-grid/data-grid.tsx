@@ -1,10 +1,8 @@
 import type {ReactNode} from "react"
-import {createContext, useContext, useEffect, useMemo, useRef} from "react"
+import {useEffect, useLayoutEffect, useMemo, useRef} from "react"
 import type {
-  Column,
   ColumnFiltersState,
   ReactTable,
-  RowData,
   SortingState,
   Table,
   TableFeatures,
@@ -40,6 +38,10 @@ import {
 } from "@tanstack/react-table"
 
 import {cn} from "@/lib/utils"
+import {
+    DataGridContext,
+    type DataGridContextProps,
+} from "./data-grid-context"
 
 /**
  * Per-column extras the grid reads off `columnDef.meta`.
@@ -145,16 +147,6 @@ export type DataGridTableInstance<TData extends object> = ReactTable<
     TData
 >
 
-/** Label for headers / column visibility: `meta.headerTitle`, string `columnDef.header`, or `column.id`. */
-export function getColumnHeaderLabel<TData extends RowData, TValue>(
-    column: Column<DataGridFeatures, TData, TValue>
-): string {
-    const meta = column.columnDef.meta as { headerTitle?: string } | undefined
-    if (typeof meta?.headerTitle === "string") return meta.headerTitle
-    const defHeader = column.columnDef.header
-    if (typeof defHeader === "string") return defHeader
-    return String(column.id)
-}
 
 export type DataGridApiFetchParams = {
     pageIndex: number
@@ -182,18 +174,6 @@ export type DataGridLayoutProps<TData extends object> = Omit<
     DataGridProps<TableFeatures, TData>,
     "table" | "children"
 >
-
-export interface DataGridContextProps<TData extends object> {
-    props: DataGridLayoutProps<TData>
-    table: DataGridTableInstance<TData>
-    recordCount: number
-    isLoading: boolean
-    /**
-     * Internal coordinator for `meta.autoSize` columns. Lives at the core level
-     * so every table variant and viewport instance shares one application state.
-     */
-    autoSize?: DataGridAutoSizeController
-}
 
 export type DataGridAutoSizeController = {
     /**
@@ -343,30 +323,6 @@ export interface DataGridProps<
     }
 }
 
-const DataGridContext = createContext<
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    DataGridContextProps<any> | undefined
->(undefined)
-
-/**
- * Reads the grid context. Pass `TData` from the calling component when the
- * table, a row or a cell is handed on to something typed against that row
- * shape: v9 declares `TData` invariant, so the default `any` no longer
- * unifies with a concrete row type the way it did on v8.
- */
-function useDataGrid<
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    TData extends object = any,
->(): DataGridContextProps<TData> {
-    const context = useContext(DataGridContext) as
-        | DataGridContextProps<TData>
-        | undefined
-    if (!context) {
-        throw new Error("useDataGrid must be used within a DataGridProvider")
-    }
-    return context
-}
-
 function DataGridProvider<TData extends object>({
                                                     children,
                                                     table,
@@ -381,14 +337,18 @@ function DataGridProvider<TData extends object>({
     // otherwise publish a new context value on every consumer render - at
     // mousemove rate during a resize drag, piercing the body-rows memo).
     const propsRef = useRef(props)
-    propsRef.current = props
 
     // Same treatment for the table itself, which v9 - unlike v8 - re-creates on
     // every state change. Depending on it directly would republish the context
     // on each resize tick, which is exactly what the memo below exists to
     // prevent; the getter still hands every consumer the current instance.
     const tableRef = useRef(table)
-    tableRef.current = table
+
+    // Synchronize refs during commit phase to avoid issues with concurrent rendering
+    useLayoutEffect(() => {
+        propsRef.current = props
+        tableRef.current = table
+    })
 
     // Re-assert an explicit tableLayout resize mode so consumer-level useTable
     // options cannot flip it back between drags. v9 makes `table.options`
@@ -418,6 +378,48 @@ function DataGridProvider<TData extends object>({
 
     const tableState = table.state
 
+    // Compute stable signatures for object props to avoid wasteful JSON.stringify
+    // in the dependency array below
+    const tableLayoutSignature = useMemo(() => {
+        const layout = props.tableLayout
+        if (!layout) return ""
+        return [
+            layout.dense,
+            layout.cellBorder,
+            layout.rowBorder,
+            layout.rowRounded,
+            layout.stripped,
+            layout.headerBackground,
+            layout.footerBackground,
+            layout.headerBorder,
+            layout.headerSticky,
+            layout.width,
+            layout.columnsVisibility,
+            layout.columnsResizable,
+            layout.columnsResizeMode,
+            layout.columnsPinnable,
+            layout.columnsMovable,
+            layout.columnsDraggable,
+            layout.rowsDraggable,
+            layout.rowsPinnable,
+        ].join("|")
+    }, [props.tableLayout])
+
+    const tableClassNamesSignature = useMemo(() => {
+        const classNames = props.tableClassNames
+        if (!classNames) return ""
+        return [
+            classNames.base,
+            classNames.header,
+            classNames.headerRow,
+            classNames.headerSticky,
+            classNames.body,
+            classNames.bodyRow,
+            classNames.footer,
+            classNames.edgeCell,
+        ].join("|")
+    }, [props.tableClassNames])
+
     // Memoize context value so consumers don't re-render during column resize.
     // Column sizing state is intentionally excluded from deps -- CSS variables
     // on the <table> element handle width updates without React re-renders.
@@ -443,10 +445,8 @@ function DataGridProvider<TData extends object>({
             props.isLoading,
             props.loadingMode,
             props.className,
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-            JSON.stringify(props.tableLayout),
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-            JSON.stringify(props.tableClassNames),
+            tableLayoutSignature,
+            tableClassNamesSignature,
             tableState.sorting,
             tableState.pagination,
             tableState.columnFilters,
@@ -567,4 +567,4 @@ function DataGridContainer({
     )
 }
 
-export {useDataGrid, DataGridProvider, DataGrid, DataGridContainer}
+export {DataGridProvider, DataGrid, DataGridContainer}

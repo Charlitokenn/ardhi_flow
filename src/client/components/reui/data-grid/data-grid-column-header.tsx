@@ -1,7 +1,7 @@
 import type {HTMLAttributes, ReactNode} from "react"
 import {memo, useMemo} from "react"
 import type {DataGridFeatures} from "@/components/reui/data-grid/data-grid"
-import {getColumnHeaderLabel, useDataGrid,} from "@/components/reui/data-grid/data-grid"
+import {getColumnHeaderLabel, useDataGrid} from "@/components/reui/data-grid/data-grid-context"
 import type {Column} from "@tanstack/react-table"
 import {Subscribe} from "@tanstack/react-table"
 
