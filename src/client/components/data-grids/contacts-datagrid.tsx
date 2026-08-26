@@ -668,7 +668,7 @@ export function ContactsDataGrid() {
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null)
                 }}
-                title="Contact details"
+                title="Contact Details"
                 widthClassName="sm:max-w-full"
                 children={
                     viewingRow && (

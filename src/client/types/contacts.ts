@@ -161,6 +161,81 @@ export interface ClientContactAsAgentContract {
     commissionPayouts: ClientContactCommissionPayout[]
 }
 
+// A single dated cash payment (an `expenses` row) logged against either a
+// project-acquisition installment or a vendor job. Shared by both the
+// Supplier Projects and Assignments/Jobs sub-tables, mirroring how
+// `ClientContactPayment` is shared across contract sub-tables.
+export interface ClientContactExpensePayment {
+    id: string
+    amount: string
+    paidAt: string
+    method: string | null
+    reference: string | null
+}
+
+export interface ClientContactAcquisitionInstallment {
+    id: string
+    acquisitionId: string
+    installmentNo: number
+    dueDate: string
+    amountDue: string
+    amountPaid: string
+    status: "DUE" | "PARTIAL" | "PAID"
+    paidAt: string | null
+    payments: ClientContactExpensePayment[]
+}
+
+// A project purchase deal this contact sold as a LAND_SELLER. One row per
+// deal, not per project — a project can be assembled from several parcels
+// bought from different sellers (or the same seller) at different times, so
+// this stays a proper one-to-many off the project rather than a single flat
+// "the" acquisition. Powers the "Supplier Projects" tab.
+export interface ClientContactAsSellerAcquisition {
+    id: string
+    projectId: string
+    sellerContactId: string
+    dealDate: string
+    totalPurchaseValue: string
+    paymentPlan: "CASH" | "INSTALLMENT"
+    description: string | null
+    project: {
+        id: string
+        projectName: string
+    }
+    installments: ClientContactAcquisitionInstallment[]
+}
+
+export interface ClientContactVendorJobProjectLink {
+    id: string
+    jobId: string
+    projectId: string
+    allocatedAmount: string
+    project: {
+        id: string
+        projectName: string
+    }
+}
+
+// A job/assignment given to this contact as a vendor (surveyor, auditor, ICT
+// support, etc). Payments are logged against the job directly as they
+// happen — there's no predefined payment schedule the way a plot sale
+// contract or a project acquisition has. Powers the "Assignments/Jobs" tab.
+export interface ClientContactVendorJob {
+    id: string
+    vendorContactId: string
+    title: string
+    description: string | null
+    agreedAmount: string
+    status: "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+    startDate: string | null
+    dueDate: string | null
+    completedAt: string | null
+    cancelledAt: string | null
+    createdAt: string | null
+    payments: ClientContactExpensePayment[]
+    projectLinks: ClientContactVendorJobProjectLink[]
+}
+
 export interface ClientContact {
     id: string
     fullName: string
@@ -190,4 +265,6 @@ export interface ClientContact {
     updatedAt: string | null
     plots: ClientContactPlot[]
     plotSaleContractsAsAgent: ClientContactAsAgentContract[]
+    projectAcquisitionsAsSeller: ClientContactAsSellerAcquisition[]
+    vendorJobs: ClientContactVendorJob[]
 }
