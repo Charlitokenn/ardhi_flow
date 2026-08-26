@@ -18,7 +18,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button.tsx";
-import ReusableSheet from "@/components-reusable/reusable-sheet";
+import {ReusableSheet} from "@/components-reusable/reusable-sheet";
 import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
 
 interface QuickActionsMenuProps {
@@ -148,50 +148,41 @@ export function QuickActionsMenu({
             </DropdownMenu>
 
             {/*
-              A single controlled `ReusableSheet` shared by every quick
-              action — `open`/`onOpenChange` are driven by `activeLabel`
-              instead of the sheet's own `trigger`, since the trigger here is
-              a `DropdownMenuItem` rather than the sheet itself. Once real
-              forms exist per action, replace the placeholder `formContent`
-              below with the matching form component (and give `onSubmit`
-              a real submit handler that calls the form's submit logic
-              before closing the sheet).
+              Render AddEditContactForm directly when the action is "Add Contact"
+              (it has its own sheet), otherwise use ReusableSheet for other actions.
             */}
-            <ReusableSheet
-                open={activeItem !== undefined}
-                onOpenChange={(open) => {
-                    if (!open) setActiveLabel(null);
-                }}
-                title={activeItem?.sheetTitle ?? ""}
-                description={activeItem?.sheetDescription}
-                footer={activeItem?.label === "Add Contact"}
-                widthClassName={activeItem?.label === "Add Contact" ? "w-full sm:max-w-2xl" : undefined}
-                children={
-                    activeItem?.label === "Add Contact" ? (
-                        <AddEditContactForm
-                            mode="add"
-                            open={activeItem?.label === "Add Contact"}
-                            onOpenChange={(open) => {
-                                if (!open) setActiveLabel(null)
-                            }}
-                            onSuccess={() => setActiveLabel(null)}
-                        />
-                    ) : (
+            {activeItem?.label === "Add Contact" ? (
+                <AddEditContactForm
+                    mode="add"
+                    open={activeItem?.label === "Add Contact"}
+                    onOpenChange={(open) => {
+                        if (!open) setActiveLabel(null)
+                    }}
+                    onSuccess={() => setActiveLabel(null)}
+                />
+            ) : (
+                <ReusableSheet
+                    open={activeItem !== undefined}
+                    onOpenChange={(open) => {
+                        if (!open) setActiveLabel(null);
+                    }}
+                    title={activeItem?.sheetTitle ?? ""}
+                    description={activeItem?.sheetDescription}
+                    children={
                         <div className="text-sm text-muted-foreground">
                             {/* TODO: replace with the real form for "{activeItem?.label}" once it exists. */}
                             Form for &quot;{activeItem?.label}&quot; goes here.
                         </div>
-                    )
-                }
-                onSubmit={(event) => {
-                    event.preventDefault();
-                    // TODO: hook up the real submit handler for the active
-                    // action's form (e.g. create transaction/etc.) once it's
-                    // implemented, then close the sheet. "Add Contact" is
-                    // already wired above and manages its own submit/close.
-                    setActiveLabel(null);
-                }}
-            />
+                    }
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        // TODO: hook up the real submit handler for the active
+                        // action's form (e.g. create transaction/etc.) once it's
+                        // implemented, then close the sheet.
+                        setActiveLabel(null);
+                    }}
+                />
+            )}
         </div>
 
     );

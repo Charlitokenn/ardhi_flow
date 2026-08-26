@@ -13,7 +13,7 @@ import type {NewContact} from "../../../../../../drizzle/tenant/schema"
 import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {FilesIcon, UserPlusIcon} from "lucide-react"
-import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 
 export const Route = createFileRoute('/_authed/_org/contacts/')({
     staticData: {
@@ -98,7 +98,11 @@ function RouteComponent() {
 
                     <ReusableSheet
                         title="Contacts Bulk Upload"
-                        trigger={<FilesIcon className="size-5 cursor-pointer"/>}
+                        trigger={
+                            <Button variant="outline" size="icon">
+                                <FilesIcon className="size-5"/>
+                            </Button>
+                        }
                         widthClassName="sm:max-w-full"
                         children={
                             <ReusableCSVUploader
