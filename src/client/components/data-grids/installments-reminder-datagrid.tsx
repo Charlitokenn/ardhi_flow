@@ -33,14 +33,7 @@ import {Checkbox} from "@/components/ui/checkbox.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
 import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx"
-import {
-    EyeDashedIcon,
-    FunnelIcon,
-    MoreHorizontalIcon,
-    MessageCircleIcon,
-    SearchIcon,
-    XIcon,
-} from "lucide-react"
+import {EyeDashedIcon, FunnelIcon, MessageCircleIcon, MoreHorizontalIcon, SearchIcon, XIcon,} from "lucide-react"
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
@@ -159,6 +152,23 @@ function reminderStatusLabel(status: ReminderStatus): string {
         case "OPEN":
         default:
             return "Open"
+    }
+}
+
+/** Full-row tint to match the status badge colors — subtle enough not to
+ * fight the text, but enough to scan a long list at a glance. "Open" rows
+ * (due date more than 7 days out) get no tint; they're not yet actionable. */
+function reminderRowClassName(status: ReminderStatus): string | undefined {
+    switch (status) {
+        case "PAID":
+            return "bg-success/10 hover:bg-success/15 dark:bg-success/15 dark:hover:bg-success/20"
+        case "OVERDUE":
+            return "bg-destructive/10 hover:bg-destructive/15 dark:bg-destructive/15 dark:hover:bg-destructive/20"
+        case "UPCOMING":
+            return "bg-warning/10 hover:bg-warning/15 dark:bg-warning/15 dark:hover:bg-warning/20"
+        case "OPEN":
+        default:
+            return undefined
     }
 }
 
@@ -564,6 +574,7 @@ export function InstallmentsReminderDataGrid() {
             <DataGrid
                 table={table}
                 recordCount={filteredData.length || 0}
+                getRowClassName={(row) => reminderRowClassName(computeReminderStatus(row))}
                 tableLayout={{
                     columnsPinnable: true,
                     columnsResizable: true,
