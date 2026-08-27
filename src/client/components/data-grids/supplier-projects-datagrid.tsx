@@ -107,7 +107,7 @@ function renderTotalsFootRow(
 // Main grid: projects purchased from this land seller
 // ---------------------------------------------------------------------------
 
-export function DatagridSupplierProjects({
+export function SupplierProjectsDataGrid({
                                              acquisitions,
                                          }: {
     acquisitions: ClientContactAsSellerAcquisition[]

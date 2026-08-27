@@ -1,10 +1,6 @@
 import * as React from "react"
-import { Link, useLocation } from "@tanstack/react-router"
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import {Link, useLocation} from "@tanstack/react-router"
+import {Collapsible, CollapsibleContent, CollapsibleTrigger,} from "@/components/ui/collapsible"
 import {
     SidebarGroup,
     SidebarGroupLabel,
@@ -15,7 +11,7 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { ChevronRightIcon } from "lucide-react"
+import {ChevronRightIcon} from "lucide-react"
 
 export function NavMain({
                             items,
@@ -89,8 +85,9 @@ export function NavMain({
                                     <SidebarMenuButton
                                         tooltip={{
                                             children: (
-                                                <div className="flex min-w-[170px] flex-col gap-1.5">
-                                                    <div className="mb-1 border-b border-background/20 pb-1.5 text-sm font-semibold">
+                                                <div className="flex min-w-42.5 flex-col gap-1.5">
+                                                    <div
+                                                        className="mb-1 border-b border-background/20 pb-1.5 text-sm font-semibold">
                                                         {item.title}
                                                     </div>
 
@@ -128,7 +125,8 @@ export function NavMain({
                                         {item.icon}
                                         <span>{item.title}</span>
 
-                                        <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                        <ChevronRightIcon
+                                            className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"/>
                                     </SidebarMenuButton>
                                 </CollapsibleTrigger>
 

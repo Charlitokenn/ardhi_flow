@@ -16,7 +16,6 @@ import {ModeToggle} from '@/components/mode-toggle'
 import {NetworkStatusBanner} from "@/components/network-status-banner.tsx";
 import {QuickActionsMenu} from "@/components-reusable/reusable-quick-actions.tsx";
 import {apiClient} from "@/lib/api.ts"
-import {LabelNumberTicker} from "@/components/number-ticker/number-ticker-05.tsx";
 
 export const Route = createFileRoute('/_authed/_org')({
     beforeLoad: ({context}) => {
@@ -110,7 +109,6 @@ function OrgLayout() {
                     </div>
 
                     <div className="ml-auto flex items-center gap-3 mr-6">
-                        <LabelNumberTicker value={98780} label="SMS" className="text-xs"/>
                         <QuickActionsMenu/>
                         <ModeToggle/>
                         <UserButton/>

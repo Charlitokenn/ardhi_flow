@@ -274,7 +274,7 @@ function InstallmentsSubTable({
 // Main grid: plots held by this client
 // ---------------------------------------------------------------------------
 
-export function DatagridPlotsHeld({plots}: { plots: ClientContactPlot[] }) {
+export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
     const rows = useMemo<PlotHeldRow[]>(() => plots.map(toPlotHeldRow), [plots])
 
     const [pagination, setPagination] = useState<PaginationState>({

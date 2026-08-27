@@ -1,20 +1,13 @@
 import {useState} from "react"
-import {useAuth, useOrganization} from "@clerk/react"
+import {useAuth} from "@clerk/react"
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
 import {toast} from "sonner"
 import {apiClient} from "@/lib/api.ts"
 import {Button} from "@/components/ui/button.tsx"
 import {Input} from "@/components/ui/input.tsx"
+import {PhoneInput} from "@/components/reui/phone-input.tsx"
 import {Textarea} from "@/components/ui/textarea.tsx"
-import {
-    Field,
-    FieldContent,
-    FieldError,
-    FieldGroup,
-    FieldLabel,
-    FieldLegend,
-    FieldSet,
-} from "@/components/ui/field.tsx"
+import {Field, FieldContent, FieldError, FieldGroup, FieldLabel, FieldSet,} from "@/components/ui/field.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ColorPicker} from "@/components/ui/color-picker.tsx"
 import {ColorSwatchIcon} from "@/assets/icons";
@@ -59,7 +52,6 @@ function toFormValues(settings: Partial<Record<keyof FormValues, string | null>>
 // own `company_settings` row via GET/PUT /api/company-settings.
 export function BrandingSettingsForm() {
     const {getToken} = useAuth()
-    const {organization} = useOrganization()
     const queryClient = useQueryClient()
     const api = apiClient(getToken)
 
@@ -153,59 +145,35 @@ export function BrandingSettingsForm() {
     return (
         <div className="space-y-6 p-1">
             <FieldSet>
-                <FieldLegend variant="label" className="font-semibold text-xl">Organization</FieldLegend>
                 <FieldGroup>
                     <Field orientation="responsive">
                         <FieldContent>
-                            <FieldLabel>Company name</FieldLabel>
-                            <Input value={organization?.name ?? ""} disabled/>
-                            {/*<FieldDescription>Sourced from your Clerk organization name.</FieldDescription>*/}
+                            <FieldLabel htmlFor="slogan">Slogan</FieldLabel>
+                            <Input
+                                id="slogan"
+                                value={values.slogan}
+                                onChange={(e) => update("slogan", e.target.value)}
+                                placeholder="e.g. Your trusted land partner"
+                            />
                         </FieldContent>
-                        <FieldContent>
-                            <FieldLabel>Logo</FieldLabel>
-                            <div className="flex h-9 items-center gap-2">
-                                {organization?.imageUrl && (
-                                    <img src={organization.imageUrl} alt="Organization logo"
-                                         className="size-8 rounded object-cover"/>
-                                )}
+                        <FieldContent data-invalid={!!errors.primaryColor}>
+                            <FieldLabel htmlFor="primaryColor">Brand color</FieldLabel>
+                            <div className="flex items-center gap-2">
+                                <ColorPicker
+                                    id="primaryColor"
+                                    label="Brand Color"
+                                    value={values.primaryColor || "#0F6B3D"}
+                                    onChange={(hex) => update("primaryColor", hex)}
+                                    showAlpha={false}
+                                />
+                                <span
+                                    className="size-9 shrink-0 rounded-md border"
+                                    style={{backgroundColor: HEX_COLOR_REGEX.test(values.primaryColor) ? values.primaryColor : undefined}}
+                                />
                             </div>
-                            {/*<FieldDescription>Sourced from your Clerk organization image.</FieldDescription>*/}
+                            <FieldError errors={errors.primaryColor ? [{message: errors.primaryColor}] : undefined}/>
                         </FieldContent>
                     </Field>
-                </FieldGroup>
-            </FieldSet>
-
-            <FieldSet>
-                <FieldLegend variant="label">Branding Details</FieldLegend>
-                <FieldGroup>
-                    <Field>
-                        <FieldLabel htmlFor="slogan">Slogan</FieldLabel>
-                        <Input
-                            id="slogan"
-                            value={values.slogan}
-                            onChange={(e) => update("slogan", e.target.value)}
-                            placeholder="e.g. Your trusted land partner"
-                        />
-                    </Field>
-
-                    <Field data-invalid={!!errors.primaryColor}>
-                        <FieldLabel htmlFor="primaryColor">Brand color</FieldLabel>
-                        <div className="flex items-center gap-2">
-                            <ColorPicker
-                                id="primaryColor"
-                                label="Brand Color"
-                                value={values.primaryColor || "#0F6B3D"}
-                                onChange={(hex) => update("primaryColor", hex)}
-                                showAlpha={false}
-                            />
-                            <span
-                                className="size-9 shrink-0 rounded-md border"
-                                style={{backgroundColor: HEX_COLOR_REGEX.test(values.primaryColor) ? values.primaryColor : undefined}}
-                            />
-                        </div>
-                        <FieldError errors={errors.primaryColor ? [{message: errors.primaryColor}] : undefined}/>
-                    </Field>
-
                     <Field orientation="responsive">
                         <FieldContent>
                             <FieldLabel htmlFor="email">Official Email</FieldLabel>
@@ -219,10 +187,11 @@ export function BrandingSettingsForm() {
                         </FieldContent>
                         <FieldContent>
                             <FieldLabel htmlFor="mobileNumber">Official Mobile number</FieldLabel>
-                            <Input
+                            <PhoneInput
                                 id="mobileNumber"
                                 value={values.mobileNumber}
-                                onChange={(e) => update("mobileNumber", e.target.value)}
+                                onChange={(v) => update("mobileNumber", v ?? "")}
+                                defaultCountry="TZ"
                                 placeholder="+255712000111"
                             />
                         </FieldContent>

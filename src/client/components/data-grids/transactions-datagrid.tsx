@@ -1,22 +1,22 @@
-import {type ReactNode, useEffect, useMemo, useState} from "react"
-import {useAuth} from "@clerk/react"
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
-import {apiClient} from "@/lib/api.ts"
-import {Badge} from "@/components/reui/badge.tsx"
+import {type ReactNode, useEffect, useMemo, useState} from "react";
+import {useAuth} from "@clerk/react";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {apiClient} from "@/lib/api.ts";
+import {Badge} from "@/components/reui/badge.tsx";
 import {
     DataGrid,
     DataGridContainer,
     dataGridFeatures,
     type DataGridFeatures,
-} from "@/components/reui/data-grid/data-grid.tsx"
-import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
-import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
-import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
+} from "@/components/reui/data-grid/data-grid.tsx";
+import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx";
+import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx";
+import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx";
 import {
     DataGridTable,
     DataGridTableRowSelect,
     DataGridTableRowSelectAll,
-} from "@/components/reui/data-grid/data-grid-table.tsx"
+} from "@/components/reui/data-grid/data-grid-table.tsx";
 import {
     type ColumnDef,
     type PaginationState,
@@ -24,20 +24,20 @@ import {
     type RowSelectionState,
     type SortingState,
     useTable,
-} from "@tanstack/react-table"
-import {toast} from "sonner"
-import {Avatar, AvatarFallback} from "@/components/ui/avatar.tsx"
-import {Button} from "@/components/ui/button.tsx"
-import {Card, CardAction, CardContent, CardFooter, CardHeader,} from "@/components/ui/card.tsx"
+} from "@tanstack/react-table";
+import {toast} from "sonner";
+import {Avatar, AvatarFallback} from "@/components/ui/avatar.tsx";
+import {Button} from "@/components/ui/button.tsx";
+import {Card, CardAction, CardContent, CardFooter, CardHeader,} from "@/components/ui/card.tsx";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu.tsx"
-import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select.tsx"
+} from "@/components/ui/dropdown-menu.tsx";
+import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select.tsx";
 import {
     ArrowDownCircleIcon,
     ArrowUpCircleIcon,
@@ -49,11 +49,11 @@ import {
     Trash2Icon,
     TrendingUpIcon,
     XIcon,
-} from "lucide-react"
-import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
-import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
-import {type ExportColumn} from "@/lib/export-csv.ts"
-import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
+} from "lucide-react";
+import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts";
+import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
+import {type ExportColumn} from "@/lib/export-csv.ts";
+import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -63,50 +63,50 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-} from "@/components/ui/alert-dialog.tsx"
-import {Skeleton} from "@/components/ui/skeleton.tsx"
-import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
-import {ArchiveIcon} from "@/assets/icons"
+} from "@/components/ui/alert-dialog.tsx";
+import {Skeleton} from "@/components/ui/skeleton.tsx";
+import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
+import {ArchiveIcon} from "@/assets/icons";
 
 interface IPayment {
-    id: string
-    contractId: string
-    clientContactId: string
-    accountId: string | null
-    direction: "IN" | "OUT"
-    amount: string
-    receivedAt: string
-    method: string | null
-    reference: string | null
-    client?: { fullName: string } | null
-    account?: { name?: string } | null
+    id: string;
+    contractId: string;
+    clientContactId: string;
+    accountId: string | null;
+    direction: "IN" | "OUT";
+    amount: string;
+    receivedAt: string;
+    method: string | null;
+    reference: string | null;
+    client?: { fullName: string } | null;
+    account?: { name?: string } | null;
 }
 
 interface IExpense {
-    id: string
-    category: string
-    description: string | null
-    amount: string
-    accountId: string | null
-    payeeContactId: string | null
-    projectId: string | null
-    paidAt: string
-    method: string | null
-    reference?: string | null
-    payee?: { fullName: string } | null
-    account?: { name?: string } | null
+    id: string;
+    category: string;
+    description: string | null;
+    amount: string;
+    accountId: string | null;
+    payeeContactId: string | null;
+    projectId: string | null;
+    paidAt: string;
+    method: string | null;
+    reference?: string | null;
+    payee?: { fullName: string } | null;
+    account?: { name?: string } | null;
 }
 
 interface ITransaction {
-    id: string
-    kind: "payment" | "expense"
-    title: string
-    subtitle: string
-    amount: number
-    isIncome: boolean
-    date: string
-    method: string | null
-    raw: IPayment | IExpense
+    id: string;
+    kind: "payment" | "expense";
+    title: string;
+    subtitle: string;
+    amount: number;
+    isIncome: boolean;
+    date: string;
+    method: string | null;
+    raw: IPayment | IExpense;
 }
 
 const exportColumns: ExportColumn<ITransaction>[] = [
@@ -115,7 +115,7 @@ const exportColumns: ExportColumn<ITransaction>[] = [
     {header: "Merchant", accessor: (d) => d.title},
     {header: "Amount", accessor: (d) => d.amount},
     {header: "Date", accessor: (d) => d.date},
-]
+];
 
 function initials(name: string) {
     return name
@@ -124,22 +124,22 @@ function initials(name: string) {
         .map((n) => n[0])
         .join("")
         .slice(0, 2)
-        .toUpperCase()
+        .toUpperCase();
 }
 
 function shortId(id: string) {
-    return id.replace(/-/g, "").slice(0, 8).toUpperCase()
+    return id.replace(/-/g, "").slice(0, 8).toUpperCase();
 }
 
 function formatDate(value: string | null | undefined) {
-    if (!value) return "—"
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return "—"
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
     return date.toLocaleDateString("en-US", {
         month: "short",
         day: "2-digit",
         year: "numeric",
-    })
+    });
 }
 
 function formatCurrency(amount: number) {
@@ -147,10 +147,13 @@ function formatCurrency(amount: number) {
         style: "currency",
         currency: "USD",
         maximumFractionDigits: 0,
-    })
+    });
 }
 
-function toTransactions(payments: IPayment[], expenses: IExpense[]): ITransaction[] {
+function toTransactions(
+    payments: IPayment[],
+    expenses: IExpense[],
+): ITransaction[] {
     const paymentTx: ITransaction[] = payments.map((p) => ({
         id: `payment-${p.id}`,
         kind: "payment",
@@ -161,7 +164,7 @@ function toTransactions(payments: IPayment[], expenses: IExpense[]): ITransactio
         date: p.receivedAt,
         method: p.method ?? p.reference ?? null,
         raw: p,
-    }))
+    }));
 
     const expenseTx: ITransaction[] = expenses.map((e) => ({
         id: `expense-${e.id}`,
@@ -173,20 +176,20 @@ function toTransactions(payments: IPayment[], expenses: IExpense[]): ITransactio
         date: e.paidAt,
         method: e.method ?? e.reference ?? null,
         raw: e,
-    }))
+    }));
 
     return [...paymentTx, ...expenseTx].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
 }
 
 function transactionIdLabel(tx: ITransaction) {
     if (tx.kind === "payment") {
-        const payment = tx.raw as IPayment
-        return payment.reference || payment.method || `TXN_${shortId(payment.id)}`
+        const payment = tx.raw as IPayment;
+        return payment.reference || payment.method || `TXN_${shortId(payment.id)}`;
     }
-    const expense = tx.raw as IExpense
-    return expense.reference || `INV_${shortId(expense.id)}`
+    const expense = tx.raw as IExpense;
+    return expense.reference || `INV_${shortId(expense.id)}`;
 }
 
 function ActionsCell({
@@ -196,24 +199,35 @@ function ActionsCell({
                          onDelete,
                          disabled,
                      }: {
-    row: Row<DataGridFeatures, ITransaction>
-    onEdit: (data: ITransaction) => void
-    onView: (data: ITransaction) => void
-    onDelete: (data: ITransaction) => void
-    disabled?: boolean
+    row: Row<DataGridFeatures, ITransaction>;
+    onEdit: (data: ITransaction) => void;
+    onView: (data: ITransaction) => void;
+    onDelete: (data: ITransaction) => void;
+    disabled?: boolean;
 }) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button className="size-7" size="icon" variant="ghost" disabled={disabled}>
+                <Button
+                    className="size-7"
+                    size="icon"
+                    variant="ghost"
+                    disabled={disabled}
+                >
                     <MoreHorizontalIcon/>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="left" align="start">
-                <DropdownMenuItem onClick={() => onEdit(row.original)} className="cursor-pointer">
+                <DropdownMenuItem
+                    onClick={() => onEdit(row.original)}
+                    className="cursor-pointer"
+                >
                     <SquarePenIcon/> Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onView(row.original)} className="cursor-pointer">
+                <DropdownMenuItem
+                    onClick={() => onView(row.original)}
+                    className="cursor-pointer"
+                >
                     <EyeDashedIcon/> View
                 </DropdownMenuItem>
                 <DropdownMenuSeparator/>
@@ -226,169 +240,196 @@ function ActionsCell({
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
-    )
+    );
 }
 
-const DELETE_ANIMATION_MS = 600
+const DELETE_ANIMATION_MS = 600;
 
-type TypeFilter = "all" | "income" | "expense"
+type TypeFilter = "all" | "income" | "expense";
 
-export function DatagridTransactions() {
-    const {getToken} = useAuth()
-    const queryClient = useQueryClient()
-    const api = apiClient(getToken)
+export function TransactionsDataGrid() {
+    const {getToken} = useAuth();
+    const queryClient = useQueryClient();
+    const api = apiClient(getToken);
 
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: 8,
-    })
-    const [sorting, setSorting] = useState<SortingState>([{id: "date", desc: true}])
-    const [searchQuery, setSearchQuery] = useState("")
-    const [methodFilter, setMethodFilter] = useState<string>("all")
-    const [accountFilter, setAccountFilter] = useState<string>("all")
-    const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
+    });
+    const [sorting, setSorting] = useState<SortingState>([
+        {id: "date", desc: true},
+    ]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [methodFilter, setMethodFilter] = useState<string>("all");
+    const [accountFilter, setAccountFilter] = useState<string>("all");
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
-    const [viewingRow, setViewingRow] = useState<ITransaction | null>(null)
-    const isViewSheetOpen = viewingRow !== null
+    const [viewingRow, setViewingRow] = useState<ITransaction | null>(null);
+    const isViewSheetOpen = viewingRow !== null;
 
-    const [deletingRow, setDeletingRow] = useState<ITransaction | null>(null)
-    const isDeleteDialogOpen = deletingRow !== null
-    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+    const [deletingRow, setDeletingRow] = useState<ITransaction | null>(null);
+    const isDeleteDialogOpen = deletingRow !== null;
+    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
     const paymentsQuery = useQuery({
         queryKey: ["payments"],
         queryFn: async () => {
-            const res = await api.api.payments.$get()
+            const res = await api.api.payments.$get();
             if (!res.ok) {
-                const body = await res.json().catch(() => null)
-                const message = (body && typeof body === "object" && "error" in body ? (body as {
-                        error?: string
-                    }).error : null)
-                    ?? `Failed to load payments (${res.status})`
-                throw new Error(message)
+                const body = await res.json().catch(() => null);
+                const message =
+                    (body && typeof body === "object" && "error" in body
+                        ? (
+                            body as {
+                                error?: string;
+                            }
+                        ).error
+                        : null) ?? `Failed to load payments (${res.status})`;
+                throw new Error(message);
             }
-            return res.json()
+            return res.json();
         },
-    })
+    });
 
     const expensesQuery = useQuery({
         queryKey: ["expenses"],
         queryFn: async () => {
-            const res = await api.api.expenses.$get()
+            const res = await api.api.expenses.$get();
             if (!res.ok) {
-                const body = await res.json().catch(() => null)
-                const message = (body && typeof body === "object" && "error" in body ? (body as {
-                        error?: string
-                    }).error : null)
-                    ?? `Failed to load expenses (${res.status})`
-                throw new Error(message)
+                const body = await res.json().catch(() => null);
+                const message =
+                    (body && typeof body === "object" && "error" in body
+                        ? (
+                            body as {
+                                error?: string;
+                            }
+                        ).error
+                        : null) ?? `Failed to load expenses (${res.status})`;
+                throw new Error(message);
             }
-            return res.json()
+            return res.json();
         },
-    })
+    });
 
     useEffect(() => {
         if (paymentsQuery.isError) {
-            toast.error(paymentsQuery.error instanceof Error ? paymentsQuery.error.message : "Failed to load payments")
+            toast.error(
+                paymentsQuery.error instanceof Error
+                    ? paymentsQuery.error.message
+                    : "Failed to load payments",
+            );
         }
-    }, [paymentsQuery.isError, paymentsQuery.error])
+    }, [paymentsQuery.isError, paymentsQuery.error]);
 
     useEffect(() => {
         if (expensesQuery.isError) {
-            toast.error(expensesQuery.error instanceof Error ? expensesQuery.error.message : "Failed to load expenses")
+            toast.error(
+                expensesQuery.error instanceof Error
+                    ? expensesQuery.error.message
+                    : "Failed to load expenses",
+            );
         }
-    }, [expensesQuery.isError, expensesQuery.error])
+    }, [expensesQuery.isError, expensesQuery.error]);
 
     const deletePayment = useMutation({
         mutationFn: async (id: string) => {
-            const res = await api.api.payments[":id"].$delete({param: {id}})
-            if (!res.ok) throw new Error("Failed to delete payment")
-            return res.json()
+            const res = await api.api.payments[":id"].$delete({param: {id}});
+            if (!res.ok) throw new Error("Failed to delete payment");
+            return res.json();
         },
-    })
+    });
 
     const deleteExpense = useMutation({
         mutationFn: async (id: string) => {
-            const res = await api.api.expenses[":id"].$delete({param: {id}})
-            if (!res.ok) throw new Error("Failed to delete expense")
-            return res.json()
+            const res = await api.api.expenses[":id"].$delete({param: {id}});
+            if (!res.ok) throw new Error("Failed to delete expense");
+            return res.json();
         },
-    })
+    });
 
     const data = useMemo<ITransaction[]>(
         () =>
             toTransactions(
                 (paymentsQuery.data ?? []) as unknown as IPayment[],
-                (expensesQuery.data ?? []) as unknown as IExpense[]
+                (expensesQuery.data ?? []) as unknown as IExpense[],
             ),
-        [paymentsQuery.data, expensesQuery.data]
-    )
+        [paymentsQuery.data, expensesQuery.data],
+    );
 
     const methodOptions = useMemo(() => {
-        const methods = new Set<string>()
+        const methods = new Set<string>();
         data.forEach((tx) => {
-            if (tx.method) methods.add(tx.method)
-        })
-        return Array.from(methods)
-    }, [data])
+            if (tx.method) methods.add(tx.method);
+        });
+        return Array.from(methods);
+    }, [data]);
 
     const accountOptions = useMemo(() => {
-        const accounts = new Set<string>()
+        const accounts = new Set<string>();
         data.forEach((tx) => {
-            const name = tx.raw.account?.name
-            if (name) accounts.add(name)
-        })
-        return Array.from(accounts)
-    }, [data])
+            const name = tx.raw.account?.name;
+            if (name) accounts.add(name);
+        });
+        return Array.from(accounts);
+    }, [data]);
 
     const filteredData = useMemo(() => {
         return data.filter((tx) => {
             const matchesType =
                 typeFilter === "all" ||
                 (typeFilter === "income" && tx.isIncome) ||
-                (typeFilter === "expense" && !tx.isIncome)
+                (typeFilter === "expense" && !tx.isIncome);
 
-            const matchesMethod = methodFilter === "all" || tx.method === methodFilter
+            const matchesMethod =
+                methodFilter === "all" || tx.method === methodFilter;
 
-            const matchesAccount = accountFilter === "all" || tx.raw.account?.name === accountFilter
+            const matchesAccount =
+                accountFilter === "all" || tx.raw.account?.name === accountFilter;
 
-            const searchLower = searchQuery.toLowerCase()
+            const searchLower = searchQuery.toLowerCase();
             const matchesSearch =
                 !searchQuery ||
                 [tx.title, tx.subtitle, tx.method, transactionIdLabel(tx)]
                     .filter(Boolean)
                     .join(" ")
                     .toLowerCase()
-                    .includes(searchLower)
+                    .includes(searchLower);
 
-            return matchesType && matchesMethod && matchesAccount && matchesSearch
-        })
-    }, [data, searchQuery, methodFilter, accountFilter, typeFilter])
+            return matchesType && matchesMethod && matchesAccount && matchesSearch;
+        });
+    }, [data, searchQuery, methodFilter, accountFilter, typeFilter]);
 
     const stats = useMemo(() => {
-        const totalIn = data.filter((tx) => tx.isIncome).reduce((sum, tx) => sum + tx.amount, 0)
-        const totalOut = data.filter((tx) => !tx.isIncome).reduce((sum, tx) => sum + tx.amount, 0)
-        const largest = data.reduce((max, tx) => Math.max(max, tx.amount), 0)
-        return {totalIn, totalOut, largest, count: data.length}
-    }, [data])
+        const totalIn = data
+            .filter((tx) => tx.isIncome)
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        const totalOut = data
+            .filter((tx) => !tx.isIncome)
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        const largest = data.reduce((max, tx) => Math.max(max, tx.amount), 0);
+        return {totalIn, totalOut, largest, count: data.length};
+    }, [data]);
 
     const hasActiveFilters =
-        searchQuery.length > 0 || methodFilter !== "all" || accountFilter !== "all" || typeFilter !== "all"
+        searchQuery.length > 0 ||
+        methodFilter !== "all" ||
+        accountFilter !== "all" ||
+        typeFilter !== "all";
 
     const handleClearFilters = () => {
-        setSearchQuery("")
-        setMethodFilter("all")
-        setAccountFilter("all")
-        setTypeFilter("all")
-    }
+        setSearchQuery("");
+        setMethodFilter("all");
+        setAccountFilter("all");
+        setTypeFilter("all");
+    };
 
     const renderWithDeleteSkeleton = (
         skeleton: ReactNode,
-        render: (row: Row<DataGridFeatures, ITransaction>) => ReactNode
+        render: (row: Row<DataGridFeatures, ITransaction>) => ReactNode,
     ) => {
         return ({row}: { row: Row<DataGridFeatures, ITransaction> }) =>
-            deletingIds.has(row.original.id) ? skeleton : render(row)
-    }
+            deletingIds.has(row.original.id) ? skeleton : render(row);
+    };
 
     const columns = useMemo<ColumnDef<DataGridFeatures, ITransaction>[]>(
         () => [
@@ -398,7 +439,7 @@ export function DatagridTransactions() {
                 header: () => <DataGridTableRowSelectAll/>,
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-4.5 w-4.5"/>,
-                    (row) => <DataGridTableRowSelect row={row}/>
+                    (row) => <DataGridTableRowSelect row={row}/>,
                 ),
                 enableSorting: false,
                 size: 35,
@@ -409,7 +450,11 @@ export function DatagridTransactions() {
                 accessorKey: "title",
                 id: "title",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Merchant" visibility={true} column={column}/>
+                    <DataGridColumnHeader
+                        title="Merchant"
+                        visibility={true}
+                        column={column}
+                    />
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
@@ -419,13 +464,15 @@ export function DatagridTransactions() {
                                 <AvatarFallback>{initials(row.original.title)}</AvatarFallback>
                             </Avatar>
                             <div className="space-y-px">
-                                <div className="text-foreground font-medium">{row.original.title}</div>
+                                <div className="text-foreground font-medium">
+                                    {row.original.title}
+                                </div>
                                 <Badge size="sm" variant="secondary">
                                     {row.original.subtitle}
                                 </Badge>
                             </div>
                         </div>
-                    )
+                    ),
                 ),
                 size: 260,
                 meta: {autoSize: true, skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -436,7 +483,11 @@ export function DatagridTransactions() {
             {
                 id: "transactionId",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Transaction ID" visibility={true} column={column}/>
+                    <DataGridColumnHeader
+                        title="Transaction ID"
+                        visibility={true}
+                        column={column}
+                    />
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
@@ -444,7 +495,7 @@ export function DatagridTransactions() {
                         <div className="text-muted-foreground font-mono text-xs">
                             {transactionIdLabel(row.original)}
                         </div>
-                    )
+                    ),
                 ),
                 size: 160,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -456,7 +507,11 @@ export function DatagridTransactions() {
                 accessorKey: "amount",
                 id: "amount",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Amount" visibility={true} column={column}/>
+                    <DataGridColumnHeader
+                        title="Amount"
+                        visibility={true}
+                        column={column}
+                    />
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
@@ -469,7 +524,7 @@ export function DatagridTransactions() {
                             {row.original.isIncome ? "+" : "-"}
                             {formatCurrency(row.original.amount)}
                         </div>
-                    )
+                    ),
                 ),
                 size: 140,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -481,11 +536,19 @@ export function DatagridTransactions() {
                 accessorKey: "date",
                 id: "date",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Date" visibility={true} column={column}/>
+                    <DataGridColumnHeader
+                        title="Date"
+                        visibility={true}
+                        column={column}
+                    />
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
-                    (row) => <div className="text-foreground font-medium">{formatDate(row.original.date)}</div>
+                    (row) => (
+                        <div className="text-foreground font-medium">
+                            {formatDate(row.original.date)}
+                        </div>
+                    ),
                 ),
                 size: 140,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -496,11 +559,15 @@ export function DatagridTransactions() {
             {
                 id: "status",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Status" visibility={true} column={column}/>
+                    <DataGridColumnHeader
+                        title="Status"
+                        visibility={true}
+                        column={column}
+                    />
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
-                    () => <Badge variant="success-outline">Completed</Badge>
+                    () => <Badge variant="success-outline">Completed</Badge>,
                 ),
                 size: 120,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -521,7 +588,7 @@ export function DatagridTransactions() {
                             onDelete={(rowData) => setDeletingRow(rowData)}
                             disabled={deletingIds.has(row.original.id)}
                         />
-                    )
+                    ),
                 ),
                 size: 60,
                 meta: {skeleton: <Skeleton className="h-6 w-6"/>},
@@ -530,11 +597,13 @@ export function DatagridTransactions() {
                 enableResizing: false,
             },
         ],
-        [deletingIds]
-    )
+        [deletingIds],
+    );
 
-    const [columnOrder, setColumnOrder] = useState<string[]>(columns.map((c) => c.id as string))
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+    const [columnOrder, setColumnOrder] = useState<string[]>(
+        columns.map((c) => c.id as string),
+    );
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
     const table = useTable({
         features: dataGridFeatures,
@@ -548,89 +617,89 @@ export function DatagridTransactions() {
         onColumnOrderChange: setColumnOrder,
         onPaginationChange: setPagination,
         onSortingChange: setSorting,
-    })
+    });
 
-    const {exportSelected} = useTableCSVExport(table, exportColumns)
+    const {exportSelected} = useTableCSVExport(table, exportColumns);
 
     const deleteTransaction = (tx: ITransaction) => {
         if (tx.kind === "payment") {
-            return deletePayment.mutateAsync(tx.raw.id)
+            return deletePayment.mutateAsync(tx.raw.id);
         }
-        return deleteExpense.mutateAsync(tx.raw.id)
-    }
+        return deleteExpense.mutateAsync(tx.raw.id);
+    };
 
     const invalidateQueries = () => {
-        queryClient.invalidateQueries({queryKey: ["payments"]})
-        queryClient.invalidateQueries({queryKey: ["expenses"]})
-    }
+        queryClient.invalidateQueries({queryKey: ["payments"]});
+        queryClient.invalidateQueries({queryKey: ["expenses"]});
+    };
 
     const handleConfirmDelete = () => {
-        if (!deletingRow) return
-        const {id, title} = deletingRow
-        setDeletingIds((prev) => new Set(prev).add(id))
-        const tx = deletingRow
-        setDeletingRow(null)
+        if (!deletingRow) return;
+        const {id, title} = deletingRow;
+        setDeletingIds((prev) => new Set(prev).add(id));
+        const tx = deletingRow;
+        setDeletingRow(null);
 
         deleteTransaction(tx).then(
             () => {
                 setTimeout(() => {
-                    invalidateQueries()
+                    invalidateQueries();
                     setDeletingIds((prev) => {
-                        const next = new Set(prev)
-                        next.delete(id)
-                        return next
-                    })
-                    toast.success(`Deleted ${title}`)
-                }, DELETE_ANIMATION_MS)
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                    });
+                    toast.success(`Deleted ${title}`);
+                }, DELETE_ANIMATION_MS);
             },
             () => {
                 setDeletingIds((prev) => {
-                    const next = new Set(prev)
-                    next.delete(id)
-                    return next
-                })
-                toast.error(`Failed to delete ${title}`)
-            }
-        )
-    }
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+                toast.error(`Failed to delete ${title}`);
+            },
+        );
+    };
 
     const handleBulkDelete = () => {
-        const selectedIds = Object.keys(rowSelection)
-        if (selectedIds.length === 0) return
+        const selectedIds = Object.keys(rowSelection);
+        if (selectedIds.length === 0) return;
 
         const selectedTx = selectedIds
             .map((id) => data.find((tx) => tx.id === id))
-            .filter((tx): tx is ITransaction => Boolean(tx))
+            .filter((tx): tx is ITransaction => Boolean(tx));
 
         setDeletingIds((prev) => {
-            const next = new Set(prev)
-            selectedIds.forEach((id) => next.add(id))
-            return next
-        })
-        table.toggleAllRowsSelected(false)
+            const next = new Set(prev);
+            selectedIds.forEach((id) => next.add(id));
+            return next;
+        });
+        table.toggleAllRowsSelected(false);
 
         Promise.all(selectedTx.map((tx) => deleteTransaction(tx)))
             .then(() => {
-                invalidateQueries()
+                invalidateQueries();
                 setDeletingIds((prev) => {
-                    const next = new Set(prev)
-                    selectedIds.forEach((id) => next.delete(id))
-                    return next
-                })
-                toast.success(`Deleted ${selectedIds.length} transaction(s)`)
+                    const next = new Set(prev);
+                    selectedIds.forEach((id) => next.delete(id));
+                    return next;
+                });
+                toast.success(`Deleted ${selectedIds.length} transaction(s)`);
             })
             .catch(() => {
-                invalidateQueries()
+                invalidateQueries();
                 setDeletingIds((prev) => {
-                    const next = new Set(prev)
-                    selectedIds.forEach((id) => next.delete(id))
-                    return next
-                })
-                toast.error("Some transactions could not be deleted")
-            })
-    }
+                    const next = new Set(prev);
+                    selectedIds.forEach((id) => next.delete(id));
+                    return next;
+                });
+                toast.error("Some transactions could not be deleted");
+            });
+    };
 
-    const isLoading = paymentsQuery.isLoading || expensesQuery.isLoading
+    const isLoading = paymentsQuery.isLoading || expensesQuery.isLoading;
 
     return (
         <>
@@ -642,7 +711,9 @@ export function DatagridTransactions() {
                     </div>
                     <div>
                         <div className="text-muted-foreground text-xs">Total In</div>
-                        <div className="text-foreground text-lg font-bold">{formatCurrency(stats.totalIn)}</div>
+                        <div className="text-foreground text-lg font-bold">
+                            {formatCurrency(stats.totalIn)}
+                        </div>
                     </div>
                 </Card>
                 <Card className="flex-row items-center gap-3 px-4">
@@ -651,7 +722,9 @@ export function DatagridTransactions() {
                     </div>
                     <div>
                         <div className="text-muted-foreground text-xs">Total Out</div>
-                        <div className="text-foreground text-lg font-bold">{formatCurrency(stats.totalOut)}</div>
+                        <div className="text-foreground text-lg font-bold">
+                            {formatCurrency(stats.totalOut)}
+                        </div>
                     </div>
                 </Card>
                 <Card className="flex-row items-center gap-3 px-4">
@@ -660,7 +733,9 @@ export function DatagridTransactions() {
                     </div>
                     <div>
                         <div className="text-muted-foreground text-xs">Largest</div>
-                        <div className="text-foreground text-lg font-bold">{formatCurrency(stats.largest)}</div>
+                        <div className="text-foreground text-lg font-bold">
+                            {formatCurrency(stats.largest)}
+                        </div>
                     </div>
                 </Card>
                 <Card className="flex-row items-center gap-3 px-4">
@@ -670,7 +745,9 @@ export function DatagridTransactions() {
                     </div>
                     <div>
                         <div className="text-muted-foreground text-xs">Count</div>
-                        <div className="text-foreground text-lg font-bold">{stats.count}</div>
+                        <div className="text-foreground text-lg font-bold">
+                            {stats.count}
+                        </div>
                     </div>
                 </Card>
             </div>
@@ -699,8 +776,8 @@ export function DatagridTransactions() {
                             }
                             buttonText="Retry"
                             onAction={() => {
-                                paymentsQuery.refetch()
-                                expensesQuery.refetch()
+                                paymentsQuery.refetch();
+                                expensesQuery.refetch();
                             }}
                         />
                     ) : hasActiveFilters ? (
@@ -720,8 +797,11 @@ export function DatagridTransactions() {
                     )
                 }
             >
-                <TableActionBar table={table} onExport={() => exportSelected("transactions")}
-                                onDelete={handleBulkDelete}/>
+                <TableActionBar
+                    table={table}
+                    onExport={() => exportSelected("transactions")}
+                    onDelete={handleBulkDelete}
+                />
                 <Card className="w-full gap-3 py-0 mt-4">
                     <CardHeader className="flex items-center justify-between px-3.5 py-2">
                         <div className="flex flex-wrap items-center gap-2.5">
@@ -802,7 +882,10 @@ export function DatagridTransactions() {
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
+                        <DataGridPagination
+                            rowsPerPageLabel="Transactions per Page"
+                            sizes={[8, 16, 32, 50, 100, 500]}
+                        />
                     </CardFooter>
                 </Card>
             </DataGrid>
@@ -812,21 +895,36 @@ export function DatagridTransactions() {
                 description="Read-only details for this transaction."
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
-                    if (!open) setViewingRow(null)
+                    if (!open) setViewingRow(null);
                 }}
 
                 children={
                     viewingRow && (
                         <div className="space-y-2 text-sm">
-                            <div><span className="text-muted-foreground">Merchant: </span>{viewingRow.title}</div>
-                            <div><span className="text-muted-foreground">Type: </span>{viewingRow.subtitle}</div>
-                            <div><span
-                                className="text-muted-foreground">Transaction ID: </span>{transactionIdLabel(viewingRow)}
+                            <div>
+                                <span className="text-muted-foreground">Merchant: </span>
+                                {viewingRow.title}
                             </div>
-                            <div><span className="text-muted-foreground">Amount: </span>{formatCurrency(viewingRow.amount)}
+                            <div>
+                                <span className="text-muted-foreground">Type: </span>
+                                {viewingRow.subtitle}
                             </div>
-                            <div><span className="text-muted-foreground">Date: </span>{formatDate(viewingRow.date)}</div>
-                            <div><span className="text-muted-foreground">Method: </span>{viewingRow.method ?? "—"}</div>
+                            <div>
+                                <span className="text-muted-foreground">Transaction ID: </span>
+                                {transactionIdLabel(viewingRow)}
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground">Amount: </span>
+                                {formatCurrency(viewingRow.amount)}
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground">Date: </span>
+                                {formatDate(viewingRow.date)}
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground">Method: </span>
+                                {viewingRow.method ?? "—"}
+                            </div>
                         </div>
                     )
                 }
@@ -835,22 +933,25 @@ export function DatagridTransactions() {
             <AlertDialog
                 open={isDeleteDialogOpen}
                 onOpenChange={(open) => {
-                    if (!open) setDeletingRow(null)
+                    if (!open) setDeletingRow(null);
                 }}
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete transaction</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete {deletingRow?.title}? This action cannot be undone.
+                            Are you sure you want to delete {deletingRow?.title}? This action
+                            cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>Delete</AlertDialogAction>
+                        <AlertDialogAction onClick={handleConfirmDelete}>
+                            Delete
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </>
-    )
+    );
 }

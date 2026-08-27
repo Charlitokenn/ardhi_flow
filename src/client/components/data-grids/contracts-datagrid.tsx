@@ -187,7 +187,7 @@ function ActionsCell({
 
 const DELETE_ANIMATION_MS = 600
 
-export function DatagridContracts() {
+export function ContractsDataGrid() {
     const {getToken} = useAuth()
     const queryClient = useQueryClient()
     const api = apiClient(getToken)

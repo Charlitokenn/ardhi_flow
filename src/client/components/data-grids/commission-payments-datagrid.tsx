@@ -302,7 +302,7 @@ function CommissionPayoutsSubTable({
 // Main grid: plot sale contracts this agent earns commission on
 // ---------------------------------------------------------------------------
 
-export function DatagridCommissionPayments({
+export function CommissionPaymentsDataGrid({
                                                contracts,
                                            }: {
     contracts: ClientContactAsAgentContract[]

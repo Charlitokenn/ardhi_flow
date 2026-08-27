@@ -131,7 +131,7 @@ function renderTotalsFootRow(
 // Main grid: jobs/assignments given to this vendor
 // ---------------------------------------------------------------------------
 
-export function DatagridVendorJobs({
+export function VendorJobsDataGrid({
                                        jobs,
                                    }: {
     jobs: ClientContactVendorJob[]
