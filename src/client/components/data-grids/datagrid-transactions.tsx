@@ -4,65 +4,65 @@ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
 import {apiClient} from "@/lib/api.ts"
 import {Badge} from "@/components/reui/badge.tsx"
 import {
-  DataGrid,
-  DataGridContainer,
-  dataGridFeatures,
-  type DataGridFeatures,
+    DataGrid,
+    DataGridContainer,
+    dataGridFeatures,
+    type DataGridFeatures,
 } from "@/components/reui/data-grid/data-grid.tsx"
 import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
 import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
 import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
 import {
-  DataGridTable,
-  DataGridTableRowSelect,
-  DataGridTableRowSelectAll,
+    DataGridTable,
+    DataGridTableRowSelect,
+    DataGridTableRowSelectAll,
 } from "@/components/reui/data-grid/data-grid-table.tsx"
 import {
-  type ColumnDef,
-  type PaginationState,
-  type Row,
-  type RowSelectionState,
-  type SortingState,
-  useTable,
+    type ColumnDef,
+    type PaginationState,
+    type Row,
+    type RowSelectionState,
+    type SortingState,
+    useTable,
 } from "@tanstack/react-table"
 import {toast} from "sonner"
 import {Avatar, AvatarFallback} from "@/components/ui/avatar.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {Card, CardAction, CardContent, CardFooter, CardHeader,} from "@/components/ui/card.tsx"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select.tsx"
 import {
-  ArrowDownCircleIcon,
-  ArrowUpCircleIcon,
-  EyeDashedIcon,
-  ListIcon,
-  MoreHorizontalIcon,
-  SearchIcon,
-  SquarePenIcon,
-  Trash2Icon,
-  TrendingUpIcon,
-  XIcon,
+    ArrowDownCircleIcon,
+    ArrowUpCircleIcon,
+    EyeDashedIcon,
+    ListIcon,
+    MoreHorizontalIcon,
+    SearchIcon,
+    SquarePenIcon,
+    Trash2Icon,
+    TrendingUpIcon,
+    XIcon,
 } from "lucide-react"
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
@@ -233,7 +233,7 @@ const DELETE_ANIMATION_MS = 600
 
 type TypeFilter = "all" | "income" | "expense"
 
-export function TransactionsDataGrid() {
+export function DatagridTransactions() {
     const {getToken} = useAuth()
     const queryClient = useQueryClient()
     const api = apiClient(getToken)
@@ -802,7 +802,7 @@ export function TransactionsDataGrid() {
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination/>
+                        <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
                     </CardFooter>
                 </Card>
             </DataGrid>

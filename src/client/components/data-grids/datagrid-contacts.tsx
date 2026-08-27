@@ -1,5 +1,5 @@
 import {type ReactNode, useEffect, useMemo, useState} from "react"
-import {useAuth} from "@clerk/react"
+import {useAuth, useOrganization} from "@clerk/react"
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
 import {apiClient} from "@/lib/api.ts"
 import {Badge} from "@/components/reui/badge.tsx"
@@ -26,7 +26,7 @@ import {
     useTable,
 } from "@tanstack/react-table"
 import {toast} from "sonner"
-import {Avatar, AvatarFallback,} from "@/components/ui/avatar.tsx"
+import {Avatar, AvatarFallback, AvatarImage,} from "@/components/ui/avatar.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {Card, CardAction, CardContent, CardFooter, CardHeader,} from "@/components/ui/card.tsx"
 import {Checkbox} from "@/components/ui/checkbox.tsx"
@@ -52,55 +52,36 @@ import {
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
-import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
-import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
-import {ArchiveIcon} from "@/assets/icons"
+import {ReusableEmpty,} from "@/components-reusable/reusable-empty.tsx"
+import {UsersIcon} from "@/assets/icons"
+import {AddEditContactForm, type ContactRecord} from "@/components/forms/contacts/add-edit-contact-form.tsx"
+import {formatMobileNumber} from "@/lib/utils.ts";
+import {UserDeleteIcon} from "@/assets/icons/index.tsx"
+import {ViewContactForm} from "@/components/forms/contacts/view-contact-form.tsx"
+import type {ClientContact} from "@/types/contacts.ts"
+import {type DocumentBrandingExtra, EMPTY_BRANDING_EXTRA} from "@/types/branding.ts"
+import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
+import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
 
-interface IContractPlot {
-    id: string
-    plotNumber: string
-    surveyedPlotNumber: string | null
-}
-
-interface IContractClient {
-    id: string
-    fullName: string
-    mobileNumber: string | null
-}
-
-interface IContract {
-    id: string
-    status: "ACTIVE" | "DELINQUENT" | "COMPLETED" | "CANCELLED"
-    startDate: string
-    termMonths: number
-    totalContractValue: string
-    downpaymentAmount: string
-    financedAmount: string
-    purchasePlan: "FLAT_RATE" | "DOWNPAYMENT"
+// Extends `ContactRecord` with the extra fields the grid itself needs
+// (`clientPhoto`, `createdAt`). The list endpoint already returns the full
+// contact row, so a grid row carries everything the add/edit form needs —
+// no extra fetch or seeding required when opening it for editing.
+interface IContact extends ContactRecord {
+    clientPhoto: string | null
     createdAt: string | null
-    plot: IContractPlot | null
-    client: IContractClient | null
 }
 
-const exportColumns: ExportColumn<IContract>[] = [
+const exportColumns: ExportColumn<IContact>[] = [
     {header: "ID", accessor: (d) => d.id},
-    {header: "Client", accessor: (d) => d.client?.fullName ?? null},
-    {header: "Plot", accessor: (d) => d.plot?.plotNumber ?? null},
-    {header: "Value", accessor: (d) => d.totalContractValue},
-    {header: "Plan", accessor: (d) => d.purchasePlan},
-    {header: "Status", accessor: (d) => d.status},
-    {header: "Start Date", accessor: (d) => d.startDate},
+    {header: "Full Name", accessor: (d) => d.fullName},
+    {header: "Mobile", accessor: (d) => d.mobileNumber},
+    {header: "Email", accessor: (d) => d.email},
+    {header: "Type", accessor: (d) => d.contactType},
+    {header: "Region", accessor: (d) => d.region},
+    {header: "District", accessor: (d) => d.district},
 ]
 
 function initials(name: string) {
@@ -113,35 +94,22 @@ function initials(name: string) {
         .toUpperCase()
 }
 
-function formatCurrency(value: string | number | null | undefined) {
-    const num = typeof value === "string" ? parseFloat(value) : value
-    if (num === null || num === undefined || Number.isNaN(num)) return "—"
-    return new Intl.NumberFormat("en-KE", {
-        style: "currency",
-        currency: "KES",
-        maximumFractionDigits: 0,
-    }).format(num)
-}
-
-function formatDate(value: string | null | undefined) {
-    if (!value) return "—"
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return "—"
-    return date.toLocaleDateString("en-US", {year: "numeric", month: "short", day: "numeric"})
-}
-
-function statusBadge(status: string | null) {
-    switch (status) {
-        case "ACTIVE":
-            return <Badge variant="success-outline">Active</Badge>
-        case "DELINQUENT":
-            return <Badge variant="destructive-outline">Delinquent</Badge>
-        case "COMPLETED":
-            return <Badge variant="info-outline">Completed</Badge>
-        case "CANCELLED":
-            return <Badge variant="secondary">Cancelled</Badge>
+function contactTypeBadge(type: string | null) {
+    switch (type) {
+        case "CLIENT":
+            return <Badge variant="success-outline">Client</Badge>
+        case "LAND_SELLER":
+            return <Badge variant="warning-outline">Land Seller</Badge>
+        case "SALES_AGENT":
+            return <Badge variant="info-outline">Sales Agent</Badge>
+        case "AUDITOR":
+            return <Badge variant="info-outline">Auditor</Badge>
+        case "SURVEYOR":
+            return <Badge variant="info-outline">Surveyor</Badge>
+        case "ICT_SUPPORT":
+            return <Badge variant="info-outline">ICT Support</Badge>
         default:
-            return <Badge variant="secondary">{status ?? "—"}</Badge>
+            return <Badge variant="secondary">{type ?? "—"}</Badge>
     }
 }
 
@@ -152,10 +120,10 @@ function ActionsCell({
                          onDelete,
                          disabled,
                      }: {
-    row: Row<DataGridFeatures, IContract>
-    onEdit: (data: IContract) => void
-    onView: (data: IContract) => void
-    onDelete: (data: IContract) => void
+    row: Row<DataGridFeatures, IContact>
+    onEdit: (data: IContact) => void
+    onView: (data: IContact) => void
+    onDelete: (data: IContact) => void
     disabled?: boolean
 }) {
     return (
@@ -187,7 +155,74 @@ function ActionsCell({
 
 const DELETE_ANIMATION_MS = 600
 
-export function ContractsDataGrid() {
+// Owns loading the view sheet's data: the contact's full plot/contract
+// detail (0002) and the company branding (0001), plus reading the
+// organization's name/logo straight from Clerk, combined into the single
+// `extra` shape every generated document expects (see the umbrella spec's
+// "Cross child contract"). ViewContactForm never fetches on its own.
+function ViewSheetContent({viewingRowId}: { viewingRowId: string }) {
+    const {getToken} = useAuth()
+    const {organization} = useOrganization()
+    const api = apiClient(getToken)
+
+    const contactQuery = useQuery({
+        queryKey: ["contact-statement-data", viewingRowId],
+        queryFn: async () => {
+            const res = await api.api.contacts[":id"]["statement-data"].$get({param: {id: viewingRowId}})
+            if (!res.ok) throw new Error(`Failed to load contact details (${res.status})`)
+            return res.json() as Promise<ClientContact>
+        },
+    })
+
+    // Branding degrades to the all-null shape rather than blocking the view
+    // sheet if it fails to load — only the contact's own detail data blocks.
+    const brandingQuery = useQuery({
+        queryKey: ["company-settings"],
+        queryFn: async () => {
+            const res = await api.api["company-settings"].$get()
+            if (!res.ok) throw new Error(`Failed to load company settings (${res.status})`)
+            return res.json()
+        },
+        retry: false,
+    })
+
+    if (contactQuery.isError) {
+        return (
+            <div className="mt-8 ml-2 flex flex-col items-start gap-3">
+                <p className="text-sm text-destructive">
+                    {contactQuery.error instanceof Error ? contactQuery.error.message : "Failed to load contact details"}
+                </p>
+                <Button variant="outline" size="sm" onClick={() => contactQuery.refetch()}>
+                    Retry
+                </Button>
+            </div>
+        )
+    }
+
+    if (contactQuery.isLoading || !contactQuery.data) {
+        return <TabsScrollSwitchSkeleton tabCount={3}/>
+    }
+
+    const extra: DocumentBrandingExtra = brandingQuery.data
+        ? {
+            logoUrl: organization?.imageUrl ?? null,
+            companyName: organization?.name ?? "",
+            branding: {
+                slogan: brandingQuery.data.slogan,
+                primaryColor: brandingQuery.data.primaryColor,
+                email: brandingQuery.data.email,
+                mobileNumber: brandingQuery.data.mobileNumber,
+                address: brandingQuery.data.address,
+                website: brandingQuery.data.website,
+                signerTitle: brandingQuery.data.signerTitle,
+            },
+        }
+        : {...EMPTY_BRANDING_EXTRA, logoUrl: organization?.imageUrl ?? null, companyName: organization?.name ?? ""}
+
+    return <ViewContactForm contact={contactQuery.data} extra={extra}/>
+}
+
+export function DatagridContacts() {
     const {getToken} = useAuth()
     const queryClient = useQueryClient()
     const api = apiClient(getToken)
@@ -196,27 +231,30 @@ export function ContractsDataGrid() {
         pageIndex: 0,
         pageSize: 8,
     })
-    const [sorting, setSorting] = useState<SortingState>([{id: "startDate", desc: true}])
+    const [sorting, setSorting] = useState<SortingState>([{id: "fullName", desc: false}])
     const [searchQuery, setSearchQuery] = useState("")
-    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+    const [selectedTypes, setSelectedTypes] = useState<string[]>([])
 
-    const [viewingRow, setViewingRow] = useState<IContract | null>(null)
+    const [viewingRow, setViewingRow] = useState<IContact | null>(null)
     const isViewSheetOpen = viewingRow !== null
 
-    const [deletingRow, setDeletingRow] = useState<IContract | null>(null)
+    const [editingRow, setEditingRow] = useState<IContact | null>(null)
+    const isEditSheetOpen = editingRow !== null
+
+    const [deletingRow, setDeletingRow] = useState<IContact | null>(null)
     const isDeleteDialogOpen = deletingRow !== null
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
-    const contractsQuery = useQuery({
-        queryKey: ["contracts"],
+    const contactsQuery = useQuery({
+        queryKey: ["contacts"],
         queryFn: async () => {
-            const res = await api.api.contracts.$get()
+            const res = await api.api.contacts.$get()
             if (!res.ok) {
                 const body = await res.json().catch(() => null)
                 const message = (body && typeof body === "object" && "error" in body ? (body as {
                         error?: string
                     }).error : null)
-                    ?? `Failed to load contracts (${res.status})`
+                    ?? `Failed to load contacts (${res.status})`
                 throw new Error(message)
             }
             return res.json()
@@ -224,45 +262,43 @@ export function ContractsDataGrid() {
     })
 
     useEffect(() => {
-        if (contractsQuery.isError) {
-            toast.error(contractsQuery.error instanceof Error ? contractsQuery.error.message : "Failed to load contracts")
+        if (contactsQuery.isError) {
+            toast.error(contactsQuery.error instanceof Error ? contactsQuery.error.message : "Failed to load contacts")
         }
-    }, [contractsQuery.isError, contractsQuery.error])
+    }, [contactsQuery.isError, contactsQuery.error])
 
-    const deleteContract = useMutation({
+    const deleteContact = useMutation({
         mutationFn: async (id: string) => {
-            const res = await api.api.contracts[":id"].$delete({param: {id}})
-            if (!res.ok) throw new Error("Failed to delete contract")
+            const res = await api.api.contacts[":id"].$delete({param: {id}})
+            if (!res.ok) throw new Error("Failed to delete contact")
             return res.json()
         },
     })
 
-    const data = useMemo<IContract[]>(
-        () => (contractsQuery.data as unknown as IContract[]) ?? [],
-        [contractsQuery.data]
-    )
+    const data = useMemo<IContact[]>(() => contactsQuery.data ?? [], [contactsQuery.data])
 
     const filteredData = useMemo(() => {
         return data.filter((item) => {
-            const matchesStatus = !selectedStatuses.length || selectedStatuses.includes(item.status)
+            const matchesType =
+                !selectedTypes.length || (item.contactType && selectedTypes.includes(item.contactType))
 
             const searchLower = searchQuery.toLowerCase()
             const matchesSearch =
                 !searchQuery ||
-                [item.client?.fullName, item.plot?.plotNumber, item.plot?.surveyedPlotNumber, item.status]
+                [item.fullName, item.email, item.mobileNumber, item.region, item.district]
                     .filter(Boolean)
                     .join(" ")
                     .toLowerCase()
                     .includes(searchLower)
 
-            return matchesStatus && matchesSearch
+            return matchesType && matchesSearch
         })
-    }, [data, searchQuery, selectedStatuses])
+    }, [data, searchQuery, selectedTypes])
 
-    const statusCounts = useMemo(() => {
+    const typeCounts = useMemo(() => {
         return data.reduce(
             (acc, item) => {
-                const key = item.status ?? "UNKNOWN"
+                const key = item.contactType ?? "UNKNOWN"
                 acc[key] = (acc[key] || 0) + 1
                 return acc
             },
@@ -270,28 +306,26 @@ export function ContractsDataGrid() {
         )
     }, [data])
 
-    const handleStatusChange = (checked: boolean, value: string) => {
-        setSelectedStatuses((prev = []) =>
-            checked ? [...prev, value] : prev.filter((v) => v !== value)
-        )
+    const handleTypeChange = (checked: boolean, value: string) => {
+        setSelectedTypes((prev = []) => (checked ? [...prev, value] : prev.filter((v) => v !== value)))
     }
 
-    const hasActiveFilters = searchQuery.length > 0 || selectedStatuses.length > 0
+    const hasActiveFilters = searchQuery.length > 0 || selectedTypes.length > 0
 
     const handleClearFilters = () => {
         setSearchQuery("")
-        setSelectedStatuses([])
+        setSelectedTypes([])
     }
 
     const renderWithDeleteSkeleton = (
         skeleton: ReactNode,
-        render: (row: Row<DataGridFeatures, IContract>) => ReactNode
+        render: (row: Row<DataGridFeatures, IContact>) => ReactNode
     ) => {
-        return ({row}: { row: Row<DataGridFeatures, IContract> }) =>
+        return ({row}: { row: Row<DataGridFeatures, IContact> }) =>
             deletingIds.has(row.original.id) ? skeleton : render(row)
     }
 
-    const columns = useMemo<ColumnDef<DataGridFeatures, IContract>[]>(
+    const columns = useMemo<ColumnDef<DataGridFeatures, IContact>[]>(
         () => [
             {
                 accessorKey: "id",
@@ -307,48 +341,62 @@ export function ContractsDataGrid() {
                 enableResizing: false,
             },
             {
-                accessorKey: "client",
-                id: "client",
+                accessorKey: "fullName",
+                id: "fullName",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Contract" visibility={true} column={column}/>
+                    <DataGridColumnHeader title="Contact" visibility={true} column={column}/>
                 ),
                 cell: renderWithDeleteSkeleton(
-                    <Skeleton className="h-7 w-auto"/>,
+                    <div className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full"/>
+                        <div className="flex flex-col gap-1">
+                            <Skeleton className="h-6 w-48"/>
+                            <Skeleton className="h-4 w-18 rounded-sm"/>
+                        </div>
+                    </div>,
                     (row) => (
                         <div className="flex items-center gap-3">
                             <Avatar className="size-8">
-                                <AvatarFallback>{initials(row.original.client?.fullName ?? "—")}</AvatarFallback>
+                                <AvatarImage
+                                    src={row.original.clientPhoto ?? undefined}
+                                    className="object-cover"
+                                />
+                                <AvatarFallback>{initials(row.original.fullName)}</AvatarFallback>
                             </Avatar>
                             <div className="space-y-px">
-                                <div className="text-foreground font-medium">
-                                    {row.original.client?.fullName ?? "—"}
-                                </div>
-                                <div className="text-muted-foreground">
-                                    Plot {row.original.plot?.plotNumber ?? "—"}
-                                </div>
+                                <div className="text-foreground font-medium">{row.original.fullName}</div>
+                                <div
+                                    className="text-muted-foreground">{contactTypeBadge(row.original.contactType)}</div>
                             </div>
                         </div>
                     )
                 ),
                 size: 260,
-                meta: {autoSize: true, skeleton: <Skeleton className="h-7 w-auto"/>},
+                meta: {
+                    autoSize: true,
+                    skeleton:
+                        <div className="flex items-center gap-3">
+                            <Skeleton className="h-8 w-8 rounded-full"/>
+                            <div className="flex flex-col gap-1">
+                                <Skeleton className="h-6 w-48"/>
+                                <Skeleton className="h-4 w-18 rounded-sm"/>
+                            </div>
+                        </div>
+                },
                 enableSorting: true,
                 enableHiding: false,
                 enableResizing: true,
             },
             {
-                accessorKey: "totalContractValue",
-                id: "totalContractValue",
+                accessorKey: "mobileNumber",
+                id: "mobileNumber",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Value" visibility={true} column={column}/>
+                    <DataGridColumnHeader title="Mobile" visibility={true} column={column}/>
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
-                    (row) => (
-                        <div className="text-foreground font-medium">
-                            {formatCurrency(row.original.totalContractValue)}
-                        </div>
-                    )
+                    (row) => <div
+                        className="text-foreground font-medium">{formatMobileNumber(row.original.mobileNumber) ?? "—"}</div>
                 ),
                 size: 150,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -357,56 +405,17 @@ export function ContractsDataGrid() {
                 enableResizing: true,
             },
             {
-                accessorKey: "purchasePlan",
-                id: "purchasePlan",
+                accessorKey: "altMobileNumber",
+                id: "altMobileNumber",
                 header: ({column}) => (
-                    <DataGridColumnHeader title="Plan" visibility={true} column={column}/>
+                    <DataGridColumnHeader title="Alt Mobile" visibility={true} column={column}/>
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
-                    (row) => (
-                        <div className="text-foreground font-medium">
-                            {row.original.purchasePlan === "FLAT_RATE" ? "Flat Rate" : "Downpayment"}
-                        </div>
-                    )
+                    (row) => <div
+                        className="text-foreground font-medium">{formatMobileNumber(row.original.altMobileNumber) ?? ""}</div>
                 ),
-                size: 140,
-                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
-                enableSorting: true,
-                enableHiding: true,
-                enableResizing: true,
-            },
-            {
-                accessorKey: "status",
-                id: "status",
-                header: ({column}) => (
-                    <DataGridColumnHeader title="Status" visibility={true} column={column}/>
-                ),
-                cell: renderWithDeleteSkeleton(
-                    <Skeleton className="h-7 w-auto"/>,
-                    (row) => statusBadge(row.original.status)
-                ),
-                size: 130,
-                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
-                enableSorting: true,
-                enableHiding: true,
-                enableResizing: true,
-            },
-            {
-                accessorKey: "startDate",
-                id: "startDate",
-                header: ({column}) => (
-                    <DataGridColumnHeader title="Start Date" visibility={true} column={column}/>
-                ),
-                cell: renderWithDeleteSkeleton(
-                    <Skeleton className="h-7 w-auto"/>,
-                    (row) => (
-                        <div className="text-foreground font-medium">
-                            {formatDate(row.original.startDate)}
-                        </div>
-                    )
-                ),
-                size: 140,
+                size: 150,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
                 enableHiding: true,
@@ -420,7 +429,7 @@ export function ContractsDataGrid() {
                     (row) => (
                         <ActionsCell
                             row={row}
-                            onEdit={() => toast.info("Editing contracts is coming soon")}
+                            onEdit={(rowData) => setEditingRow(rowData)}
                             onView={(rowData) => setViewingRow(rowData)}
                             onDelete={(rowData) => setDeletingRow(rowData)}
                             disabled={deletingIds.has(row.original.id)}
@@ -428,7 +437,7 @@ export function ContractsDataGrid() {
                     )
                 ),
                 size: 60,
-                meta: {skeleton: <Skeleton className="h-6 w-6"/>},
+                meta: {autoSize: false, skeleton: <Skeleton className="h-6 w-6"/>},
                 enableSorting: false,
                 enableHiding: false,
                 enableResizing: false,
@@ -445,7 +454,7 @@ export function ContractsDataGrid() {
         columns,
         data: filteredData,
         pageCount: Math.ceil((filteredData.length || 0) / pagination.pageSize),
-        getRowId: (row: IContract) => row.id,
+        getRowId: (row: IContact) => row.id,
         enableRowSelection: true,
         state: {pagination, sorting, columnOrder, rowSelection},
         onRowSelectionChange: setRowSelection,
@@ -458,21 +467,24 @@ export function ContractsDataGrid() {
 
     const handleConfirmDelete = () => {
         if (!deletingRow) return
-        const {id} = deletingRow
-        const label = deletingRow.client?.fullName ?? "contract"
+        const {id, fullName} = deletingRow
         setDeletingIds((prev) => new Set(prev).add(id))
         setDeletingRow(null)
 
-        deleteContract.mutate(id, {
+        deleteContact.mutate(id, {
             onSuccess: () => {
                 setTimeout(() => {
-                    queryClient.invalidateQueries({queryKey: ["contracts"]})
+                    queryClient.invalidateQueries({queryKey: ["contacts"]})
                     setDeletingIds((prev) => {
                         const next = new Set(prev)
                         next.delete(id)
                         return next
                     })
-                    toast.success(`Deleted contract for ${label}`)
+                    toast('Delete Successful', {
+                        description: `${fullName} has been deleted`,
+                        duration: 5000,
+                        icon: <UserDeleteIcon className="size-6"/>,
+                    });
                 }, DELETE_ANIMATION_MS)
             },
             onError: () => {
@@ -481,7 +493,11 @@ export function ContractsDataGrid() {
                     next.delete(id)
                     return next
                 })
-                toast.error(`Failed to delete contract for ${label}`)
+                toast('Delete Failed', {
+                    description: `Failed to delete ${fullName}`,
+                    duration: 5000,
+                    icon: <UserDeleteIcon className="size-6"/>,
+                });
             },
         })
     }
@@ -497,22 +513,27 @@ export function ContractsDataGrid() {
         })
         table.toggleAllRowsSelected(false)
 
-        Promise.all(selectedIds.map((id) => deleteContract.mutateAsync(id))).then(() => {
-            queryClient.invalidateQueries({queryKey: ["contracts"]})
+        Promise.all(selectedIds.map((id) => deleteContact.mutateAsync(id))).then(() => {
+            queryClient.invalidateQueries({queryKey: ["contacts"]})
             setDeletingIds((prev) => {
                 const next = new Set(prev)
                 selectedIds.forEach((id) => next.delete(id))
                 return next
             })
-            toast.success(`Deleted ${selectedIds.length} contract(s)`)
+            toast('Delete Successful', {
+                description: `Deleted ${selectedIds.length} ${selectedIds.length > 1 ? " contacts" : " contact"}`,
+                duration: 5000,
+                icon: <UserDeleteIcon className="size-6"/>,
+            });
+            toast.success(`Deleted ${selectedIds.length} contact(s)`)
         }).catch(() => {
-            queryClient.invalidateQueries({queryKey: ["contracts"]})
+            queryClient.invalidateQueries({queryKey: ["contacts"]})
             setDeletingIds((prev) => {
                 const next = new Set(prev)
                 selectedIds.forEach((id) => next.delete(id))
                 return next
             })
-            toast.error("Some contracts could not be deleted")
+            toast.error("Some contacts could not be deleted")
         })
     }
 
@@ -527,19 +548,19 @@ export function ContractsDataGrid() {
                     columnsMovable: true,
                     columnsVisibility: true,
                 }}
-                isLoading={contractsQuery.isLoading}
+                isLoading={contactsQuery.isLoading}
                 emptyMessage={
-                    contractsQuery.isError ? (
+                    contactsQuery.isError ? (
                         <ReusableEmpty
-                            media={<ArchiveIcon className="size-12"/>}
-                            title="Couldn't load contracts"
-                            description={contractsQuery.error instanceof Error ? contractsQuery.error.message : "Something went wrong while loading contracts."}
+                            media={<UsersIcon className="size-12"/>}
+                            title="Couldn't load contacts"
+                            description={contactsQuery.error instanceof Error ? contactsQuery.error.message : "Something went wrong while loading contacts."}
                             buttonText="Retry"
-                            onAction={() => contractsQuery.refetch()}
+                            onAction={() => contactsQuery.refetch()}
                         />
                     ) : hasActiveFilters ? (
                         <ReusableEmpty
-                            media={<SearchCardsIllustration/>}
+                            media={<UsersIcon className="size-12"/>}
                             title="No matching results"
                             description="Try adjusting your search or filters."
                             buttonText="Clear filters"
@@ -547,14 +568,14 @@ export function ContractsDataGrid() {
                         />
                     ) : (
                         <ReusableEmpty
-                            media={<ArchiveIcon className="size-12"/>}
-                            title="No contracts yet"
-                            description="Contracts you create will show up here."
+                            media={<UsersIcon className="size-12"/>}
+                            title="No contacts yet"
+                            description="Contacts you add will show up here."
                         />
                     )
                 }
             >
-                <TableActionBar table={table} onExport={() => exportSelected("contracts")} onDelete={handleBulkDelete}/>
+                <TableActionBar table={table} onExport={() => exportSelected("contacts")} onDelete={handleBulkDelete}/>
                 <Card className="w-full gap-3 py-0 mt-4">
                     <CardHeader className="flex items-center justify-between px-3.5 py-2">
                         <div className="flex items-center gap-2.5">
@@ -563,7 +584,7 @@ export function ContractsDataGrid() {
                                     <SearchIcon/>
                                 </InputGroupAddon>
                                 <InputGroupInput
-                                    placeholder="Search contracts..."
+                                    placeholder="Search contacts..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
@@ -584,10 +605,10 @@ export function ContractsDataGrid() {
                                 <PopoverTrigger asChild>
                                     <Button variant="outline">
                                         <FunnelIcon/>
-                                        Status
-                                        {selectedStatuses.length > 0 && (
+                                        Type
+                                        {selectedTypes.length > 0 && (
                                             <Badge size="sm" variant="info-outline">
-                                                {selectedStatuses.length}
+                                                {selectedTypes.length}
                                             </Badge>
                                         )}
                                     </Button>
@@ -596,18 +617,18 @@ export function ContractsDataGrid() {
                                     <div className="space-y-3">
                                         <div className="text-muted-foreground text-xs font-medium">Filters</div>
                                         <div className="space-y-3">
-                                            {Object.keys(statusCounts).map((status) => (
-                                                <div key={status} className="flex items-center gap-2.5">
+                                            {Object.keys(typeCounts).map((type) => (
+                                                <div key={type} className="flex items-center gap-2.5">
                                                     <Checkbox
-                                                        id={status}
-                                                        checked={selectedStatuses.includes(status)}
-                                                        onCheckedChange={(checked) => handleStatusChange(checked === true, status)}
+                                                        id={type}
+                                                        checked={selectedTypes.includes(type)}
+                                                        onCheckedChange={(checked) => handleTypeChange(checked === true, type)}
                                                     />
-                                                    <Label htmlFor={status}
+                                                    <Label htmlFor={type}
                                                            className="flex grow items-center justify-between gap-1.5 font-normal">
-                                                        {status}
+                                                        {type}
                                                         <span
-                                                            className="text-muted-foreground">{statusCounts[status]}</span>
+                                                            className="text-muted-foreground">{typeCounts[type]}</span>
                                                     </Label>
                                                 </div>
                                             ))}
@@ -628,72 +649,47 @@ export function ContractsDataGrid() {
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination/>
+                        <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
                     </CardFooter>
                 </Card>
             </DataGrid>
 
             <ReusableSheet
-                title="View contract"
-                description="Read-only details for this contract."
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null)
                 }}
+                title="Contact Details"
+                widthClassName="sm:max-w-full"
                 children={
                     viewingRow && (
-                        <div className="space-y-2 text-sm">
-                            <div><span className="text-muted-foreground">Client: </span>{viewingRow.client?.fullName ?? "—"}
-                            </div>
-                            <div><span
-                                className="text-muted-foreground">Mobile: </span>{viewingRow.client?.mobileNumber ?? "—"}
-                            </div>
-                            <div><span className="text-muted-foreground">Plot: </span>{viewingRow.plot?.plotNumber ?? "—"}
-                            </div>
-                            <div><span
-                                className="text-muted-foreground">Surveyed Plot No: </span>{viewingRow.plot?.surveyedPlotNumber ?? "—"}
-                            </div>
-                            <div><span className="text-muted-foreground">Status: </span>{viewingRow.status}</div>
-                            <div><span className="text-muted-foreground">Purchase Plan: </span>{viewingRow.purchasePlan}
-                            </div>
-                            <div><span
-                                className="text-muted-foreground">Start Date: </span>{formatDate(viewingRow.startDate)}
-                            </div>
-                            <div><span className="text-muted-foreground">Term (months): </span>{viewingRow.termMonths}</div>
-                            <div><span
-                                className="text-muted-foreground">Total Value: </span>{formatCurrency(viewingRow.totalContractValue)}
-                            </div>
-                            <div><span
-                                className="text-muted-foreground">Downpayment: </span>{formatCurrency(viewingRow.downpaymentAmount)}
-                            </div>
-                            <div><span
-                                className="text-muted-foreground">Financed Amount: </span>{formatCurrency(viewingRow.financedAmount)}
-                            </div>
-                        </div>
+                        <ViewSheetContent viewingRowId={viewingRow.id}/>
                     )
                 }
             />
 
-            <AlertDialog
+            {editingRow && (
+                <AddEditContactForm
+                    mode="edit"
+                    contactId={editingRow.id}
+                    initialData={editingRow}
+                    open={isEditSheetOpen}
+                    onOpenChange={(open) => {
+                        if (!open) setEditingRow(null)
+                    }}
+                    onSuccess={() => setEditingRow(null)}
+                />
+            )}
+
+            <ReusableDeleteDialog
                 open={isDeleteDialogOpen}
                 onOpenChange={(open) => {
-                    if (!open) setDeletingRow(null)
+                    if (!open) setDeletingRow(null);
                 }}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete contract</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete this contract
-                            for {deletingRow?.client?.fullName ?? "this client"}? This action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                icon={<Trash2Icon className="size-5"/>}
+                description={`This action will delete ${deletingRow?.fullName}`}
+                onDelete={handleConfirmDelete}
+            />
         </>
     )
 }

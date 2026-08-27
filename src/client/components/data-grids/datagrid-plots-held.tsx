@@ -274,7 +274,7 @@ function InstallmentsSubTable({
 // Main grid: plots held by this client
 // ---------------------------------------------------------------------------
 
-export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
+export function DatagridPlotsHeld({plots}: { plots: ClientContactPlot[] }) {
     const rows = useMemo<PlotHeldRow[]>(() => plots.map(toPlotHeldRow), [plots])
 
     const [pagination, setPagination] = useState<PaginationState>({
@@ -492,7 +492,7 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
                         </DataGridScrollArea>
                     </DataGridContainer>
                 </div>
-                <DataGridPagination/>
+                <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
             </div>
         </DataGrid>
     )

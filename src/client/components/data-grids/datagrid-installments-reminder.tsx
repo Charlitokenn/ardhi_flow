@@ -248,7 +248,7 @@ function ActionsCell({
     )
 }
 
-export function InstallmentsReminderDataGrid() {
+export function DatagridInstallmentsReminder() {
     const {getToken} = useAuth()
     const api = apiClient(getToken)
 

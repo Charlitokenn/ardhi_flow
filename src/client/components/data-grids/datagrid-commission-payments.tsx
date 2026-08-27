@@ -302,7 +302,7 @@ function CommissionPayoutsSubTable({
 // Main grid: plot sale contracts this agent earns commission on
 // ---------------------------------------------------------------------------
 
-export function CommissionPaymentsDataGrid({
+export function DatagridCommissionPayments({
                                                contracts,
                                            }: {
     contracts: ClientContactAsAgentContract[]
@@ -529,7 +529,7 @@ export function CommissionPaymentsDataGrid({
                         </DataGridScrollArea>
                     </DataGridContainer>
                 </Card>
-                <DataGridPagination/>
+                <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
             </div>
         </DataGrid>
     )

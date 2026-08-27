@@ -6,7 +6,6 @@
 "use no memo"
 
 import {useMemo, useState} from "react"
-import {Badge} from "@/components/reui/badge.tsx"
 import {
     DataGrid,
     DataGridContainer,
@@ -33,9 +32,8 @@ import {
 import {Button} from "@/components/ui/button.tsx"
 import {Card} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
-import type {ClientContactVendorJob} from "@/types/contacts.ts"
+import type {ClientContactAsSellerAcquisition, ClientContactExpensePayment,} from "@/types/contacts.ts"
 import {ChevronDownIcon, ChevronUpIcon} from "lucide-react"
-import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 import {PaymentsSubTable} from "@/components/data-grids/payments-subtable.tsx"
 
 // ---------------------------------------------------------------------------
@@ -48,51 +46,29 @@ function formatTzs(value: string | number): string {
     return `Tshs. ${thousandSeparator(numeric)}`
 }
 
-/** Mirrors `computeTotalPaid` in lib/contract-balance.ts — sum of the
- * actual dated payment records logged against the job, not a stored
- * aggregate field (vendor jobs, unlike contracts/installments, don't carry
- * one). */
-function computeJobTotalPaid(job: ClientContactVendorJob): number {
-    return job.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+/** All dated payments logged across every installment of a deal, flattened
+ * into one list for the sub-table. A CASH deal has exactly one installment
+ * (see the schema note on `projectAcquisitionInstallments`), so this is
+ * usually just that installment's payments, but stays correct for an
+ * INSTALLMENT-plan deal spanning several. */
+function acquisitionPayments(
+    acquisition: ClientContactAsSellerAcquisition
+): ClientContactExpensePayment[] {
+    return acquisition.installments.flatMap((installment) => installment.payments)
 }
 
-function computeJobBalance(job: ClientContactVendorJob): number {
-    return Number(job.agreedAmount) - computeJobTotalPaid(job)
+/** Mirrors `computeTotalPaid` in lib/contract-balance.ts — sum of the actual
+ * dated payment records, not the installments' own `amountPaid` aggregate,
+ * so this always reflects individually logged cash movements. */
+function computeAcquisitionTotalPaid(acquisition: ClientContactAsSellerAcquisition): number {
+    return acquisitionPayments(acquisition).reduce(
+        (sum, payment) => sum + Number(payment.amount),
+        0
+    )
 }
 
-/** Mirrors the contract/payout status badges in commission-payments-datagrid.tsx. */
-function jobStatusBadge(status: ClientContactVendorJob["status"]) {
-    switch (status) {
-        case "COMPLETED":
-            return (
-                <ReusableTooltip
-                    trigger={<Badge variant="success-outline">Completed</Badge>}
-                    tooltip="This job has been finished and signed off."
-                />
-            )
-        case "IN_PROGRESS":
-            return (
-                <ReusableTooltip
-                    trigger={<Badge variant="info-outline">In Progress</Badge>}
-                    tooltip="Work on this job is currently underway."
-                />
-            )
-        case "CANCELLED":
-            return (
-                <ReusableTooltip
-                    trigger={<Badge variant="secondary">Cancelled</Badge>}
-                    tooltip="This job was cancelled before completion."
-                />
-            )
-        case "ASSIGNED":
-        default:
-            return (
-                <ReusableTooltip
-                    trigger={<Badge variant="warning-outline">Assigned</Badge>}
-                    tooltip="This job has been assigned but work has not started yet."
-                />
-            )
-    }
+function computeAcquisitionBalance(acquisition: ClientContactAsSellerAcquisition): number {
+    return Number(acquisition.totalPurchaseValue) - computeAcquisitionTotalPaid(acquisition)
 }
 
 /** Renders a totals footer row with one total per target column, anchored
@@ -100,7 +76,7 @@ function jobStatusBadge(status: ClientContactVendorJob["status"]) {
  * total) and a "Totals" label placed in `labelColumnId`. A multi-column
  * generalization of the single-target `footerColumnSpan` helper used in
  * commission-payments-datagrid.tsx — this grid needs three simultaneous
- * totals (Cost, Paid, Balance), not one. */
+ * totals (Acquisition Value, Paid, Balance), not one. */
 function renderTotalsFootRow(
     visibleColumnIds: string[],
     totals: Record<string, string>,
@@ -128,13 +104,13 @@ function renderTotalsFootRow(
 }
 
 // ---------------------------------------------------------------------------
-// Main grid: jobs/assignments given to this vendor
+// Main grid: projects purchased from this land seller
 // ---------------------------------------------------------------------------
 
-export function VendorJobsDataGrid({
-                                       jobs,
-                                   }: {
-    jobs: ClientContactVendorJob[]
+export function DatagridSupplierProjects({
+                                             acquisitions,
+                                         }: {
+    acquisitions: ClientContactAsSellerAcquisition[]
 }) {
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
@@ -142,16 +118,16 @@ export function VendorJobsDataGrid({
     })
     const [sorting, setSorting] = useState<SortingState>([])
     const [expandedRows, setExpandedRows] = useState<ExpandedState>({})
-    // The job identity is what makes any other column on this row
+    // The project identity is what makes any other column on this row
     // meaningful, so it — and the expand toggle right next to it — stay
     // pinned as the grid scrolls horizontally, same as the "contract" column
     // in commission-payments-datagrid.tsx.
     const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({
-        start: ["expand", "job"],
+        start: ["expand", "project"],
         end: [],
     })
 
-    const columns = useMemo<ColumnDef<DataGridFeatures, ClientContactVendorJob>[]>(
+    const columns = useMemo<ColumnDef<DataGridFeatures, ClientContactAsSellerAcquisition>[]>(
         () => [
             {
                 id: "expand",
@@ -181,75 +157,41 @@ export function VendorJobsDataGrid({
                 meta: {
                     expandedContent: (row) => (
                         <PaymentsSubTable
-                            payments={row.payments}
-                            emptyMessage="No payments have been logged for this job yet."
+                            payments={acquisitionPayments(row)}
+                            emptyMessage="No payments have been logged for this acquisition yet."
                         />
                     ),
                 },
             },
             {
-                accessorKey: "startDate",
-                id: "jobDate",
+                id: "project",
                 header: ({column}) => (
                     <DataGridColumnHeader
-                        title="Job Date"
-                        visibility={true}
-                        column={column}
-                    />
-                ),
-                cell: (info) => {
-                    const value = info.getValue() as string | null
-                    return value ? formatDate(value) : "—"
-                },
-                enableSorting: true,
-                enableHiding: true,
-                size: 130,
-            },
-            {
-                id: "job",
-                accessorKey: "title",
-                header: ({column}) => (
-                    <DataGridColumnHeader
-                        title="Job Name"
+                        title="Project"
                         visibility={true}
                         column={column}
                     />
                 ),
                 cell: ({row}) => (
                     <div className="space-y-px">
-                        <div className="text-foreground font-medium">{row.original.title}</div>
-                        <div>{jobStatusBadge(row.original.status)}</div>
+                        <div className="text-foreground font-medium">
+                            {row.original.project.projectName}
+                        </div>
+                        <div className="text-muted-foreground">
+                            Acquired {formatDate(row.original.dealDate)}
+                        </div>
                     </div>
                 ),
-                enableSorting: true,
-                enableHiding: false,
-                size: 220,
-            },
-            {
-                accessorKey: "description",
-                id: "description",
-                header: ({column}) => (
-                    <DataGridColumnHeader
-                        title="Job Description"
-                        visibility={true}
-                        column={column}
-                    />
-                ),
-                cell: (info) => (
-                    <span className="text-muted-foreground line-clamp-2">
-                        {(info.getValue() as string | null) ?? "—"}
-                    </span>
-                ),
                 enableSorting: false,
-                enableHiding: true,
-                size: 260,
+                enableHiding: false,
+                size: 240,
             },
             {
-                accessorKey: "agreedAmount",
-                id: "cost",
+                accessorKey: "totalPurchaseValue",
+                id: "acquisitionValue",
                 header: ({column}) => (
                     <DataGridColumnHeader
-                        title="Cost"
+                        title="Acquisition Value"
                         visibility={true}
                         column={column}
                     />
@@ -257,14 +199,14 @@ export function VendorJobsDataGrid({
                 cell: (info) => formatTzs(info.getValue() as string),
                 enableSorting: true,
                 enableHiding: true,
-                size: 150,
+                size: 170,
             },
             {
-                id: "paidAmount",
-                accessorFn: (row) => computeJobTotalPaid(row),
+                id: "totalPaid",
+                accessorFn: (row) => computeAcquisitionTotalPaid(row),
                 header: ({column}) => (
                     <DataGridColumnHeader
-                        title="Paid Amount"
+                        title="Total Paid"
                         visibility={true}
                         column={column}
                     />
@@ -272,11 +214,11 @@ export function VendorJobsDataGrid({
                 cell: (info) => formatTzs(info.getValue() as number),
                 enableSorting: true,
                 enableHiding: true,
-                size: 150,
+                size: 160,
             },
             {
                 id: "balance",
-                accessorFn: (row) => computeJobBalance(row),
+                accessorFn: (row) => computeAcquisitionBalance(row),
                 header: ({column}) => (
                     <DataGridColumnHeader
                         title="Balance"
@@ -287,7 +229,7 @@ export function VendorJobsDataGrid({
                 cell: (info) => formatTzs(info.getValue() as number),
                 enableSorting: true,
                 enableHiding: true,
-                size: 150,
+                size: 160,
             },
         ],
         []
@@ -296,10 +238,10 @@ export function VendorJobsDataGrid({
     const table = useTable({
         features: dataGridFeatures,
         columns,
-        data: jobs,
-        pageCount: Math.max(1, Math.ceil(jobs.length / pagination.pageSize)),
-        getRowId: (row: ClientContactVendorJob) => row.id,
-        getRowCanExpand: (row) => row.original.payments.length > 0,
+        data: acquisitions,
+        pageCount: Math.max(1, Math.ceil(acquisitions.length / pagination.pageSize)),
+        getRowId: (row: ClientContactAsSellerAcquisition) => row.id,
+        getRowCanExpand: (row) => acquisitionPayments(row.original).length > 0,
         state: {
             pagination,
             sorting,
@@ -312,37 +254,43 @@ export function VendorJobsDataGrid({
         onColumnPinningChange: setColumnPinning,
     })
 
-    if (jobs.length === 0) {
+    if (acquisitions.length === 0) {
         return (
             <p className="text-muted-foreground text-sm">
-                No jobs have been assigned to this vendor yet.
+                No projects have been purchased from this land seller yet.
             </p>
         )
     }
 
-    const totalCost = jobs.reduce((sum, job) => sum + Number(job.agreedAmount), 0)
-    const totalPaid = jobs.reduce((sum, job) => sum + computeJobTotalPaid(job), 0)
-    const totalBalance = totalCost - totalPaid
+    const totalAcquisitionValue = acquisitions.reduce(
+        (sum, acquisition) => sum + Number(acquisition.totalPurchaseValue),
+        0
+    )
+    const totalPaid = acquisitions.reduce(
+        (sum, acquisition) => sum + computeAcquisitionTotalPaid(acquisition),
+        0
+    )
+    const totalBalance = totalAcquisitionValue - totalPaid
 
     const footer = renderTotalsFootRow(
         table.getVisibleLeafColumns().map((column) => column.id),
         {
-            cost: formatTzs(totalCost),
-            paidAmount: formatTzs(totalPaid),
+            acquisitionValue: formatTzs(totalAcquisitionValue),
+            totalPaid: formatTzs(totalPaid),
             balance: formatTzs(totalBalance),
         },
-        "job"
+        "project"
     )
 
     return (
         <DataGrid
             table={table}
-            recordCount={jobs.length}
+            recordCount={acquisitions.length}
             tableLayout={{
                 columnsVisibility: true,
                 columnsPinnable: true,
             }}
-            emptyMessage="No jobs have been assigned to this vendor yet."
+            emptyMessage="No projects have been purchased from this land seller yet."
         >
             <div className="w-full space-y-2.5">
                 <Card className="p-0">
@@ -352,7 +300,7 @@ export function VendorJobsDataGrid({
                         </DataGridScrollArea>
                     </DataGridContainer>
                 </Card>
-                <DataGridPagination/>
+                <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
             </div>
         </DataGrid>
     )
