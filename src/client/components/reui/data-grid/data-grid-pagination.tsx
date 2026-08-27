@@ -1,5 +1,5 @@
 import type {JSX, ReactNode} from "react"
-import {useDataGrid} from "@/components/reui/data-grid/data-grid"
+import {useDataGrid} from "@/components/reui/data-grid/data-grid-context"
 
 import {cn} from "@/lib/utils"
 import {Button} from "@/components/ui/button"
