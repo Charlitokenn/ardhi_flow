@@ -12,7 +12,10 @@ const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     const rows = await c.get('tenantDb')
       .query.plotSaleContracts.findMany({
         with: {
-          plot: true,
+          project: true,
+          contractPlots: {
+            with: {plot: true},
+          },
           client: true,
           installments: true,
         },
@@ -26,7 +29,10 @@ const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
       .query.plotSaleContracts.findFirst({
         where: eq(plotSaleContracts.id, id),
         with: {
-          plot: true,
+          project: true,
+          contractPlots: {
+            with: {plot: true},
+          },
           client: true,
           installments: true,
           payments: true,
@@ -37,6 +43,16 @@ const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     if (!row) return c.json({ error: 'Not found' }, 404)
     return c.json(row)
   })
+  // NOTE: this now only creates the plotSaleContracts row itself (client,
+  // project, terms). It does NOT attach any plots — creating a contract's
+  // bucket also needs one contractPlots row per plot (each with its own
+  // allocatedValue, summing to totalContractValue, and each plot's
+  // projectId validated against this contract's projectId) plus that
+  // plot's installment schedule. That flow doesn't exist yet anywhere in
+  // this codebase — build it as its own transactional step (e.g. a
+  // `plots: {plotId, allocatedValue}[]` array on the request body, handled
+  // in a `db.transaction(...)` here) rather than assuming insertContractSchema
+  // alone is enough to stand up a real contract.
   .post('/', zValidator('json', insertContractSchema), async (c) => {
     const input = c.req.valid('json')
     const [created] = await c.get('tenantDb').insert(plotSaleContracts).values(input).returning()

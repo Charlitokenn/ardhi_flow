@@ -99,9 +99,23 @@ const contactsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     // sheet, the client statement, and the confirmation letter. See
     // docs/specs/0001-contacts-completion/0002-contact-view-and-detail-data.md
     // for the "latest contract" rule this implements.
+    //
+    // A contract is now a bucket that can hold more than one plot (see
+    // contractPlots in the schema), so a plot's contract history is reached
+    // through contractPlots rather than a direct contracts[] array, and each
+    // plot's `installments` here are that plot's own schedule specifically
+    // (contractInstallments.plotId), not the whole bucket's — a client
+    // statement for one plot should never show another plot's payment
+    // lines just because they share a contract. `payments` stays bucket-
+    // wide (a payment isn't "for" one plot — only its allocations are; see
+    // contractPaymentAllocations) — see contract-balance.ts for the
+    // follow-up this implies for balance/running-total math on a
+    // multi-plot bucket.
+    //
     // Also carries `plotSaleContractsAsAgent` — every contract this contact
     // earns commission on (as the sales agent, not the buyer), each with its
-    // full commission payout schedule. Powers the "Commission Payments" tab.
+    // full commission payout schedule and every plot in its bucket. Powers
+    // the "Commission Payments" tab.
     // Also carries `projectAcquisitionsAsSeller` — every project purchase deal
     // this contact sold as a LAND_SELLER, each with its payment installments
     // and the individual (expense) payments logged against each installment.
@@ -119,18 +133,17 @@ const contactsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                         where: eq(plots.isDeleted, false),
                         with: {
                             project: true,
-                            contracts: {
-                                // Most recent first, so contracts[0] is the fallback
-                                // "latest contract" for a plot with no activeContractId.
-                                orderBy: [
-                                    desc(plotSaleContracts.startDate),
-                                    desc(plotSaleContracts.createdAt),
-                                    desc(plotSaleContracts.id),
-                                ],
+                            contractPlots: {
                                 with: {
-                                    payments: {orderBy: [asc(contractPayments.receivedAt)]},
+                                    contract: {
+                                        with: {
+                                            payments: {orderBy: [asc(contractPayments.receivedAt)]},
+                                            salesAgent: true,
+                                        },
+                                    },
+                                    // This plot's own schedule — not the whole
+                                    // bucket's (see note above).
                                     installments: {orderBy: [asc(contractInstallments.installmentNo)]},
-                                    salesAgent: true,
                                 },
                             },
                         },
@@ -142,7 +155,8 @@ const contactsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                             desc(plotSaleContracts.id),
                         ],
                         with: {
-                            plot: {with: {project: true}},
+                            project: true,
+                            contractPlots: {with: {plot: true}},
                             client: true,
                             commissionPayouts: {orderBy: [asc(commissionPayouts.trancheNumber)]},
                         },
@@ -173,16 +187,57 @@ const contactsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
             })
         if (!row) return c.json({error: 'Not found'}, 404)
 
+        // "Most recent contract" ordering (startDate, then createdAt, then id,
+        // all descending) has to happen here rather than in the query above —
+        // those columns live on plotSaleContracts, reached through
+        // contractPlots.contract, and a relational-query `orderBy` can only
+        // reference columns on the table it's querying directly.
+        const byMostRecentContract = (
+            a: {contract: {startDate: string; createdAt: Date | null; id: string}},
+            b: {contract: {startDate: string; createdAt: Date | null; id: string}},
+        ) => {
+            if (a.contract.startDate !== b.contract.startDate) {
+                return a.contract.startDate > b.contract.startDate ? -1 : 1
+            }
+            const aCreated = a.contract.createdAt?.toISOString() ?? ''
+            const bCreated = b.contract.createdAt?.toISOString() ?? ''
+            if (aCreated !== bCreated) return aCreated > bCreated ? -1 : 1
+            return a.contract.id > b.contract.id ? -1 : 1
+        }
+
         const plotsOut = row.plots.map((plot) => {
-            const {contracts: plotContracts, ...plotRest} = plot
-            const activeContract = plot.activeContractId
-                ? plotContracts.find((ct) => ct.id === plot.activeContractId)
+            const {contractPlots: plotContractPlots, ...plotRest} = plot
+            const sorted = [...plotContractPlots].sort(byMostRecentContract)
+            const activeEntry = plot.activeContractId
+                ? sorted.find((entry) => entry.contract.id === plot.activeContractId)
                 : undefined
-            const latestContract = activeContract ?? plotContracts[0] ?? null
+            const latestEntry = activeEntry ?? sorted[0] ?? null
+            const latestContract = latestEntry
+                ? {
+                    ...latestEntry.contract,
+                    // This plot's own share of the bucket's totalContractValue —
+                    // see ClientContactContract.allocatedValue.
+                    allocatedValue: latestEntry.allocatedValue,
+                    // This plot's own schedule (see the query comment above) —
+                    // shadows whatever `installments` the contract itself
+                    // might otherwise have carried.
+                    installments: latestEntry.installments,
+                }
+                : null
             return {...plotRest, latestContract}
         })
 
-        return c.json({...row, plots: plotsOut})
+        const plotSaleContractsAsAgentOut = row.plotSaleContractsAsAgent.map((contract) => {
+            const {contractPlots: agentContractPlots, ...contractRest} = contract
+            return {
+                ...contractRest,
+                plots: agentContractPlots
+                    .filter((entry) => !entry.cancelledAt)
+                    .map((entry) => entry.plot),
+            }
+        })
+
+        return c.json({...row, plots: plotsOut, plotSaleContractsAsAgent: plotSaleContractsAsAgentOut})
     })
     .get('/:id', async (c) => {
         const id = c.req.param('id')

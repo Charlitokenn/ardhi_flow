@@ -372,8 +372,12 @@ export function CommissionPaymentsDataGrid({
                 ),
                 cell: ({row}) => {
                     const clientName = row.original.client?.fullName ?? "—"
-                    const plotNumber =
-                        row.original.plot.surveyedPlotNumber ?? row.original.plot.plotNumber
+                    // A contract can cover more than one plot (always within
+                    // one project — see plotSaleContracts.projectId), so this
+                    // shows every live plot in the bucket, not just one.
+                    const plotLabel = row.original.plots
+                        .map((plot) => plot.surveyedPlotNumber ?? plot.plotNumber)
+                        .join(", ") || "—"
                     return (
                         <div className="flex items-center gap-3">
                             <Avatar className="size-8">
@@ -382,7 +386,7 @@ export function CommissionPaymentsDataGrid({
                             <div className="space-y-px">
                                 <div className="text-foreground font-medium">{clientName}</div>
                                 <div className="text-muted-foreground">
-                                    Plot No. {plotNumber} · {row.original.plot.project.projectName}
+                                    Plot{row.original.plots.length === 1 ? "" : "s"} No. {plotLabel} · {row.original.project.projectName}
                                 </div>
                             </div>
                         </div>

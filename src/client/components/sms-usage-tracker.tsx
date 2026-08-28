@@ -1,5 +1,6 @@
 import {Card, CardContent} from "@/components/ui/card";
 import {MobileIcon, SMSTrackingIcon, WhatsappIcon} from "@/assets/icons";
+import {cn} from "@/lib/utils.ts";
 
 const messageChannels = [
     {
@@ -15,7 +16,7 @@ const messageChannels = [
     {
         icon: MobileIcon,
         label: "Mobile",
-        messageCount: 67,
+        messageCount: 679,
     },
 ];
 
@@ -28,15 +29,25 @@ export function SMSUsageTracker() {
 
             <CardContent className="-mx-2 -mb-2 -mt-2 rounded-lg border border-border bg-card px-2 pb-2 pt-1.5">
                 <div className="space-y-1.5">
-                    {messageChannels.map((channel) => (
+                    {messageChannels.map((channel, index) => (
                         <div
                             key={channel.label}
-                            className="flex items-center gap-2"
+                            className={cn(
+                                "items-center gap-2",
+                                index < messageChannels.length - 1 &&
+                                "border-b border-dashed border-muted-foreground/30 pb-1"
+                            )}
                         >
-                            <channel.icon className="size-4 shrink-0"/>
-                            <p className="text-xs leading-normal text-muted-foreground">
-                                {channel.label} Channel: {channel.messageCount} SMS
-                            </p>
+                            <div className="flex justify-between">
+                                <channel.icon className="size-4 shrink-0"/>
+                                <span className="text-xs leading-normal text-muted-foreground">
+                                    {channel.label} Channel
+                                </span>
+                                <span className="text-xs leading-normal text-muted-foreground">
+                                    {channel.messageCount} SMS
+                                </span>
+                            </div>
+
                         </div>
                     ))}
                 </div>

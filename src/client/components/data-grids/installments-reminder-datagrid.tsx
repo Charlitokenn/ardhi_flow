@@ -71,7 +71,6 @@ interface IInstallmentContract {
     id: string
     status: "ACTIVE" | "DELINQUENT" | "COMPLETED" | "CANCELLED"
     client: IInstallmentClient | null
-    plot: IInstallmentPlot | null
 }
 
 interface IInstallmentComment {
@@ -84,6 +83,8 @@ interface IInstallmentComment {
 interface IInstallment {
     id: string
     contractId: string
+    contractPlotId: string
+    plotId: string
     installmentNo: number
     originalDueDate: string
     dueDate: string
@@ -97,6 +98,10 @@ interface IInstallment {
     createdAt: string | null
     updatedAt: string | null
     contract: IInstallmentContract | null
+    // Which specific plot within the contract's bucket this installment is
+    // for — a multi-plot contract has one full schedule per plot, so this
+    // is read directly off the installment, not through the contract.
+    plot: IInstallmentPlot | null
     comments: IInstallmentComment[]
 }
 
@@ -213,8 +218,8 @@ function latestComment(comments: IInstallmentComment[]): IInstallmentComment | n
 const exportColumns: ExportColumn<IInstallment>[] = [
     {header: "Due Date", accessor: (d) => d.dueDate},
     {header: "Client", accessor: (d) => d.contract?.client?.fullName ?? null},
-    {header: "Project", accessor: (d) => d.contract?.plot?.project?.projectName ?? null},
-    {header: "Plot", accessor: (d) => d.contract?.plot?.plotNumber ?? null},
+    {header: "Project", accessor: (d) => d.plot?.project?.projectName ?? null},
+    {header: "Plot", accessor: (d) => d.plot?.plotNumber ?? null},
     {header: "Installment Amount", accessor: (d) => d.amountDue},
     {header: "Installment No.", accessor: (d) => formatInstallmentLabel(d.installmentNo)},
     {header: "Penalty", accessor: (d) => d.penaltyAmount},
@@ -312,8 +317,8 @@ export function InstallmentsReminderDataGrid() {
                 !searchQuery ||
                 [
                     item.contract?.client?.fullName,
-                    item.contract?.plot?.project?.projectName,
-                    item.contract?.plot?.plotNumber,
+                    item.plot?.project?.projectName,
+                    item.plot?.plotNumber,
                 ]
                     .filter(Boolean)
                     .join(" ")
@@ -402,13 +407,13 @@ export function InstallmentsReminderDataGrid() {
             },
             {
                 id: "projectName",
-                accessorFn: (row) => row.contract?.plot?.project?.projectName ?? "",
+                accessorFn: (row) => row.plot?.project?.projectName ?? "",
                 header: ({column}) => (
                     <DataGridColumnHeader title="Project" visibility={true} column={column}/>
                 ),
                 cell: ({row}) => (
                     <div className="text-foreground font-medium">
-                        {row.original.contract?.plot?.project?.projectName ?? "—"}
+                        {row.original.plot?.project?.projectName ?? "—"}
                     </div>
                 ),
                 size: 170,
@@ -424,13 +429,13 @@ export function InstallmentsReminderDataGrid() {
                 // rather than folded into the project cell, both for
                 // readability and so it can anchor the default sort's
                 // per-contract grouping (see the `sorting` state above).
-                accessorFn: (row) => row.contract?.plot?.plotNumber ?? "",
+                accessorFn: (row) => row.plot?.plotNumber ?? "",
                 header: ({column}) => (
                     <DataGridColumnHeader title="Plot" visibility={true} column={column}/>
                 ),
                 cell: ({row}) => (
                     <div className="text-foreground font-medium">
-                        Plot No. {row.original.contract?.plot?.plotNumber ?? "—"}
+                        Plot No. {row.original.plot?.plotNumber ?? "—"}
                     </div>
                 ),
                 size: 110,
@@ -560,6 +565,18 @@ export function InstallmentsReminderDataGrid() {
                 enableSorting: true,
                 enableHiding: true,
                 enableResizing: true,
+            },
+            {
+                id: "actions",
+                header: "",
+                cell: ({row}) => (
+                    <ActionsCell row={row} onView={(rowData) => setViewingRow(rowData)}/>
+                ),
+                size: 60,
+                meta: {skeleton: <Skeleton className="h-6 w-6"/>},
+                enableSorting: false,
+                enableHiding: false,
+                enableResizing: false,
             },
         ],
         []
@@ -772,10 +789,10 @@ export function InstallmentsReminderDataGrid() {
                                     className="text-muted-foreground">Client: </span>{viewingRow.contract?.client?.fullName ?? "—"}
                                 </div>
                                 <div><span
-                                    className="text-muted-foreground">Project: </span>{viewingRow.contract?.plot?.project?.projectName ?? "—"}
+                                    className="text-muted-foreground">Project: </span>{viewingRow.plot?.project?.projectName ?? "—"}
                                 </div>
                                 <div><span
-                                    className="text-muted-foreground">Plot: </span>{viewingRow.contract?.plot?.plotNumber ?? "—"}
+                                    className="text-muted-foreground">Plot: </span>{viewingRow.plot?.plotNumber ?? "—"}
                                 </div>
                                 <div><span
                                     className="text-muted-foreground">Installment: </span>{formatInstallmentLabel(viewingRow.installmentNo)}

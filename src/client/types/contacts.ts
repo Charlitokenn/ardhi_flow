@@ -2,7 +2,10 @@
 // (src/worker/routes/contacts.ts) — see
 // docs/specs/0001-contacts-completion/0002-contact-view-and-detail-data.md.
 // Every plot carries exactly one `latestContract` (or null), never a
-// `contracts[]` array and never a separate `activeContract` field.
+// `contracts[]` array and never a separate `activeContract` field. A
+// contract is a "bucket" that can hold more than one plot (see the schema's
+// contractPlots table) — `latestContract.installments` here is always just
+// THIS plot's own schedule, not the whole bucket's.
 
 export interface ClientContactSalesAgent {
     id: string
@@ -46,13 +49,18 @@ export interface ClientContactInstallment {
 
 export interface ClientContactContract {
     id: string
-    plotId: string
+    projectId: string
     clientContactId: string
     createdBy: string | null
     status: "ACTIVE" | "DELINQUENT" | "COMPLETED" | "CANCELLED"
     startDate: string
     termMonths: number
     totalContractValue: string
+    // This plot's own share of totalContractValue (contractPlots.allocatedValue)
+    // — use this, not totalContractValue, for a single plot's balance/running-
+    // total math. totalContractValue is the whole bucket (every plot combined);
+    // see contract-balance.ts.
+    allocatedValue: string
     purchasePlan: "FLAT_RATE" | "DOWNPAYMENT"
     downpaymentPercent: string | null
     downpaymentAmount: string
@@ -73,7 +81,13 @@ export interface ClientContactContract {
     cancellationReason: string | null
     createdAt: string | null
     updatedAt: string | null
+    // Bucket-wide — a payment isn't "for" one plot, only its allocations
+    // are (see contractPaymentAllocations). Do not divide this by plot
+    // count or compare it directly against a single plot's installments;
+    // see contract-balance.ts for the balance/running-total implication.
     payments: ClientContactPayment[]
+    // This plot's own schedule specifically (contractInstallments.plotId),
+    // never the whole bucket's — see the file-level note above.
     installments: ClientContactInstallment[]
     salesAgent: ClientContactSalesAgent | null
 }
@@ -134,13 +148,16 @@ export interface ClientContactCommissionPayout {
 
 // A contract this contact earns commission on, as the sales agent rather
 // than the buyer. Deliberately narrower than `ClientContactContract` — it
-// carries what the Commission Payments tab needs (the plot/project sold,
+// carries what the Commission Payments tab needs (the plot(s)/project sold,
 // which client bought it, and the payout schedule) rather than every field
 // on the contract, since it's never rendered as a full contract record the
-// way `ClientContactContract` is.
+// way `ClientContactContract` is. `plots` can hold more than one entry — a
+// contract is a bucket that can cover several plots (always within one
+// project — see plotSaleContracts.projectId) — and only lists plots still
+// live in the bucket (cancelled ones are dropped server-side).
 export interface ClientContactAsAgentContract {
     id: string
-    plotId: string
+    projectId: string
     clientContactId: string
     status: "ACTIVE" | "DELINQUENT" | "COMPLETED" | "CANCELLED"
     startDate: string
@@ -148,12 +165,12 @@ export interface ClientContactAsAgentContract {
     commissionPercent: string
     commissionAmount: string
     commissionPayoutMonths: number
-    plot: {
+    project: ClientContactProject
+    plots: {
         id: string
         plotNumber: string
         surveyedPlotNumber: string | null
-        project: ClientContactProject
-    }
+    }[]
     client: {
         id: string
         fullName: string

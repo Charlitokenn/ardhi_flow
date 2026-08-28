@@ -46,26 +46,22 @@ import {Skeleton} from "@/components/ui/skeleton.tsx";
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
 import {ArchiveIcon} from "@/assets/icons";
 import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
+import {AddEditProjectsForm, type ProjectRecord} from "@/components/forms/projects/add-edit-projects-form.tsx";
+import {ProjectsView} from "@/components/views/projects-view.tsx";
+import type {ClientProject} from "@/types/projects.ts";
+import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
 
 interface IPlot {
     id: string;
     availability: "AVAILABLE" | "SOLD";
 }
 
-interface IProject {
-    id: string;
-    projectName: string;
-    projectDetails: string | null;
-    acquisitionDate: string;
-    sqmBought: string | null;
-    acquisitionValue: string;
-    region: string | null;
-    district: string | null;
-    ward: string | null;
-    projectOwner: string | null;
-    numberOfPlots: number;
-    tpStatus: string | null;
-    surveyStatus: string | null;
+// Extends `ProjectRecord` with the extra fields the grid itself needs
+// (`plots`, `createdAt`) — same shape used for `IContact`/`ContactRecord` in
+// contacts-datagrid.tsx. The list endpoint already returns the full project
+// row, so a grid row carries everything the add/edit form needs to open for
+// editing with no extra fetch/seed step.
+interface IProject extends ProjectRecord {
     createdAt: string | null;
     plots: IPlot[];
 }
@@ -184,6 +180,43 @@ function ActionsCell({
 
 const DELETE_ANIMATION_MS = 600;
 
+// Owns loading the view sheet's data — the project's full plots (each with
+// its current holding contact) and its LAND_ACQUISITION payments (each with
+// the supplier/payee) — mirroring ViewSheetContent in contacts-datagrid.tsx.
+// ProjectsView never fetches on its own.
+function ViewSheetContent({viewingRowId}: { viewingRowId: string }) {
+    const {getToken} = useAuth();
+    const api = apiClient(getToken);
+
+    const projectQuery = useQuery({
+        queryKey: ["project-statement-data", viewingRowId],
+        queryFn: async () => {
+            const res = await api.api.projects[":id"]["statement-data"].$get({param: {id: viewingRowId}});
+            if (!res.ok) throw new Error(`Failed to load project details (${res.status})`);
+            return res.json() as Promise<ClientProject>;
+        },
+    });
+
+    if (projectQuery.isError) {
+        return (
+            <div className="mt-8 ml-2 flex flex-col items-start gap-3">
+                <p className="text-sm text-destructive">
+                    {projectQuery.error instanceof Error ? projectQuery.error.message : "Failed to load project details"}
+                </p>
+                <Button variant="outline" size="sm" onClick={() => projectQuery.refetch()}>
+                    Retry
+                </Button>
+            </div>
+        );
+    }
+
+    if (projectQuery.isLoading || !projectQuery.data) {
+        return <TabsScrollSwitchSkeleton tabCount={2}/>;
+    }
+
+    return <ProjectsView project={projectQuery.data}/>;
+}
+
 export function ProjectsDataGrid() {
     const {getToken} = useAuth();
     const queryClient = useQueryClient();
@@ -200,6 +233,9 @@ export function ProjectsDataGrid() {
 
     const [viewingRow, setViewingRow] = useState<IProject | null>(null);
     const isViewSheetOpen = viewingRow !== null;
+
+    const [editingRow, setEditingRow] = useState<IProject | null>(null);
+    const isEditSheetOpen = editingRow !== null;
 
     const [deletingRow, setDeletingRow] = useState<IProject | null>(null);
     const isDeleteDialogOpen = deletingRow !== null;
@@ -424,7 +460,7 @@ export function ProjectsDataGrid() {
                     (row) => (
                         <ActionsCell
                             row={row}
-                            onEdit={() => toast.info("Editing projects is coming soon")}
+                            onEdit={(rowData) => setEditingRow(rowData)}
                             onView={(rowData) => setViewingRow(rowData)}
                             onDelete={(rowData) => setDeletingRow(rowData)}
                             disabled={deletingIds.has(row.original.id)}
@@ -617,71 +653,32 @@ export function ProjectsDataGrid() {
             </DataGrid>
 
             <ReusableSheet
-                title="View project"
-                description="Read-only details for this project."
+                title="Project Details"
+                description="Overview, payments, and plots for this project."
+                widthClassName="sm:max-w-full"
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null);
                 }}
                 children={
                     viewingRow && (
-                        <div className="space-y-2 text-sm">
-                            <div>
-                                <span className="text-muted-foreground">Project Name: </span>
-                                {viewingRow.projectName}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Details: </span>
-                                {viewingRow.projectDetails ?? "—"}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Owner: </span>
-                                {viewingRow.projectOwner ?? "—"}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Region: </span>
-                                {viewingRow.region ?? "—"}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">District: </span>
-                                {viewingRow.district ?? "—"}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Ward: </span>
-                                {viewingRow.ward ?? "—"}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Number of Plots: </span>
-                                {viewingRow.numberOfPlots}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Sqm Bought: </span>
-                                {viewingRow.sqmBought ?? "—"}
-                            </div>
-                            <div>
-                <span className="text-muted-foreground">
-                  Acquisition Value:{" "}
-                </span>
-                                {formatCurrency(viewingRow.acquisitionValue)}
-                            </div>
-                            <div>
-                <span className="text-muted-foreground">
-                  Acquisition Date:{" "}
-                </span>
-                                {formatDate(viewingRow.acquisitionDate)}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">TP Status: </span>
-                                {viewingRow.tpStatus ?? "—"}
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Survey Status: </span>
-                                {viewingRow.surveyStatus ?? "—"}
-                            </div>
-                        </div>
+                        <ViewSheetContent viewingRowId={viewingRow.id}/>
                     )
                 }
             />
+
+            {editingRow && (
+                <AddEditProjectsForm
+                    mode="edit"
+                    projectId={editingRow.id}
+                    initialData={editingRow}
+                    open={isEditSheetOpen}
+                    onOpenChange={(open) => {
+                        if (!open) setEditingRow(null);
+                    }}
+                    onSuccess={() => setEditingRow(null)}
+                />
+            )}
 
             <ReusableDeleteDialog
                 open={isDeleteDialogOpen}
