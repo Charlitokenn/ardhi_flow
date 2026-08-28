@@ -106,9 +106,10 @@ export function AddPlotForm({projectId, open, onOpenChange, onSuccess}: AddPlotF
             )
             const created = results.filter((r) => r.status === "fulfilled").length
             const failed = results.length - created
-            return {created, failed}
+            const failedLines = validLines.filter((_, index) => results[index].status === "rejected")
+            return {created, failed, failedLines}
         },
-        onSuccess: ({created, failed}) => {
+        onSuccess: ({created, failed, failedLines}) => {
             if (created > 0) {
                 queryClient.invalidateQueries({queryKey: ["project-statement-data", projectId]})
                 queryClient.invalidateQueries({queryKey: ["projects"]})
@@ -120,9 +121,11 @@ export function AddPlotForm({projectId, open, onOpenChange, onSuccess}: AddPlotF
                 resetForm()
             } else if (created > 0) {
                 toast.warning(`Added ${created} plot(s), ${failed} failed`)
+                setLines(failedLines)
                 onSuccess?.()
             } else {
                 toast.error("Failed to add plot(s)")
+                setLines(failedLines)
             }
         },
         onError: () => {
@@ -300,7 +303,10 @@ export function AddPlotForm({projectId, open, onOpenChange, onSuccess}: AddPlotF
                     </Button>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                        <Button type="button" variant="outline" onClick={() => {
+                            resetForm()
+                            onOpenChange(false)
+                        }} disabled={isSaving}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={isSaving}>
