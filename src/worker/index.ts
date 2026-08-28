@@ -1,7 +1,7 @@
 import {Hono} from "hono";
 import {logger} from "hono/logger";
 import {partyserverMiddleware} from "hono-party";
-import type {Env, Variables} from "./types.ts";
+import type {Env, Variables} from "./types";
 import {clerkAuth} from "./middleware/clerk-auth";
 import {tenantResolver} from "./middleware/tenant-resolver";
 import webhooksRoute from "./routes/webhooks/clerk";

@@ -41,9 +41,6 @@ export function useTenantPresence() {
         enabled,
         query: async () => ({
             token: (await getToken()) ?? "",
-            name: user?.fullName ?? user?.username ?? "Unknown user",
-            imageUrl: user?.imageUrl ?? "",
-            email: user?.primaryEmailAddress?.emailAddress ?? "",
         }),
         onMessage(event) {
             try {

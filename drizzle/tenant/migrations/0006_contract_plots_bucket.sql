@@ -25,8 +25,9 @@ CREATE TABLE "contract_plots" (
 	"updated_at" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint
-ALTER TABLE "contract_plots" ADD CONSTRAINT "contract_plots_contract_id_plot_sale_contracts_id_fk" FOREIGN KEY ("contract_id") REFERENCES "public"."plot_sale_contracts"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "contract_plots" ADD CONSTRAINT "contract_plots_contract_id_plot_sale_contracts_id_fk" FOREIGN KEY ("contract_id") REFERENCES "public"."plot_sale_contracts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contract_plots" ADD CONSTRAINT "contract_plots_plot_id_plots_id_fk" FOREIGN KEY ("plot_id") REFERENCES "public"."plots"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "contract_plots" ADD CONSTRAINT "contract_plots_id_plot_id_unique" UNIQUE("id","plot_id");--> statement-breakpoint
 CREATE INDEX "contract_plots_contract_idx" ON "contract_plots" USING btree ("contract_id");--> statement-breakpoint
 CREATE INDEX "contract_plots_plot_idx" ON "contract_plots" USING btree ("plot_id");--> statement-breakpoint
 
@@ -46,8 +47,13 @@ WHERE "plots"."id" = "plot_sale_contracts"."plot_id";--> statement-breakpoint
 -- single-plot bucket, carrying over its old plot_id and using its full
 -- total_contract_value as that one plot's allocated_value (a contract's
 -- value and its one plot's value are the same thing until this migration).
-INSERT INTO "contract_plots" ("contract_id", "plot_id", "allocated_value", "created_at", "updated_at")
-SELECT "id", "plot_id", "total_contract_value", "created_at", "updated_at"
+INSERT INTO "contract_plots" ("contract_id", "plot_id", "allocated_value", "cancelled_at", "created_at", "updated_at")
+SELECT "id", "plot_id", "total_contract_value",
+    CASE
+        WHEN "status" IN ('ACTIVE', 'DELINQUENT') THEN NULL
+        ELSE COALESCE("cancelled_at", "completed_at", "updated_at", "created_at", now())
+    END,
+    "created_at", "updated_at"
 FROM "plot_sale_contracts";--> statement-breakpoint
 
 -- 5. Backfill contract_installments' new plot-scoping columns. Joining on
@@ -70,6 +76,7 @@ ALTER TABLE "plot_sale_contracts" ADD CONSTRAINT "plot_sale_contracts_project_id
 CREATE INDEX "plot_sale_contracts_project_idx" ON "plot_sale_contracts" USING btree ("project_id");--> statement-breakpoint
 ALTER TABLE "contract_installments" ADD CONSTRAINT "contract_installments_contract_plot_id_contract_plots_id_fk" FOREIGN KEY ("contract_plot_id") REFERENCES "public"."contract_plots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contract_installments" ADD CONSTRAINT "contract_installments_plot_id_plots_id_fk" FOREIGN KEY ("plot_id") REFERENCES "public"."plots"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "contract_installments" ADD CONSTRAINT "contract_installments_contract_plot_plot_fk" FOREIGN KEY ("contract_plot_id","plot_id") REFERENCES "public"."contract_plots"("id","plot_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "contract_installments_contract_plot_idx" ON "contract_installments" USING btree ("contract_plot_id");--> statement-breakpoint
 CREATE INDEX "contract_installments_plot_idx" ON "contract_installments" USING btree ("plot_id");--> statement-breakpoint
 

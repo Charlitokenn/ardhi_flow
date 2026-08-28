@@ -15,7 +15,7 @@ const avatars = [
     },
     {
         src: "https://images.unsplash.com/photo-1543299750-19d1d6297053?w=96&h=96&dpr=2&q=80",
-        fallback: "ER",
+        fallback: "JB",
         name: "James Brown",
     },
 ]

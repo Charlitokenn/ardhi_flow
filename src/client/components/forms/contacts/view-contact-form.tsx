@@ -103,7 +103,11 @@ function deriveContractFinancials(
             if (!months) return 0;
             if (purchasePlan === "FLAT_RATE")
                 return contractValue / months;
-            if (months > 1) return contractValue / (months - 1);
+            const totalContractValue = Number(contract.totalContractValue);
+            const allocatedFinancedAmount = totalContractValue > 0
+                ? Number(contract.financedAmount) * (contractValue / totalContractValue)
+                : 0;
+            if (months > 1) return allocatedFinancedAmount / (months - 1);
             return 0;
         })(),
         installmentsWithRunning: contract

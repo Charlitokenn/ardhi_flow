@@ -1,5 +1,5 @@
 import { Server, type Connection, type ConnectionContext, type WSMessage } from "partyserver";
-import { verifyToken } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import type { Env } from "../types";
 
 /**
@@ -27,6 +27,17 @@ type PresenceUser = {
   status?: "active" | "away";
 };
 
+function readPresenceHeader(request: Request, name: string): string | undefined {
+  const value = request.headers.get(name);
+  if (!value) return undefined;
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
 export class TenantPresence extends Server<Env> {
   // Sleep when no one's connected — zero duration billing for idle tenants.
   static options = { hibernate: true };
@@ -38,13 +49,12 @@ export class TenantPresence extends Server<Env> {
       return;
     }
 
-    const url = new URL(ctx.request.url);
     const presence: PresenceUser = {
       connectionId: connection.id,
       userId,
-      name: url.searchParams.get("name") ?? "Unknown user",
-      imageUrl: url.searchParams.get("imageUrl") ?? undefined,
-      email: url.searchParams.get("email") ?? undefined,
+      name: readPresenceHeader(ctx.request, "X-Presence-Name") ?? "Unknown user",
+      imageUrl: readPresenceHeader(ctx.request, "X-Presence-Image-Url"),
+      email: readPresenceHeader(ctx.request, "X-Presence-Email"),
       connectedAt: Date.now(),
     };
 
@@ -54,11 +64,12 @@ export class TenantPresence extends Server<Env> {
     this.broadcastRoster();
   }
 
-  onClose(connection: Connection<PresenceUser>, _code: number, _reason: string, _wasClean: boolean) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onClose(_connection: Connection<PresenceUser>, _code: number, _reason: string, _wasClean: boolean) {
     this.broadcastRoster();
   }
 
-  onError(connection: Connection<PresenceUser>, error: unknown) {
+  onError(_connection: Connection<PresenceUser>, error: unknown) {
     console.error(`Presence connection error in room ${this.name}:`, error);
     this.broadcastRoster();
   }
@@ -118,6 +129,22 @@ export async function verifyPresenceConnection(
     }
 
     request.headers.set("X-User-Id", claims.sub);
+    request.headers.set("X-Presence-Name", encodeURIComponent("Unknown user"));
+    request.headers.delete("X-Presence-Image-Url");
+    request.headers.delete("X-Presence-Email");
+
+    try {
+      const user = await createClerkClient({ secretKey: env.CLERK_SECRET_KEY }).users.getUser(claims.sub);
+      const name = user.fullName ?? user.username ?? "Unknown user";
+      const email = user.emailAddresses.find(({ id }) => id === user.primaryEmailAddressId)?.emailAddress;
+
+      request.headers.set("X-Presence-Name", encodeURIComponent(name));
+      if (user.imageUrl) request.headers.set("X-Presence-Image-Url", encodeURIComponent(user.imageUrl));
+      if (email) request.headers.set("X-Presence-Email", encodeURIComponent(email));
+    } catch (error) {
+      console.error("Failed to load verified Clerk presence profile:", error);
+    }
+
     return request;
   } catch {
     return new Response("Unauthorized", { status: 401 });

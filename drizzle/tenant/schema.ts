@@ -6,6 +6,7 @@
 import {
     boolean,
     date,
+    foreignKey,
     index,
     integer,
     jsonb,
@@ -14,6 +15,7 @@ import {
     pgTable,
     text,
     timestamp,
+    unique,
     uniqueIndex,
     uuid,
     varchar,
@@ -312,7 +314,7 @@ export const contractPlots = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         contractId: uuid('contract_id')
             .notNull()
-            .references(() => plotSaleContracts.id, {onDelete: 'restrict'}),
+            .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
         plotId: uuid('plot_id')
             .notNull()
             .references(() => plots.id, {onDelete: 'restrict'}),
@@ -343,6 +345,7 @@ export const contractPlots = pgTable(
         updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
+        unique('contract_plots_id_plot_id_unique').on(table.id, table.plotId),
         index('contract_plots_contract_idx').on(table.contractId),
         index('contract_plots_plot_idx').on(table.plotId),
         // A plot can only belong to one *live* (not-yet-removed) contract
@@ -407,6 +410,11 @@ export const contractInstallments = pgTable(
         updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
+        foreignKey({
+            columns: [table.contractPlotId, table.plotId],
+            foreignColumns: [contractPlots.id, contractPlots.plotId],
+            name: 'contract_installments_contract_plot_plot_fk',
+        }).onDelete('cascade'),
         index('contract_installments_contract_idx').on(table.contractId),
         index('contract_installments_contract_plot_idx').on(table.contractPlotId),
         index('contract_installments_plot_idx').on(table.plotId),
