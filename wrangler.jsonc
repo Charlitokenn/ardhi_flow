@@ -9,6 +9,11 @@
 	// The Vite build emits the React app here. `not_found_handling` gives us
 	// SPA fallback (unmatched, non-asset routes resolve to index.html) so
 	// client-side routing works without a catch-all Worker route.
+	//
+	// IMPORTANT: this is also why the presence websocket is mounted under
+	// /api/party/* and not /party/* — only /api/* is forced through the
+	// Worker first. Anything outside that gets the SPA fallback instead of
+	// ever reaching src/worker/index.ts.
 	"assets": {
 		"directory": "./dist/client",
 		"binding": "ASSETS",
@@ -34,6 +39,23 @@
         "binding": "ardhi_flow_tenant_files"
       }
     ],
+	// Presence Durable Object — one instance per tenant org (Clerk org id).
+	// Runs inside this Worker, so it's billed under the same Workers free
+	// plan as everything else — no separate deployment or account.
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "TENANT_PRESENCE",
+				"class_name": "TenantPresence"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "presence-v1",
+			"new_sqlite_classes": ["TenantPresence"]
+		}
+	],
 	// Async tenant provisioning: the Clerk webhook enqueues, a consumer does
 	// the actual Neon project creation + migration off the request path.
 	"queues": {

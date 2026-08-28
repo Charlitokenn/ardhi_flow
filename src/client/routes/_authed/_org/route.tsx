@@ -16,7 +16,7 @@ import {ModeToggle} from '@/components/mode-toggle'
 import {NetworkStatusBanner} from "@/components/network-status-banner.tsx";
 import {QuickActionsMenu} from "@/components-reusable/reusable-quick-actions.tsx";
 import {apiClient} from "@/lib/api.ts"
-import {ReusableAvatar} from "@/components-reusable/reusable-avatar.tsx"
+import {OnlineUsers} from "@/components/presence/online-users.tsx";
 
 export const Route = createFileRoute('/_authed/_org')({
     beforeLoad: ({context}) => {
@@ -110,7 +110,7 @@ function OrgLayout() {
                     </div>
 
                     <div className="ml-auto flex items-center gap-3 mr-6">
-                        <ReusableAvatar/>
+                        <OnlineUsers/>
                         <QuickActionsMenu/>
                         <ModeToggle/>
                         <UserButton/>

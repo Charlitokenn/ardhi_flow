@@ -474,7 +474,7 @@ export function ProjectsDataGrid() {
                 enableResizing: false,
             },
         ],
-        [deletingIds],
+        [deletingIds, renderWithDeleteSkeleton],
     );
 
     const [columnOrder, setColumnOrder] = useState<string[]>(
@@ -654,7 +654,6 @@ export function ProjectsDataGrid() {
 
             <ReusableSheet
                 title="Project Details"
-                description="Overview, payments, and plots for this project."
                 widthClassName="sm:max-w-full"
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
