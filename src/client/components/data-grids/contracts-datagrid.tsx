@@ -628,7 +628,7 @@ export function ContractsDataGrid() {
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination/>
+                        <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
                     </CardFooter>
                 </Card>
             </DataGrid>

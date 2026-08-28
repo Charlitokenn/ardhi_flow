@@ -2,13 +2,13 @@ import {useState} from "react"
 import {OrganizationProfile, useAuth, useOrganization} from "@clerk/react"
 import {useQuery} from "@tanstack/react-query"
 import {Dialog, DialogContent} from "@/components/ui/dialog"
-import {PaletteIcon} from "lucide-react"
+import {SettingsIcon} from "lucide-react"
 import {toast} from "sonner"
 import {ShieldUserIcon} from "@/assets/icons"
-import {BrandingSettingsForm} from "@/components/forms/company/branding-settings-form.tsx"
 import {DropdownMenu, DropdownMenuTrigger} from "@/components/ui/dropdown-menu"
 import {SidebarMenu, SidebarMenuButton, SidebarMenuItem} from "@/components/ui/sidebar"
 import {apiClient} from "@/lib/api.ts"
+import OrganizationSettings from "@/components/organization-settings.tsx"
 
 export function TeamSwitcher() {
     const {organization} = useOrganization()
@@ -78,20 +78,18 @@ export function TeamSwitcher() {
                         routing="hash"
                         appearance={{
                             elements: {
-                                rootBox: "w-fit h-fit",
-                                cardBox: "w-fit h-fit shadow-none border-none",
-                                navbar: "border-r border-border/50",
+                                // rootBox: "w-fit h-fit",
+                                // cardBox: "w-fit h-fit shadow-none border-none",
+                                // navbar: "border-r border-border/50",
                             },
                         }}
                     >
-                        <OrganizationProfile.Page label="general"/>
-                        <OrganizationProfile.Page label="members"/>
                         <OrganizationProfile.Page
-                            label="Branding"
-                            url="branding"
-                            labelIcon={<PaletteIcon className="size-4"/>}
+                            label="Settings"
+                            url="settings"
+                            labelIcon={<SettingsIcon className="size-4"/>}
                         >
-                            <BrandingSettingsForm/>
+                            <OrganizationSettings/>
                         </OrganizationProfile.Page>
                     </OrganizationProfile>
                 </DialogContent>

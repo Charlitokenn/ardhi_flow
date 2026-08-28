@@ -49,7 +49,7 @@ import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
 
 interface IPlot {
     id: string;
-    availability: 'AVAILABLE' | 'SOLD';
+    availability: "AVAILABLE" | "SOLD";
 }
 
 interface IProject {
@@ -608,7 +608,10 @@ export function ProjectsDataGrid() {
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination/>
+                        <DataGridPagination
+                            rowsPerPageLabel="Projects per Page"
+                            sizes={[8, 16, 32, 50, 100, 500]}
+                        />
                     </CardFooter>
                 </Card>
             </DataGrid>

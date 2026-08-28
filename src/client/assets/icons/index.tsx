@@ -20,6 +20,12 @@ import ShieldUser from "@/assets/shield-user.svg?react"
 import ColorSwatch from "@/assets/color-swatch.svg?react"
 import User from "@/assets/user.svg?react"
 import UserCheck from "@/assets/user-check.svg?react"
+import Whatsapp from "@/assets/whatsapp.svg?react"
+import Mobile from "@/assets/mobile.svg?react"
+import SMSEdit from "@/assets/sms-edit.svg?react"
+import SMSNotification from "@/assets/sms-notification.svg?react"
+import SMSSearch from "@/assets/sms-search.svg?react"
+import SMSTracking from "@/assets/sms-tracking.svg?react"
 
 export const ArchiveIcon = ({className}: { className: string }) => {
     return <Archive className={className}/>
@@ -107,4 +113,28 @@ export const UserIcon = ({className}: { className: string }) => {
 
 export const UserCheckIcon = ({className}: { className: string }) => {
     return <UserCheck className={className}/>
+}
+
+export const WhatsappIcon = ({className}: { className: string }) => {
+    return <Whatsapp className={className}/>
+}
+
+export const MobileIcon = ({className}: { className: string }) => {
+    return <Mobile className={className}/>
+}
+
+export const SMSEditIcon = ({className}: { className: string }) => {
+    return <SMSEdit className={className}/>
+}
+
+export const SMSNotificationIcon = ({className}: { className: string }) => {
+    return <SMSNotification className={className}/>
+}
+
+export const SMSSearchIcon = ({className}: { className: string }) => {
+    return <SMSSearch className={className}/>
+}
+
+export const SMSTrackingIcon = ({className}: { className: string }) => {
+    return <SMSTracking className={className}/>
 }

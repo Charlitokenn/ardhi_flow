@@ -46,10 +46,10 @@ export const appConfig = {
                     title: "Commissions",
                     url: "/finance/commissions",
                 },
-                {
-                    title: "Reconciliation",
-                    url: "/finance/reconciliation",
-                },
+                // {
+                //     title: "Reconciliation",
+                //     url: "/finance/reconciliation",
+                // },
             ],
         },
         {

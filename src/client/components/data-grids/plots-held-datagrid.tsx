@@ -492,7 +492,7 @@ export function PlotsHeldDataGrid({plots}: { plots: ClientContactPlot[] }) {
                         </DataGridScrollArea>
                     </DataGridContainer>
                 </div>
-                <DataGridPagination/>
+                <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
             </div>
         </DataGrid>
     )

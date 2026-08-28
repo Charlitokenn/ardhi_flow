@@ -352,7 +352,7 @@ export function VendorJobsDataGrid({
                         </DataGridScrollArea>
                     </DataGridContainer>
                 </Card>
-                <DataGridPagination/>
+                <DataGridPagination sizes={[8, 16, 32, 50, 100, 500]}/>
             </div>
         </DataGrid>
     )

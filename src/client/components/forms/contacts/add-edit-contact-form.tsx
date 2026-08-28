@@ -290,7 +290,6 @@ export function AddEditContactForm({
     )
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [currentStep, setCurrentStep] = useState(1)
-    const [highestStep, setHighestStep] = useState(1)
 
     // Re-seeds `values` from `initialData` when the form is opened for a
     // different contact (e.g. the caller swaps which row is being edited

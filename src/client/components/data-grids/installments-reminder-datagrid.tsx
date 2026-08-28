@@ -11,34 +11,20 @@ import {
     type DataGridFeatures,
 } from "@/components/reui/data-grid/data-grid.tsx"
 import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
-import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
 import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
-import {
-    DataGridTable,
-    DataGridTableRowSelect,
-    DataGridTableRowSelectAll,
-} from "@/components/reui/data-grid/data-grid-table.tsx"
+import {DataGridTableRowSelect, DataGridTableRowSelectAll,} from "@/components/reui/data-grid/data-grid-table.tsx"
 import {DataGridColumnVisibility} from "@/components/reui/data-grid/data-grid-column-visibility"
-import {
-    type ColumnDef,
-    type PaginationState,
-    type Row,
-    type RowSelectionState,
-    type SortingState,
-    useTable,
-} from "@tanstack/react-table"
+import {type ColumnDef, type RowSelectionState, type SortingState, useTable,} from "@tanstack/react-table"
 import {toast} from "sonner"
 import {Button} from "@/components/ui/button.tsx"
-import {Card, CardAction, CardContent, CardFooter, CardHeader} from "@/components/ui/card.tsx"
+import {Card, CardAction, CardContent, CardHeader} from "@/components/ui/card.tsx"
 import {Checkbox} from "@/components/ui/checkbox.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
 import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx"
 import {
-    EyeDashedIcon,
     FunnelIcon,
     MessageCircleIcon,
-    MoreHorizontalIcon,
     SearchIcon,
     Settings2Icon,
     XIcon
@@ -47,17 +33,11 @@ import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
 import {ArchiveIcon} from "@/assets/icons"
 import {formatDate, thousandSeparator} from "@/lib/utils.ts"
-
+import {DataGridTableVirtual} from "@/components/reui/data-grid/data-grid-table-virtual"
 // ---------------------------------------------------------------------------
 // Row shape — matches GET /api/installments (src/worker/routes/installments.ts)
 // ---------------------------------------------------------------------------
@@ -237,37 +217,14 @@ const exportColumns: ExportColumn<IInstallment>[] = [
     {header: "Status", accessor: (d) => reminderStatusLabel(computeReminderStatus(d))},
 ]
 
-function ActionsCell({
-                         row,
-                         onView,
-                     }: {
-    row: Row<DataGridFeatures, IInstallment>
-    onView: (data: IInstallment) => void
-}) {
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button className="size-7" size="icon" variant="ghost">
-                    <MoreHorizontalIcon/>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="left" align="start">
-                <DropdownMenuItem onClick={() => onView(row.original)} className="cursor-pointer">
-                    <EyeDashedIcon/> View
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
 export function InstallmentsReminderDataGrid() {
     const {getToken} = useAuth()
     const api = apiClient(getToken)
 
-    const [pagination, setPagination] = useState<PaginationState>({
-        pageIndex: 0,
-        pageSize: 8,
-    })
+    // const [pagination, setPagination] = useState<PaginationState>({
+    //     pageIndex: 0,
+    //     pageSize: 8,
+    // })
     // Groups installments by client, then — since one client can hold
     // several plots (same project or different ones) — by project and plot
     // so each contract's own schedule stays contiguous, then orders within
@@ -580,14 +537,48 @@ export function InstallmentsReminderDataGrid() {
     const [columnOrder, setColumnOrder] = useState<string[]>(columns.map((c) => c.id as string))
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
+    // const table = useTable({
+    //     features: dataGridFeatures,
+    //     columns,
+    //     data: filteredData,
+    //     pageCount: Math.ceil((filteredData.length || 0) / pagination.pageSize),
+    //     getRowId: (row: IInstallment) => row.id,
+    //     enableRowSelection: true,
+    //     state: {pagination, sorting, columnOrder, rowSelection},
+    //     initialState: {
+    //         columnVisibility: {
+    //             id: false,
+    //             penaltyAmount: false,
+    //             paidAt: false,
+    //             amountPaid: false,
+    //         },
+    //     },
+    //     onRowSelectionChange: setRowSelection,
+    //     onColumnOrderChange: setColumnOrder,
+    //     onPaginationChange: setPagination,
+    //     onSortingChange: setSorting,
+    // })
+
     const table = useTable({
         features: dataGridFeatures,
+
+        // Virtualization renders only the visible rows, so we don't
+        // need client-side pagination.
+        manualPagination: true,
+
         columns,
         data: filteredData,
-        pageCount: Math.ceil((filteredData.length || 0) / pagination.pageSize),
+
         getRowId: (row: IInstallment) => row.id,
+
         enableRowSelection: true,
-        state: {pagination, sorting, columnOrder, rowSelection},
+
+        state: {
+            sorting,
+            columnOrder,
+            rowSelection,
+        },
+
         initialState: {
             columnVisibility: {
                 id: false,
@@ -596,9 +587,9 @@ export function InstallmentsReminderDataGrid() {
                 amountPaid: false,
             },
         },
+
         onRowSelectionChange: setRowSelection,
         onColumnOrderChange: setColumnOrder,
-        onPaginationChange: setPagination,
         onSortingChange: setSorting,
     })
 
@@ -615,6 +606,10 @@ export function InstallmentsReminderDataGrid() {
                     columnsResizable: true,
                     columnsMovable: true,
                     columnsVisibility: true,
+                    headerSticky: true,
+                }}
+                tableClassNames={{
+                    headerSticky: "sticky top-0 z-10 bg-background",
                 }}
                 isLoading={installmentsQuery.isLoading}
                 emptyMessage={
@@ -719,15 +714,15 @@ export function InstallmentsReminderDataGrid() {
                     <CardContent className="p-0.5">
                         <Card className="p-0">
                             <DataGridContainer>
-                                <DataGridScrollArea>
-                                    <DataGridTable/>
+                                <DataGridScrollArea className="h-110">
+                                    <DataGridTableVirtual estimateSize={49}/>
                                 </DataGridScrollArea>
                             </DataGridContainer>
                         </Card>
                     </CardContent>
-                    <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination/>
-                    </CardFooter>
+                    {/*<CardFooter className="border-none bg-transparent! px-3.5 py-2">*/}
+                    {/*    <DataGridPagination/>*/}
+                    {/*</CardFooter>*/}
                 </Card>
             </DataGrid>
 

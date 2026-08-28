@@ -28,12 +28,7 @@ import {
     DataGridTableFootRow,
     DataGridTableFootRowCell,
 } from "@/components/reui/data-grid/data-grid-table.tsx"
-import {
-    type ColumnDef,
-    type PaginationState,
-    type SortingState,
-    useTable,
-} from "@tanstack/react-table"
+import {type ColumnDef, type PaginationState, type SortingState, useTable,} from "@tanstack/react-table"
 
 import {Card} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
@@ -85,7 +80,7 @@ export function PaymentsSubTable({
     ])
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
-        pageSize: 5,
+        pageSize: 8,
     })
 
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientContactExpensePayment>[]>(
@@ -172,7 +167,7 @@ export function PaymentsSubTable({
                             </DataGridScrollArea>
                         </DataGridContainer>
                     </Card>
-                    <DataGridPagination className="pb-1.5"/>
+                    <DataGridPagination className="pb-1.5" sizes={[8, 16, 32, 50, 100, 500]}/>
                 </div>
             </DataGrid>
         </div>

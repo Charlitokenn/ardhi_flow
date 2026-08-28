@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, CreditCard } from "lucide-react";
-import { CurrentPlan } from "@/lib/billingsdk-config";
+import type { CurrentPlan } from "@/lib/billingsdk-config";
 import { cn } from "@/lib/utils";
 import {
   CancelSubscriptionDialog,
