@@ -80,6 +80,37 @@ function draftFromPlot(plot: ClientProjectPlot): EditDraft {
     }
 }
 
+// All editing state lives in table.options.meta instead of being closed
+// over inside the columns builder. Cell renderers below are declared at
+// module scope so their function identity never changes across renders —
+// if they were recreated inline inside a useMemo keyed on editDraft (as
+// they were before), flexRender would see a "new component" on every
+// keystroke and remount the input, kicking focus out after one character.
+interface PlotsTableMeta {
+    editingRowId: string | null
+    editDraft: EditDraft | null
+    setEditDraft: (draft: EditDraft) => void
+    showSurveyedFields: boolean
+    setShowSurveyedFields: (show: boolean) => void
+    savingRowId: string | null
+    deletingRowId: string | null
+    hasSurveyedPlotNumber: boolean
+    hasSurveyedSize: boolean
+    startEditing: (plot: ClientProjectPlot) => void
+    cancelEditing: () => void
+    saveEditing: (plotId: string) => void
+    handleDelete: (plot: ClientProjectPlot) => void
+}
+
+type PlotCellContext = {
+    row: { original: ClientProjectPlot }
+    table: { options: { meta?: unknown } }
+}
+
+function getMeta(table: PlotCellContext["table"]): PlotsTableMeta {
+    return table.options.meta as PlotsTableMeta
+}
+
 // Click-triggered confirm — not a hover Tooltip, since it needs to hold
 // interactive Cancel/Delete buttons — per the "click tooltip which displays
 // a confirm component" requirement for row deletion.
@@ -131,6 +162,252 @@ function DeletePlotPopover({
                 </div>
             </PopoverContent>
         </Popover>
+    )
+}
+
+function PlotNumberCell({row, table}: PlotCellContext) {
+    const meta = getMeta(table)
+    const {
+        editingRowId,
+        editDraft,
+        setEditDraft,
+        hasSurveyedPlotNumber,
+        hasSurveyedSize,
+        showSurveyedFields,
+        setShowSurveyedFields
+    } = meta
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <div className="space-y-1.5">
+                <Input
+                    className="h-8 w-24"
+                    value={editDraft.plotNumber}
+                    onChange={(e) => setEditDraft({...editDraft, plotNumber: e.target.value})}
+                    aria-label="Plot number"
+                />
+                {(!hasSurveyedPlotNumber || !hasSurveyedSize) && !showSurveyedFields && (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="link"
+                        className="h-auto p-0 text-xs"
+                        onClick={() => setShowSurveyedFields(true)}
+                    >
+                        <PlusIcon className="size-3"/> Add surveyed data
+                    </Button>
+                )}
+            </div>
+        )
+    }
+    return <div className="text-foreground font-medium">Plot No. {row.original.plotNumber}</div>
+}
+
+function SurveyedPlotNumberCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-28"
+                value={editDraft.surveyedPlotNumber}
+                onChange={(e) => setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})}
+                placeholder="—"
+                aria-label="Surveyed plot number"
+            />
+        )
+    }
+    return <div className="text-foreground font-medium">{row.original.surveyedPlotNumber ?? "—"}</div>
+}
+
+function UnsurveyedSizeCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-24"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={editDraft.unsurveyedSize}
+                onChange={(e) => setEditDraft({...editDraft, unsurveyedSize: e.target.value})}
+                aria-label="Plot size"
+            />
+        )
+    }
+    return <div className="text-foreground font-medium">{formatSize(row.original.unsurveyedSize)}</div>
+}
+
+function SurveyedSizeCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-24"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={editDraft.surveyedSize}
+                onChange={(e) => setEditDraft({...editDraft, surveyedSize: e.target.value})}
+                placeholder="—"
+                aria-label="Surveyed plot size"
+            />
+        )
+    }
+    return <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
+}
+
+function AvailabilityCell({row, table}: PlotCellContext) {
+    const meta = getMeta(table)
+    const {
+        editingRowId,
+        editDraft,
+        setEditDraft,
+        showSurveyedFields,
+        setShowSurveyedFields,
+        hasSurveyedPlotNumber,
+        hasSurveyedSize,
+    } = meta
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <div className="flex items-center gap-1.5">
+                <Select
+                    value={editDraft.availability}
+                    onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
+                >
+                    <SelectTrigger className="h-8 w-32">
+                        <SelectValue/>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="AVAILABLE">Available</SelectItem>
+                        <SelectItem value="SOLD">Sold</SelectItem>
+                    </SelectContent>
+                </Select>
+                {showSurveyedFields && (!hasSurveyedPlotNumber || !hasSurveyedSize) && (
+                    <Popover defaultOpen>
+                        <PopoverTrigger asChild>
+                            <Button type="button" size="icon-sm" variant="outline" aria-label="Edit surveyed data">
+                                <LandPlotIcon className="size-3.5"/>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64" align="start">
+                            <div className="space-y-3">
+                                <div className="text-muted-foreground text-xs font-medium">Surveyed data</div>
+                                <div className="space-y-2">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="surveyed-plot-number" className="text-xs">
+                                            Surveyed plot number
+                                        </Label>
+                                        <Input
+                                            id="surveyed-plot-number"
+                                            className="h-8"
+                                            value={editDraft.surveyedPlotNumber}
+                                            onChange={(e) =>
+                                                setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})
+                                            }
+                                            placeholder="—"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="surveyed-size" className="text-xs">
+                                            Surveyed plot size (m²)
+                                        </Label>
+                                        <Input
+                                            id="surveyed-size"
+                                            className="h-8"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            value={editDraft.surveyedSize}
+                                            onChange={(e) =>
+                                                setEditDraft({...editDraft, surveyedSize: e.target.value})
+                                            }
+                                            placeholder="—"
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-auto p-0 text-xs text-muted-foreground"
+                                    onClick={() => {
+                                        setEditDraft({...editDraft, surveyedPlotNumber: "", surveyedSize: ""})
+                                        setShowSurveyedFields(false)
+                                    }}
+                                >
+                                    Remove
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                )}
+            </div>
+        )
+    }
+    return availabilityBadge(row.original.availability)
+}
+
+function CurrentOwnerCell({row}: PlotCellContext) {
+    return <div className="text-foreground font-medium">{row.original.contact?.fullName ?? "—"}</div>
+}
+
+function ActionsCell({row, table}: PlotCellContext) {
+    const meta = getMeta(table)
+    const {editingRowId, savingRowId, deletingRowId, startEditing, cancelEditing, saveEditing, handleDelete} = meta
+    const plot = row.original
+    const isEditingRow = editingRowId === plot.id
+    const isSavingRow = savingRowId === plot.id
+    const isDeletingRow = deletingRowId === plot.id
+
+    if (isEditingRow) {
+        return (
+            <div className="flex items-center gap-1">
+                <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => saveEditing(plot.id)}
+                    disabled={isSavingRow}
+                    aria-label="Save changes"
+                >
+                    <CheckIcon className="size-3.5"/>
+                </Button>
+                <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={cancelEditing}
+                    disabled={isSavingRow}
+                    aria-label="Cancel editing"
+                >
+                    <XIcon className="size-3.5"/>
+                </Button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex items-center gap-1">
+            <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => startEditing(plot)}
+                disabled={editingRowId !== null || isDeletingRow}
+                aria-label={`Edit plot ${plot.plotNumber}`}
+            >
+                <SquarePenIcon className="size-3.5"/>
+            </Button>
+            <DeletePlotPopover
+                plotNumber={plot.plotNumber}
+                onConfirm={() => handleDelete(plot)}
+                disabled={editingRowId !== null || isDeletingRow}
+            />
+        </div>
     )
 }
 
@@ -297,36 +574,18 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
+    // Cell renderers are stable module-level function references (defined
+    // above), so this array only needs to be rebuilt when a column actually
+    // needs to appear/disappear — not on every keystroke. All the live
+    // editing state (editDraft, editingRowId, etc.) flows in separately via
+    // table.options.meta, read inside each cell renderer at call time.
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientProjectPlot>[]>(
         () => [
             {
                 accessorKey: "plotNumber",
                 id: "plotNumber",
                 header: ({column}) => <DataGridColumnHeader title="Plot Number" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <div className="space-y-1.5">
-                            <Input
-                                className="h-8 w-24"
-                                value={editDraft.plotNumber}
-                                onChange={(e) => setEditDraft({...editDraft, plotNumber: e.target.value})}
-                                aria-label="Plot number"
-                            />
-                            {(!hasSurveyedPlotNumber || !hasSurveyedSize) && !showSurveyedFields && (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="link"
-                                    className="h-auto p-0 text-xs"
-                                    onClick={() => setShowSurveyedFields(true)}
-                                >
-                                    <PlusIcon className="size-3"/> Add surveyed data
-                                </Button>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="text-foreground font-medium">Plot No. {row.original.plotNumber}</div>
-                    ),
+                cell: PlotNumberCell,
                 enableSorting: true,
                 size: 150,
             },
@@ -337,20 +596,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                     header: ({column}) => (
                         <DataGridColumnHeader title="Surveyed Plot Number" visibility column={column}/>
                     ),
-                    cell: ({row}) =>
-                        editingRowId === row.original.id && editDraft ? (
-                            <Input
-                                className="h-8 w-28"
-                                value={editDraft.surveyedPlotNumber}
-                                onChange={(e) => setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})}
-                                placeholder="—"
-                                aria-label="Surveyed plot number"
-                            />
-                        ) : (
-                            <div className="text-foreground font-medium">
-                                {row.original.surveyedPlotNumber ?? "—"}
-                            </div>
-                        ),
+                    cell: SurveyedPlotNumberCell,
                     enableSorting: true,
                     size: 190,
                 } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
@@ -359,20 +605,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 accessorKey: "unsurveyedSize",
                 id: "unsurveyedSize",
                 header: ({column}) => <DataGridColumnHeader title="Plot Size" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-24"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            value={editDraft.unsurveyedSize}
-                            onChange={(e) => setEditDraft({...editDraft, unsurveyedSize: e.target.value})}
-                            aria-label="Plot size"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">{formatSize(row.original.unsurveyedSize)}</div>
-                    ),
+                cell: UnsurveyedSizeCell,
                 enableSorting: true,
                 size: 140,
             },
@@ -383,21 +616,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                     header: ({column}) => (
                         <DataGridColumnHeader title="Surveyed Plot Size" visibility column={column}/>
                     ),
-                    cell: ({row}) =>
-                        editingRowId === row.original.id && editDraft ? (
-                            <Input
-                                className="h-8 w-24"
-                                type="number"
-                                inputMode="decimal"
-                                min={0}
-                                value={editDraft.surveyedSize}
-                                onChange={(e) => setEditDraft({...editDraft, surveyedSize: e.target.value})}
-                                placeholder="—"
-                                aria-label="Surveyed plot size"
-                            />
-                        ) : (
-                            <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
-                        ),
+                    cell: SurveyedSizeCell,
                     enableSorting: true,
                     size: 170,
                 } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
@@ -406,101 +625,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 accessorKey: "availability",
                 id: "availability",
                 header: ({column}) => <DataGridColumnHeader title="Availability Status" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <div className="flex items-center gap-1.5">
-                            <Select
-                                value={editDraft.availability}
-                                onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
-                            >
-                                <SelectTrigger className="h-8 w-32">
-                                    <SelectValue/>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="AVAILABLE">Available</SelectItem>
-                                    <SelectItem value="SOLD">Sold</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {showSurveyedFields && (!hasSurveyedPlotNumber || !hasSurveyedSize) && (
-                                <Popover defaultOpen>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            type="button"
-                                            size="icon-sm"
-                                            variant="outline"
-                                            aria-label="Edit surveyed data"
-                                        >
-                                            <LandPlotIcon className="size-3.5"/>
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-64" align="start">
-                                        <div className="space-y-3">
-                                            <div className="text-muted-foreground text-xs font-medium">
-                                                Surveyed data
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="surveyed-plot-number" className="text-xs">
-                                                        Surveyed plot number
-                                                    </Label>
-                                                    <Input
-                                                        id="surveyed-plot-number"
-                                                        className="h-8"
-                                                        value={editDraft.surveyedPlotNumber}
-                                                        onChange={(e) =>
-                                                            setEditDraft({
-                                                                ...editDraft,
-                                                                surveyedPlotNumber: e.target.value,
-                                                            })
-                                                        }
-                                                        placeholder="—"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="surveyed-size" className="text-xs">
-                                                        Surveyed plot size (m²)
-                                                    </Label>
-                                                    <Input
-                                                        id="surveyed-size"
-                                                        className="h-8"
-                                                        type="number"
-                                                        inputMode="decimal"
-                                                        min={0}
-                                                        value={editDraft.surveyedSize}
-                                                        onChange={(e) =>
-                                                            setEditDraft({
-                                                                ...editDraft,
-                                                                surveyedSize: e.target.value,
-                                                            })
-                                                        }
-                                                        placeholder="—"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-auto p-0 text-xs text-muted-foreground"
-                                                onClick={() => {
-                                                    setEditDraft({
-                                                        ...editDraft,
-                                                        surveyedPlotNumber: "",
-                                                        surveyedSize: "",
-                                                    })
-                                                    setShowSurveyedFields(false)
-                                                }}
-                                            >
-                                                Remove
-                                            </Button>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        </div>
-                    ) : (
-                        availabilityBadge(row.original.availability)
-                    ),
+                cell: AvailabilityCell,
                 enableSorting: true,
                 size: 170,
             },
@@ -508,84 +633,37 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 id: "currentOwner",
                 accessorFn: (row) => row.contact?.fullName ?? "",
                 header: ({column}) => <DataGridColumnHeader title="Current Owner" visibility column={column}/>,
-                cell: ({row}) => (
-                    <div className="text-foreground font-medium">{row.original.contact?.fullName ?? "—"}</div>
-                ),
+                cell: CurrentOwnerCell,
                 enableSorting: true,
                 size: 200,
             },
             {
                 id: "actions",
                 header: "",
-                cell: ({row}) => {
-                    const plot = row.original
-                    const isEditingRow = editingRowId === plot.id
-                    const isSavingRow = savingRowId === plot.id
-                    const isDeletingRow = deletingRowId === plot.id
-
-                    if (isEditingRow) {
-                        return (
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    type="button"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    onClick={() => saveEditing(plot.id)}
-                                    disabled={isSavingRow}
-                                    aria-label="Save changes"
-                                >
-                                    <CheckIcon className="size-3.5"/>
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    onClick={cancelEditing}
-                                    disabled={isSavingRow}
-                                    aria-label="Cancel editing"
-                                >
-                                    <XIcon className="size-3.5"/>
-                                </Button>
-                            </div>
-                        )
-                    }
-
-                    return (
-                        <div className="flex items-center gap-1">
-                            <Button
-                                type="button"
-                                size="icon-sm"
-                                variant="ghost"
-                                onClick={() => startEditing(plot)}
-                                disabled={editingRowId !== null || isDeletingRow}
-                                aria-label={`Edit plot ${plot.plotNumber}`}
-                            >
-                                <SquarePenIcon className="size-3.5"/>
-                            </Button>
-                            <DeletePlotPopover
-                                plotNumber={plot.plotNumber}
-                                onConfirm={() => handleDelete(plot)}
-                                disabled={editingRowId !== null || isDeletingRow}
-                            />
-                        </div>
-                    )
-                },
+                cell: ActionsCell,
                 enableSorting: false,
                 enableHiding: false,
                 size: 90,
             },
         ],
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [
-            editingRowId,
-            editDraft,
-            savingRowId,
-            deletingRowId,
-            hasSurveyedPlotNumber,
-            hasSurveyedSize,
-            showSurveyedFields,
-        ]
+        [hasSurveyedPlotNumber, hasSurveyedSize]
     )
+
+    const meta: PlotsTableMeta = {
+        editingRowId,
+        editDraft,
+        setEditDraft,
+        showSurveyedFields,
+        setShowSurveyedFields,
+        savingRowId,
+        deletingRowId,
+        hasSurveyedPlotNumber,
+        hasSurveyedSize,
+        startEditing,
+        cancelEditing,
+        saveEditing,
+        handleDelete,
+    }
 
     const table = useTable({
         features: dataGridFeatures,
@@ -596,6 +674,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         state: {pagination, sorting},
         onPaginationChange: setPagination,
         onSortingChange: setSorting,
+        meta,
     })
 
     return (
