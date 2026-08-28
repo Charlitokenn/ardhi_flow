@@ -1,6 +1,6 @@
 import {type HorizontalTabItem, ReusableHorizontalTabs,} from "@/components-reusable/reusable-horizontal-tabs.tsx";
 import {BrandingSettingsForm} from "@/components/forms/company/branding-settings-form.tsx";
-import {CreditCardIcon, LandmarkIcon, MessageSquareIcon, PaletteIcon} from "lucide-react";
+import {PaletteIcon} from "lucide-react";
 
 const settingsTabData: HorizontalTabItem[] = [
     {
@@ -12,24 +12,6 @@ const settingsTabData: HorizontalTabItem[] = [
                 <BrandingSettingsForm/>
             </section>
         ),
-    },
-    {
-        value: "billing-and-subscription",
-        label: "Billing & Subscription",
-        icon: CreditCardIcon,
-        content: "",
-    },
-    {
-        value: "messaging",
-        label: "Messaging",
-        icon: MessageSquareIcon,
-        content: "",
-    },
-    {
-        value: "accounts",
-        label: "Accounts",
-        icon: LandmarkIcon,
-        content: "",
     },
 ];
 

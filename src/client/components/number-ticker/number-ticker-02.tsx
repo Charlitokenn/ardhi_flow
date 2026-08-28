@@ -48,7 +48,7 @@ const NumberTickerDemo = () => {
 
     return (
         <div>
-            <NumberTicker
+            <CurrencyNumberTicker
                 value={val}
                 className="text-foreground font-medium lg:text-5xl sm:text-4xl text-3xl tracking-tight"
             />

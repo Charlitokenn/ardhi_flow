@@ -80,7 +80,7 @@ export function PaymentsSubTable({
     ])
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
-        pageSize: 5,
+        pageSize: 8,
     })
 
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientContactExpensePayment>[]>(

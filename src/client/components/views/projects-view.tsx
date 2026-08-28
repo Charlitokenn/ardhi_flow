@@ -100,7 +100,7 @@ function ProjectDetailsContent({project}: { project: ClientProject }) {
             <ContactSection title="Local Leadership">
                 <div className="grid gap-6 md:grid-cols-2">
                     <div className="flex min-w-0 flex-col gap-4 rounded-md border bg-muted/30 p-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                             Mwenyekiti
                         </p>
                         <dl className="grid gap-3 sm:grid-cols-2">
@@ -113,7 +113,7 @@ function ProjectDetailsContent({project}: { project: ClientProject }) {
                         </dl>
                     </div>
                     <div className="flex min-w-0 flex-col gap-4 rounded-md border bg-muted/30 p-4">
-                        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                             Mtendaji
                         </p>
                         <dl className="grid gap-3 sm:grid-cols-2">
@@ -168,7 +168,7 @@ export function ProjectsView({project}: { project: ClientProject }) {
             label: "Overview",
             icon: HouseIcon,
             content: (
-                <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
+                <div className="rounded border-dashed min-h-96 mr-3 pl-6 py-1 mx-3">
                     <ProjectHeader project={project}/>
                     <CustomTabsHorizontal tabs={horizontalTabs} defaultTab="project-details"/>
                 </div>

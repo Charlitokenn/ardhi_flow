@@ -438,7 +438,7 @@ function ActionsCell({
 export function DataTablePattern() {
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
-        pageSize: 10,
+        pageSize: 8,
     })
     const [sorting, setSorting] = useState<SortingState>([
         {id: "name", desc: true},

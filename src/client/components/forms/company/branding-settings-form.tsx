@@ -13,6 +13,7 @@ import {ColorPicker} from "@/components/ui/color-picker.tsx"
 import {ColorSwatchIcon} from "@/assets/icons";
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
+const DEFAULT_BRAND_COLOR = "#0F6B3D" // Default brand color matching seed data
 
 interface FormValues {
     slogan: string
@@ -160,9 +161,7 @@ export function BrandingSettingsForm() {
                             <FieldLabel htmlFor="primaryColor">Brand color</FieldLabel>
                             <div className="flex items-center gap-2">
                                 <ColorPicker
-                                    id="primaryColor"
-                                    label="Brand Color"
-                                    value={values.primaryColor || "#0F6B3D"}
+                                    value={values.primaryColor || DEFAULT_BRAND_COLOR}
                                     onChange={(hex) => update("primaryColor", hex)}
                                     showAlpha={false}
                                 />

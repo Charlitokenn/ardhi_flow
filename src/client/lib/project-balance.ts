@@ -13,7 +13,7 @@ export function computeProjectAcquisitionTarget(
     (sum, acquisition) => sum + Number(acquisition.totalPurchaseValue),
     0
   )
-  return acquisitionsTotal > 0 ? acquisitionsTotal : Number(project.acquisitionValue)
+  return project.acquisitions.length > 0 ? acquisitionsTotal : Number(project.acquisitionValue)
 }
 
 export function computeTotalPaid(payments: Pick<ClientProjectExpensePayment, "amount">[]): number {

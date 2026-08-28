@@ -209,7 +209,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             return
         }
         const surveyedSize = editDraft.surveyedSize.trim()
-        if (surveyedSize && Number.isNaN(Number(surveyedSize))) {
+        if (surveyedSize && (Number.isNaN(Number(surveyedSize)) || Number(surveyedSize) < 0)) {
             toast.error("Enter a valid surveyed plot size")
             return
         }
@@ -261,12 +261,14 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
 
     const handleStatusChange = (checked: boolean, value: Availability) => {
         setSelectedStatuses((prev) => (checked ? [...prev, value] : prev.filter((v) => v !== value)))
+        setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
     const hasActiveFilters = searchQuery.length > 0 || selectedStatuses.length > 0
     const handleClearFilters = () => {
         setSearchQuery("")
         setSelectedStatuses([])
+        setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientProjectPlot>[]>(
@@ -495,7 +497,10 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                                 <InputGroupInput
                                     placeholder="Search plots..."
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value)
+                                        setPagination((prev) => ({...prev, pageIndex: 0}))
+                                    }}
                                 />
                                 {searchQuery.length > 0 && (
                                     <InputGroupAddon align="inline-end">
