@@ -154,6 +154,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
     const [savingRowId, setSavingRowId] = useState<string | null>(null)
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null)
+    const [showSurveyedFields, setShowSurveyedFields] = useState(false)
 
     const invalidate = () => {
         queryClient.invalidateQueries({queryKey: ["project-statement-data", projectId]})
@@ -171,6 +172,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             toast.success("Plot updated")
             setEditingRowId(null)
             setEditDraft(null)
+            setShowSurveyedFields(false)
         },
         onError: () => {
             toast.error("Failed to update plot")
@@ -197,11 +199,13 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     const startEditing = (plot: ClientProjectPlot) => {
         setEditingRowId(plot.id)
         setEditDraft(draftFromPlot(plot))
+        setShowSurveyedFields(Boolean(plot.surveyedPlotNumber || plot.surveyedSize))
     }
 
     const cancelEditing = () => {
         setEditingRowId(null)
         setEditDraft(null)
+        setShowSurveyedFields(false)
     }
 
     const saveEditing = (plotId: string) => {
@@ -268,6 +272,19 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         )
     }, [plots])
 
+    // Surveyed plot number / size columns are only shown once at least one
+    // plot in the project actually has a value — otherwise they're dead
+    // weight in the grid. Checked against the full `plots` list (not
+    // filteredData) so columns don't flicker in/out while searching.
+    const hasSurveyedPlotNumber = useMemo(
+        () => plots.some((p) => p.surveyedPlotNumber && p.surveyedPlotNumber.trim().length > 0),
+        [plots]
+    )
+    const hasSurveyedSize = useMemo(
+        () => plots.some((p) => p.surveyedSize && p.surveyedSize.trim().length > 0),
+        [plots]
+    )
+
     const handleStatusChange = (checked: boolean, value: Availability) => {
         setSelectedStatuses((prev) => (checked ? [...prev, value] : prev.filter((v) => v !== value)))
         setPagination((prev) => ({...prev, pageIndex: 0}))
@@ -288,37 +305,56 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 header: ({column}) => <DataGridColumnHeader title="Plot Number" visibility column={column}/>,
                 cell: ({row}) =>
                     editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-24"
-                            value={editDraft.plotNumber}
-                            onChange={(e) => setEditDraft({...editDraft, plotNumber: e.target.value})}
-                            aria-label="Plot number"
-                        />
+                        <div className="space-y-1.5">
+                            <Input
+                                className="h-8 w-24"
+                                value={editDraft.plotNumber}
+                                onChange={(e) => setEditDraft({...editDraft, plotNumber: e.target.value})}
+                                aria-label="Plot number"
+                            />
+                            {(!hasSurveyedPlotNumber || !hasSurveyedSize) && !showSurveyedFields && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="link"
+                                    className="h-auto p-0 text-xs"
+                                    onClick={() => setShowSurveyedFields(true)}
+                                >
+                                    <PlusIcon className="size-3"/> Add surveyed data
+                                </Button>
+                            )}
+                        </div>
                     ) : (
                         <div className="text-foreground font-medium">Plot No. {row.original.plotNumber}</div>
                     ),
                 enableSorting: true,
                 size: 150,
             },
-            {
-                accessorKey: "surveyedPlotNumber",
-                id: "surveyedPlotNumber",
-                header: ({column}) => <DataGridColumnHeader title="Surveyed Plot Number" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-28"
-                            value={editDraft.surveyedPlotNumber}
-                            onChange={(e) => setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})}
-                            placeholder="—"
-                            aria-label="Surveyed plot number"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">{row.original.surveyedPlotNumber ?? "—"}</div>
+            ...(hasSurveyedPlotNumber
+                ? [{
+                    accessorKey: "surveyedPlotNumber",
+                    id: "surveyedPlotNumber",
+                    header: ({column}) => (
+                        <DataGridColumnHeader title="Surveyed Plot Number" visibility column={column}/>
                     ),
-                enableSorting: true,
-                size: 190,
-            },
+                    cell: ({row}) =>
+                        editingRowId === row.original.id && editDraft ? (
+                            <Input
+                                className="h-8 w-28"
+                                value={editDraft.surveyedPlotNumber}
+                                onChange={(e) => setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})}
+                                placeholder="—"
+                                aria-label="Surveyed plot number"
+                            />
+                        ) : (
+                            <div className="text-foreground font-medium">
+                                {row.original.surveyedPlotNumber ?? "—"}
+                            </div>
+                        ),
+                    enableSorting: true,
+                    size: 190,
+                } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
+                : []),
             {
                 accessorKey: "unsurveyedSize",
                 id: "unsurveyedSize",
@@ -340,46 +376,128 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 enableSorting: true,
                 size: 140,
             },
-            {
-                accessorKey: "surveyedSize",
-                id: "surveyedSize",
-                header: ({column}) => <DataGridColumnHeader title="Surveyed Plot Size" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-24"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            value={editDraft.surveyedSize}
-                            onChange={(e) => setEditDraft({...editDraft, surveyedSize: e.target.value})}
-                            placeholder="—"
-                            aria-label="Surveyed plot size"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
+            ...(hasSurveyedSize
+                ? [{
+                    accessorKey: "surveyedSize",
+                    id: "surveyedSize",
+                    header: ({column}) => (
+                        <DataGridColumnHeader title="Surveyed Plot Size" visibility column={column}/>
                     ),
-                enableSorting: true,
-                size: 170,
-            },
+                    cell: ({row}) =>
+                        editingRowId === row.original.id && editDraft ? (
+                            <Input
+                                className="h-8 w-24"
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                value={editDraft.surveyedSize}
+                                onChange={(e) => setEditDraft({...editDraft, surveyedSize: e.target.value})}
+                                placeholder="—"
+                                aria-label="Surveyed plot size"
+                            />
+                        ) : (
+                            <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
+                        ),
+                    enableSorting: true,
+                    size: 170,
+                } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
+                : []),
             {
                 accessorKey: "availability",
                 id: "availability",
                 header: ({column}) => <DataGridColumnHeader title="Availability Status" visibility column={column}/>,
                 cell: ({row}) =>
                     editingRowId === row.original.id && editDraft ? (
-                        <Select
-                            value={editDraft.availability}
-                            onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
-                        >
-                            <SelectTrigger className="h-8 w-32">
-                                <SelectValue/>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="AVAILABLE">Available</SelectItem>
-                                <SelectItem value="SOLD">Sold</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-1.5">
+                            <Select
+                                value={editDraft.availability}
+                                onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
+                            >
+                                <SelectTrigger className="h-8 w-32">
+                                    <SelectValue/>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="AVAILABLE">Available</SelectItem>
+                                    <SelectItem value="SOLD">Sold</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {showSurveyedFields && (!hasSurveyedPlotNumber || !hasSurveyedSize) && (
+                                <Popover defaultOpen>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            size="icon-sm"
+                                            variant="outline"
+                                            aria-label="Edit surveyed data"
+                                        >
+                                            <LandPlotIcon className="size-3.5"/>
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-64" align="start">
+                                        <div className="space-y-3">
+                                            <div className="text-muted-foreground text-xs font-medium">
+                                                Surveyed data
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="surveyed-plot-number" className="text-xs">
+                                                        Surveyed plot number
+                                                    </Label>
+                                                    <Input
+                                                        id="surveyed-plot-number"
+                                                        className="h-8"
+                                                        value={editDraft.surveyedPlotNumber}
+                                                        onChange={(e) =>
+                                                            setEditDraft({
+                                                                ...editDraft,
+                                                                surveyedPlotNumber: e.target.value,
+                                                            })
+                                                        }
+                                                        placeholder="—"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="surveyed-size" className="text-xs">
+                                                        Surveyed plot size (m²)
+                                                    </Label>
+                                                    <Input
+                                                        id="surveyed-size"
+                                                        className="h-8"
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        min={0}
+                                                        value={editDraft.surveyedSize}
+                                                        onChange={(e) =>
+                                                            setEditDraft({
+                                                                ...editDraft,
+                                                                surveyedSize: e.target.value,
+                                                            })
+                                                        }
+                                                        placeholder="—"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-auto p-0 text-xs text-muted-foreground"
+                                                onClick={() => {
+                                                    setEditDraft({
+                                                        ...editDraft,
+                                                        surveyedPlotNumber: "",
+                                                        surveyedSize: "",
+                                                    })
+                                                    setShowSurveyedFields(false)
+                                                }}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        </div>
                     ) : (
                         availabilityBadge(row.original.availability)
                     ),
@@ -458,7 +576,15 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             },
         ],
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [editingRowId, editDraft, savingRowId, deletingRowId]
+        [
+            editingRowId,
+            editDraft,
+            savingRowId,
+            deletingRowId,
+            hasSurveyedPlotNumber,
+            hasSurveyedSize,
+            showSurveyedFields,
+        ]
     )
 
     const table = useTable({

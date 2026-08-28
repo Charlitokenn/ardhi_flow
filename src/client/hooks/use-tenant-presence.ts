@@ -1,4 +1,4 @@
-import {useCallback, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useAuth, useOrganization, useUser} from "@clerk/react";
 import usePartySocket from "partysocket/react";
 
@@ -13,6 +13,11 @@ export type PresenceUser = {
 };
 
 type PresenceMessage = { type: "presence"; users: PresenceUser[] };
+
+// Must stay well under the server's STALE_TIMEOUT_MS in
+// src/worker/durable-objects/tenant-presence.ts (currently 50s) — a
+// missed ping or two shouldn't drop someone, only real silence should.
+const HEARTBEAT_INTERVAL_MS = 20_000;
 
 /**
  * Tracks who's online in the current tenant (Clerk organization).
@@ -59,6 +64,21 @@ export function useTenantPresence() {
             setOnlineUsers([]);
         },
     });
+
+    // Tells the server this connection is still alive — see the module
+    // comment above and STALE_TIMEOUT_MS/onAlarm in the presence Durable
+    // Object. This is what makes an unclean disconnect (killed tab, dropped
+    // wifi, laptop sleep with no close frame) get noticed within a bounded
+    // time instead of leaving someone showing as online indefinitely.
+    useEffect(() => {
+        if (!enabled) return;
+        const interval = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({type: "ping"}));
+            }
+        }, HEARTBEAT_INTERVAL_MS);
+        return () => clearInterval(interval);
+    }, [socket, enabled]);
 
     const setStatus = useCallback(
         (status: "active" | "away") => {
