@@ -144,6 +144,14 @@ const exportColumns: ExportColumn<ClientProjectPlot>[] = [
 // they were before), flexRender would see a "new component" on every
 // keystroke and remount the input, kicking focus out after one character.
 interface PlotsTableMeta {
+    // Portal target for every Popover/Select rendered by a cell — see the
+    // `container` state near the bottom of ProjectPlotsDataGrid. Radix's
+    // Popover/Select portal to document.body by default, which is normally
+    // fine, but when this whole grid is nested inside another modal Sheet,
+    // that Sheet locks pointer interaction to its own content subtree while
+    // open. Pinning these portals inside it (rather than document.body)
+    // keeps them clickable regardless of nesting depth.
+    container: HTMLDivElement | null
     editingRowId: string | null
     editDraft: EditDraft | null
     setEditDraft: (draft: EditDraft) => void
@@ -175,10 +183,12 @@ function DeletePlotPopover({
                                plotNumber,
                                onConfirm,
                                disabled,
+                               container,
                            }: {
     plotNumber: string
     onConfirm: () => void
     disabled?: boolean
+    container: HTMLDivElement | null
 }) {
     const [open, setOpen] = useState(false)
 
@@ -195,7 +205,7 @@ function DeletePlotPopover({
                     <Trash2Icon className="size-3.5 text-destructive"/>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
+            <PopoverContent className="w-56" align="end" container={container}>
                 <div className="space-y-2.5">
                     <p className="text-sm">
                         Delete plot {plotNumber}? This can&apos;t be undone.
@@ -335,6 +345,7 @@ function AvailabilityCell({row, table}: PlotCellContext) {
         setShowSurveyedFields,
         hasSurveyedPlotNumber,
         hasSurveyedSize,
+        container,
     } = meta
 
     if (editingRowId === row.original.id && editDraft) {
@@ -347,7 +358,7 @@ function AvailabilityCell({row, table}: PlotCellContext) {
                     <SelectTrigger className="h-8 w-32">
                         <SelectValue/>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent container={container}>
                         <SelectItem value="AVAILABLE">Available</SelectItem>
                         <SelectItem value="SOLD">Sold</SelectItem>
                     </SelectContent>
@@ -359,7 +370,7 @@ function AvailabilityCell({row, table}: PlotCellContext) {
                                 <LandPlotIcon className="size-3.5"/>
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-64" align="start">
+                        <PopoverContent className="w-64" align="start" container={container}>
                             <div className="space-y-3">
                                 <div className="text-muted-foreground text-xs font-medium">Surveyed data</div>
                                 <div className="space-y-2">
@@ -423,7 +434,16 @@ function CurrentOwnerCell({row}: PlotCellContext) {
 
 function ActionsCell({row, table}: PlotCellContext) {
     const meta = getMeta(table)
-    const {editingRowId, savingRowId, deletingRowIds, startEditing, cancelEditing, saveEditing, handleDelete} = meta
+    const {
+        editingRowId,
+        savingRowId,
+        deletingRowIds,
+        startEditing,
+        cancelEditing,
+        saveEditing,
+        handleDelete,
+        container
+    } = meta
     const plot = row.original
     const isEditingRow = editingRowId === plot.id
     const isSavingRow = savingRowId === plot.id
@@ -472,6 +492,7 @@ function ActionsCell({row, table}: PlotCellContext) {
                 plotNumber={plot.plotNumber}
                 onConfirm={() => handleDelete(plot)}
                 disabled={editingRowId !== null || isDeletingRow}
+                container={container}
             />
         </div>
     )
@@ -499,6 +520,13 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     const [deletingRowIds, setDeletingRowIds] = useState<Set<string>>(new Set())
     const [showSurveyedFields, setShowSurveyedFields] = useState(false)
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+
+    // Portal target for every Popover/Select/ActionBar this grid renders —
+    // see the long comment on PlotsTableMeta.container above. Using a
+    // callback-ref-backed state (not a plain ref) so the value is actually
+    // available on first render once the node mounts, rather than staying
+    // null until some later re-render happens to read ref.current.
+    const [container, setContainer] = useState<HTMLDivElement | null>(null)
 
     const invalidate = () => {
         queryClient.invalidateQueries({queryKey: ["project-statement-data", projectId]})
@@ -752,6 +780,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     )
 
     const meta: PlotsTableMeta = {
+        container,
         editingRowId,
         editDraft,
         setEditDraft,
@@ -821,7 +850,11 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     }
 
     return (
-        <>
+        // display:contents keeps this node out of layout entirely — it exists
+        // only so Popover/Select/ActionBar have a DOM node inside the grid's
+        // own subtree to portal into (see the container comment above),
+        // never as a visual wrapper.
+        <div ref={setContainer} className="contents">
             <DataGrid
                 table={table}
                 recordCount={filteredData.length}
@@ -848,6 +881,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                     table={table}
                     onExport={() => exportSelected("plots")}
                     onDelete={handleBulkDelete}
+                    portalContainer={container}
                 />
                 <Card className="w-full gap-3 py-0 mt-4">
                     <CardHeader className="flex items-center justify-between px-3.5 py-2">
@@ -889,7 +923,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                                         )}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-48" align="start">
+                                <PopoverContent className="w-48" align="start" container={container}>
                                     <div className="space-y-3">
                                         <div className="text-muted-foreground text-xs font-medium">Filters</div>
                                         <div className="space-y-3">
@@ -957,6 +991,6 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             </DataGrid>
 
             <AddPlotForm projectId={projectId} open={isAddOpen} onOpenChange={setIsAddOpen}/>
-        </>
+        </div>
     )
 }

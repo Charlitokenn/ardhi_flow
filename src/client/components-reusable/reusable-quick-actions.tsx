@@ -1,14 +1,5 @@
 import {useState} from "react";
-import {
-    ArchiveIcon,
-    CalendarSyncIcon,
-    CreditCardIcon,
-    HandCoinsIcon,
-    MessageSquareIcon,
-    ShoppingCartIcon,
-    UserPlusIcon,
-    ZapIcon,
-} from "lucide-react";
+import {ArchiveIcon, CreditCardIcon, RadioIcon, ShoppingCartIcon, UserPlusIcon, ZapIcon,} from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -75,14 +66,8 @@ const actionGroups = [
                 sheetDescription: "Record a new financial transaction.",
             },
             {
-                label: "Create Reconciliation",
-                icon: CalendarSyncIcon,
-                sheetTitle: "Create Reconciliation",
-                sheetDescription: "Start a new reconciliation.",
-            },
-            {
                 label: "Message Broadcast",
-                icon: MessageSquareIcon,
+                icon: RadioIcon,
                 sheetTitle: "Message Broadcast",
                 sheetDescription: "Central client communication",
             },
@@ -96,12 +81,6 @@ const actionGroups = [
                 icon: ArchiveIcon,
                 sheetTitle: "New Project",
                 sheetDescription: "Create a new project.",
-            },
-            {
-                label: "Record Payment",
-                icon: HandCoinsIcon,
-                sheetTitle: "Record Payment",
-                sheetDescription: "Record a payment.",
             },
         ],
     },
