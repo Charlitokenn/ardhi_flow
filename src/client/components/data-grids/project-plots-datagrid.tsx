@@ -113,9 +113,9 @@ function draftFromPlot(plot: ClientProjectPlot): EditDraft {
 type PlotCsvRow = Omit<NewPlot, "projectId">
 
 const plotFields: CsvFieldConfig<PlotCsvRow>[] = [
-    {key: "plotNumber", label: "Plot Number", type: "number", required: true},
+    {key: "plotNumber", label: "Plot Number", type: "string", required: true},
     {key: "surveyedPlotNumber", label: "Surveyed Plot Number", type: "string"},
-    {key: "unsurveyedSize", label: "Plot Size (m²)", type: "number", required: true},
+    {key: "unsurveyedSize", label: "Plot Size (m²)", type: "string", required: true},
     {key: "surveyedSize", label: "Surveyed Plot Size (m²)", type: "number"},
     {
         key: "availability",

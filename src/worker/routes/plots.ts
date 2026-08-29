@@ -58,9 +58,14 @@ const plotsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 continue
             }
 
-            const [insertedRow] = await tenantDb.insert(plots).values(parsed.data).returning()
-            created += 1
-            results.push({row: rowNumber, status: 'created', id: insertedRow.id})
+            try {
+                const [insertedRow] = await tenantDb.insert(plots).values(parsed.data).returning()
+                created += 1
+                results.push({row: rowNumber, status: 'created', id: insertedRow.id})
+            } catch (err) {
+                const reason = err instanceof Error ? err.message : 'Insert failed'
+                results.push({row: rowNumber, status: 'failed', reason})
+            }
         }
 
         return c.json({created, results})

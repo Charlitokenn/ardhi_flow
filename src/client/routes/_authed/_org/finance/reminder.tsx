@@ -1,6 +1,6 @@
 import {createFileRoute} from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
-import {BellRingIcon, MessagesSquareIcon} from "lucide-react";
+import {BellRingIcon, RadioIcon} from "lucide-react";
 import {InstallmentsReminderDataGrid} from "@/components/data-grids/installments-reminder-datagrid.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
@@ -27,7 +27,7 @@ function RouteComponent() {
                     title="Message Broadcasting"
                     trigger={
                         <Button variant="outline">
-                            <MessagesSquareIcon className="size-4"/> Message Broadcast
+                            <RadioIcon className="size-4"/> Message Broadcast
                         </Button>
                     }
                     widthClassName="sm:max-w-full"
