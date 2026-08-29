@@ -310,7 +310,7 @@ export function MobileMockup({
                 initial={{opacity: 0, y: 35, scale: 0.94, rotate: -1.5}}
                 animate={{opacity: 1, y: 0, scale: 1, rotate: 0}}
                 transition={{type: "spring", stiffness: 220, damping: 20}}
-                className="xs:h-[530px] relative flex h-122.5 w-full transform-gpu flex-col overflow-hidden rounded-[40px] bg-neutral-900 p-2.5 transition-colors sm:h-[560px] dark:bg-neutral-950"
+                className="xs:h-[530px] relative flex h-122.5 w-full transform-gpu flex-col overflow-hidden rounded-[40px] bg-neutral-600 dark:border p-2.5 transition-colors sm:h-[560px]"
             >
                 <div className="absolute top-24 -left-1.25 h-8 w-[2.5px] rounded-l-xs bg-neutral-700"/>
                 <div className="absolute top-36 -left-1.25 h-10 w-[2.5px] rounded-l-xs bg-neutral-700"/>
@@ -319,7 +319,7 @@ export function MobileMockup({
 
                 <div
                     className={cn(
-                        "relative isolate flex h-full w-full transform-gpu flex-col overflow-hidden rounded-[30px] transition-colors",
+                        "relative dark:border isolate flex h-full w-full transform-gpu flex-col overflow-hidden rounded-[30px] transition-colors",
                         variant === "sms"
                             ? "bg-[#eef8fd] text-[#172b42] dark:bg-[#0b0d10] dark:text-slate-100"
                             : "bg-[#efeae2] text-neutral-900 dark:bg-[#0b141a] dark:text-neutral-100",

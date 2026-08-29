@@ -18,6 +18,15 @@ interface BroadcastFlowProps {
     onBack: () => void;
 }
 
+interface Campaign {
+    type: "sms" | "whatsapp";
+    title: string;
+    message: string;
+    selectedAudience: "all" | "group" | "custom";
+    recipientCount: number;
+    sendOption: "immediate" | "scheduled" | "recurring";
+}
+
 const time = new Date().toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -248,7 +257,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
     );
 }
 
-function PhonePreview({campaign}: { campaign: any }) {
+function PhonePreview({campaign}: { campaign: Campaign }) {
     const previewMessage = campaign.message || "Your message will appear here";
     const isSms = campaign.type === "sms";
     const {organization} = useOrganization();
