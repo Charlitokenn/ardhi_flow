@@ -995,6 +995,21 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "contract_installments_contract_plot_plot_fk": {
+          "name": "contract_installments_contract_plot_plot_fk",
+          "tableFrom": "contract_installments",
+          "tableTo": "contract_plots",
+          "columnsFrom": [
+            "contract_plot_id",
+            "plot_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plot_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1423,7 +1438,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "contract_plots_plot_id_plots_id_fk": {
@@ -1441,7 +1456,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "contract_plots_id_plot_id_unique": {
+          "name": "contract_plots_id_plot_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plot_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

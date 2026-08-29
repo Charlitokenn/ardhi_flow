@@ -22,7 +22,7 @@ import {Checkbox} from "@/components/ui/checkbox.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx"
 import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx"
-import {FunnelIcon, MessageCircleIcon, SearchIcon, Settings2Icon, XIcon} from "lucide-react"
+import {EyeIcon, FunnelIcon, MessageCircleIcon, SearchIcon, Settings2Icon, XIcon} from "lucide-react"
 import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
@@ -528,6 +528,25 @@ export function InstallmentsReminderDataGrid() {
                 enableSorting: true,
                 enableHiding: true,
                 enableResizing: true,
+            },
+            {
+                id: "actions",
+                header: "",
+                cell: ({row}) => (
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="View installment details"
+                        title="View installment details"
+                        onClick={() => setViewingRow(row.original)}
+                    >
+                        <EyeIcon aria-hidden="true"/>
+                    </Button>
+                ),
+                size: 50,
+                enableSorting: false,
+                enableHiding: false,
+                enableResizing: false,
             },
         ],
         []
