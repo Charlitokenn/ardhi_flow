@@ -50,7 +50,7 @@ export function OnlineUsers({className}: { className?: string }) {
                                 <TooltipTrigger asChild>
                                     <Avatar
                                         className={cn(
-                                            "ring-background h-8 w-8 origin-center ring-2 transition-transform duration-300 ease-in-out",
+                                            "ring-background h-7.5 w-7.5 origin-center ring-2 transition-transform duration-300 ease-in-out",
                                             "group-hover/avatar-item:scale-110"
                                         )}
                                     >

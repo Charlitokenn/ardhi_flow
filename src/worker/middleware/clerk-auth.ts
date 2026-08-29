@@ -1,6 +1,19 @@
-import { createMiddleware } from 'hono/factory'
-import { verifyToken } from '@clerk/backend'
-import type { Env, Variables } from '../types'
+import {createMiddleware} from 'hono/factory'
+import {verifyToken} from '@clerk/backend'
+import type {Env, Variables} from '../types'
+
+// Shared by clerkAuth() below and verifyPresenceConnection() in
+// durable-objects/tenant-presence.ts — both need the exact same
+// verifyToken({ secretKey, jwtKey }) call against a Clerk session token,
+// they just differ in what they do with the resulting claims afterward
+// (clerkAuth requires an org_id at all; the presence guard requires it to
+// match a specific room).
+export function verifyClerkToken(token: string, env: Pick<Env, 'CLERK_SECRET_KEY' | 'CLERK_JWT_KEY'>) {
+    return verifyToken(token, {
+        secretKey: env.CLERK_SECRET_KEY,
+        jwtKey: env.CLERK_JWT_KEY,
+    })
+}
 
 // Verifies locally against Clerk's JWT public key (no network round trip to
 // Clerk per request) — pass `jwtKey`, not just `secretKey`. Clerk's own docs
@@ -20,30 +33,30 @@ import type { Env, Variables } from '../types'
 // Without that, every request here will 403 as "No active organization"
 // even for a signed-in user, since Clerk supports personal accounts too.
 export const clerkAuth = () =>
-  createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
-    const token = c.req.header('Authorization')?.replace('Bearer ', '')
+    createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
+        const token = c.req.header('Authorization')?.replace('Bearer ', '')
 
-    if (!token) {
-      return c.json({ error: 'Missing session token' }, 401)
-    }
+        if (!token) {
+            return c.json({error: 'Missing session token'}, 401)
+        }
 
-    try {
-      const claims = await verifyToken(token, {
-        secretKey: c.env.CLERK_SECRET_KEY,
-        jwtKey: c.env.CLERK_JWT_KEY,
-      })
+        try {
+            const claims = await verifyToken(token, {
+                secretKey: c.env.CLERK_SECRET_KEY,
+                jwtKey: c.env.CLERK_JWT_KEY,
+            })
 
-      const orgId = claims.org_id as string | undefined
-      if (!orgId) {
-        return c.json({ error: 'No active organization' }, 403)
-      }
+            const orgId = claims.org_id as string | undefined
+            if (!orgId) {
+                return c.json({error: 'No active organization'}, 403)
+            }
 
-      c.set('userId', claims.sub)
-      c.set('orgId', orgId)
-      c.set('orgRole', (claims.org_role as string | undefined) ?? '')
-    } catch {
-      return c.json({ error: 'Invalid or expired session token' }, 401)
-    }
+            c.set('userId', claims.sub)
+            c.set('orgId', orgId)
+            c.set('orgRole', (claims.org_role as string | undefined) ?? '')
+        } catch {
+            return c.json({error: 'Invalid or expired session token'}, 401)
+        }
 
-    await next()
-  })
+        await next()
+    })

@@ -61,10 +61,15 @@ function SelectContent({
                            position = "popper",
                            align = "center",
                            sideOffset = 4,
+                           container,
                            ...props
-                       }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+                       }: React.ComponentProps<typeof SelectPrimitive.Content> & {
+    // See the identical `container` prop on PopoverContent — same nested-
+    // Dialog escape hatch, same default (document.body) when omitted.
+    container?: React.ComponentProps<typeof SelectPrimitive.Portal>["container"]
+}) {
     return (
-        <SelectPrimitive.Portal>
+        <SelectPrimitive.Portal container={container}>
             <SelectPrimitive.Content
                 data-slot="select-content"
                 data-align-trigger={position === "item-aligned"}

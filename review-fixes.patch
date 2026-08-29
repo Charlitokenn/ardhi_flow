@@ -1,0 +1,197 @@
+diff --git a/src/client/components/data-grids/contracts-datagrid.tsx b/src/client/components/data-grids/contracts-datagrid.tsx
+index 27cd3bc..50ee9df 100644
+--- a/src/client/components/data-grids/contracts-datagrid.tsx
++++ b/src/client/components/data-grids/contracts-datagrid.tsx
+@@ -1,7 +1,8 @@
+ import {type ReactNode, useEffect, useMemo, useState} from "react"
+ import {useAuth} from "@clerk/react"
+ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
+-import {apiClient} from "@/lib/api.ts"
++import type {InferResponseType} from "hono/client"
++import {apiClient, type ApiClient} from "@/lib/api.ts"
+ import {Badge} from "@/components/reui/badge.tsx"
+ import {
+     DataGrid,
+@@ -67,11 +68,10 @@ import {Skeleton} from "@/components/ui/skeleton.tsx"
+ import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
+ import {ArchiveIcon} from "@/assets/icons"
+ 
+-interface IContractPlot {
+-    id: string
+-    plotNumber: string
+-    surveyedPlotNumber: string | null
+-}
++// Derived from the actual GET /api/contracts response shape instead of a
++// hand-maintained interface, so this can't silently drift from what the
++// route actually returns.
++type IContract = InferResponseType<ApiClient["api"]["contracts"]["$get"], 200>[number]
+ 
+ // One row of the bucket's contents — a contract can hold more than one
+ // plot (always within a single project — see IContract.project), and this
+@@ -79,40 +79,8 @@ interface IContractPlot {
+ // Cancelled entries (cancelledAt set) are kept for history but should be
+ // excluded from anything showing the contract's current holdings — see
+ // livePlots().
+-interface IContractPlotEntry {
+-    id: string
+-    plotId: string
+-    allocatedValue: string
+-    cancelledAt: string | null
+-    plot: IContractPlot | null
+-}
+-
+-interface IContractProject {
+-    id: string
+-    projectName: string
+-}
+-
+-interface IContractClient {
+-    id: string
+-    fullName: string
+-    mobileNumber: string | null
+-}
+-
+-interface IContract {
+-    id: string
+-    status: "ACTIVE" | "DELINQUENT" | "COMPLETED" | "CANCELLED"
+-    startDate: string
+-    termMonths: number
+-    totalContractValue: string
+-    downpaymentAmount: string
+-    financedAmount: string
+-    purchasePlan: "FLAT_RATE" | "DOWNPAYMENT"
+-    createdAt: string | null
+-    projectId: string
+-    project: IContractProject | null
+-    contractPlots: IContractPlotEntry[]
+-    client: IContractClient | null
+-}
++type IContractPlotEntry = IContract["contractPlots"][number]
++type IContractPlot = NonNullable<IContractPlotEntry["plot"]>
+ 
+ /** The plots still actually in this contract's bucket right now — drops
+  * any that have been individually cancelled/removed. */
+@@ -269,7 +237,7 @@ export function ContractsDataGrid() {
+     })
+ 
+     const data = useMemo<IContract[]>(
+-        () => (contractsQuery.data as unknown as IContract[]) ?? [],
++        () => contractsQuery.data ?? [],
+         [contractsQuery.data]
+     )
+ 
+diff --git a/src/client/components/data-grids/projects-datagrid.tsx b/src/client/components/data-grids/projects-datagrid.tsx
+index f9f27ac..92b3a35 100644
+--- a/src/client/components/data-grids/projects-datagrid.tsx
++++ b/src/client/components/data-grids/projects-datagrid.tsx
+@@ -1,4 +1,4 @@
+-import {type ReactNode, useEffect, useMemo, useState} from "react";
++import {type ReactNode, useCallback, useEffect, useMemo, useState} from "react";
+ import {useAuth} from "@clerk/react";
+ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+ import {apiClient} from "@/lib/api.ts";
+@@ -305,13 +305,16 @@ export function ProjectsDataGrid() {
+         setSearchQuery("");
+     };
+ 
+-    const renderWithDeleteSkeleton = (
+-        skeleton: ReactNode,
+-        render: (row: Row<DataGridFeatures, IProject>) => ReactNode,
+-    ) => {
+-        return ({row}: { row: Row<DataGridFeatures, IProject> }) =>
+-            deletingIds.has(row.original.id) ? skeleton : render(row);
+-    };
++    const renderWithDeleteSkeleton = useCallback(
++        (
++            skeleton: ReactNode,
++            render: (row: Row<DataGridFeatures, IProject>) => ReactNode,
++        ) => {
++            return ({row}: { row: Row<DataGridFeatures, IProject> }) =>
++                deletingIds.has(row.original.id) ? skeleton : render(row);
++        },
++        [deletingIds],
++    );
+ 
+     const columns = useMemo<ColumnDef<DataGridFeatures, IProject>[]>(
+         () => [
+diff --git a/src/worker/durable-objects/tenant-presence.ts b/src/worker/durable-objects/tenant-presence.ts
+index 7c5abd5..357e7fb 100644
+--- a/src/worker/durable-objects/tenant-presence.ts
++++ b/src/worker/durable-objects/tenant-presence.ts
+@@ -1,6 +1,7 @@
+ import { Server, type Connection, type ConnectionContext, type WSMessage } from "partyserver";
+-import { createClerkClient, verifyToken } from "@clerk/backend";
++import { createClerkClient } from "@clerk/backend";
+ import type { Env } from "../types";
++import { verifyClerkToken } from "../middleware/clerk-auth";
+ 
+ /**
+  * Tenant presence, as a Durable Object inside the ArdhiFlow Worker.
+@@ -102,12 +103,14 @@ export class TenantPresence extends Server<Env> {
+ }
+ 
+ /**
+- * Edge auth guard for the presence websocket. Mirrors clerkAuth() in
+- * src/worker/middleware/clerk-auth.ts (same verifyToken({ secretKey, jwtKey })
+- * call, same reliance on the `org_id` custom session claim), but reads the
++ * Edge auth guard for the presence websocket. Shares the same
++ * verifyToken({ secretKey, jwtKey }) call as clerkAuth() in
++ * src/worker/middleware/clerk-auth.ts via verifyClerkToken(), but reads the
+  * token from a query param instead of an Authorization header — the browser
+  * WebSocket API can't set custom headers on the upgrade request, so the
+- * client attaches `?token=<sessionToken>` instead (see use-tenant-presence.ts).
++ * client attaches `?token=<sessionToken>` instead (see use-tenant-presence.ts)
++ * — and checks org_id against this specific room rather than just requiring
++ * one to be present.
+  */
+ export async function verifyPresenceConnection(
+   request: Request,
+@@ -118,10 +121,7 @@ export async function verifyPresenceConnection(
+   if (!token) return new Response("Missing token", { status: 401 });
+ 
+   try {
+-    const claims = await verifyToken(token, {
+-      secretKey: env.CLERK_SECRET_KEY,
+-      jwtKey: env.CLERK_JWT_KEY,
+-    });
++    const claims = await verifyClerkToken(token, env);
+ 
+     const orgId = claims.org_id as string | undefined;
+     if (!orgId || orgId !== roomId) {
+diff --git a/src/worker/middleware/clerk-auth.ts b/src/worker/middleware/clerk-auth.ts
+index 97ec4c2..f61489e 100644
+--- a/src/worker/middleware/clerk-auth.ts
++++ b/src/worker/middleware/clerk-auth.ts
+@@ -2,6 +2,19 @@ import { createMiddleware } from 'hono/factory'
+ import { verifyToken } from '@clerk/backend'
+ import type { Env, Variables } from '../types'
+ 
++// Shared by clerkAuth() below and verifyPresenceConnection() in
++// durable-objects/tenant-presence.ts — both need the exact same
++// verifyToken({ secretKey, jwtKey }) call against a Clerk session token,
++// they just differ in what they do with the resulting claims afterward
++// (clerkAuth requires an org_id at all; the presence guard requires it to
++// match a specific room).
++export function verifyClerkToken(token: string, env: Pick<Env, 'CLERK_SECRET_KEY' | 'CLERK_JWT_KEY'>) {
++  return verifyToken(token, {
++    secretKey: env.CLERK_SECRET_KEY,
++    jwtKey: env.CLERK_JWT_KEY,
++  })
++}
++
+ // Verifies locally against Clerk's JWT public key (no network round trip to
+ // Clerk per request) — pass `jwtKey`, not just `secretKey`. Clerk's own docs
+ // call this out specifically for V8 isolate runtimes (Cloudflare Workers,
+diff --git a/src/worker/types.ts b/src/worker/types.ts
+index fe35621..9226200 100644
+--- a/src/worker/types.ts
++++ b/src/worker/types.ts
+@@ -11,7 +11,7 @@ export interface Env {
+   TENANT_CACHE: KVNamespace
+ 
+   // Per-tenant file storage.
+-  TENANT_FILES: R2Bucket
++  ardhi_flow_tenant_files: R2Bucket
+ 
+   // Async provisioning queue — the Clerk webhook producer side.
+   TENANT_PROVISION_QUEUE: Queue<ProvisionTenantMessage>

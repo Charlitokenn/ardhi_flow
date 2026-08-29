@@ -2,7 +2,6 @@ import {
     ArchiveIcon,
     FileChartColumnIcon,
     LayoutPanelLeftIcon,
-    MessagesSquareIcon,
     ShoppingCartIcon,
     UsersIcon,
     WalletIcon
@@ -56,11 +55,6 @@ export const appConfig = {
             title: "Projects",
             url: "/projects",
             icon: <ArchiveIcon/>,
-        },
-        {
-            title: "Messaging",
-            url: "/messaging",
-            icon: <MessagesSquareIcon/>,
         },
         {
             title: "Reports",

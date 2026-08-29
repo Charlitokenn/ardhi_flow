@@ -1,13 +1,5 @@
 import {useState} from "react";
-import {
-    ArchiveIcon,
-    CalendarSyncIcon,
-    CreditCardIcon,
-    HandCoinsIcon,
-    ShoppingCartIcon,
-    UserPlusIcon,
-    ZapIcon,
-} from "lucide-react";
+import {ArchiveIcon, CreditCardIcon, RadioIcon, ShoppingCartIcon, UserPlusIcon, ZapIcon,} from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,6 +13,7 @@ import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet";
 import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
 import {AddEditProjectsForm} from "@/components/forms/projects/add-edit-projects-form.tsx";
+import MessagingPortal from "@/components/messaging/messaging-portal.tsx";
 
 interface QuickActionsMenuProps {
     side?: "top" | "right" | "bottom" | "left";
@@ -73,10 +66,10 @@ const actionGroups = [
                 sheetDescription: "Record a new financial transaction.",
             },
             {
-                label: "Create Reconciliation",
-                icon: CalendarSyncIcon,
-                sheetTitle: "Create Reconciliation",
-                sheetDescription: "Start a new reconciliation.",
+                label: "Message Broadcast",
+                icon: RadioIcon,
+                sheetTitle: "Message Broadcast",
+                sheetDescription: "Central client communication",
             },
         ],
     },
@@ -88,12 +81,6 @@ const actionGroups = [
                 icon: ArchiveIcon,
                 sheetTitle: "New Project",
                 sheetDescription: "Create a new project.",
-            },
-            {
-                label: "Record Payment",
-                icon: HandCoinsIcon,
-                sheetTitle: "Record Payment",
-                sheetDescription: "Record a payment.",
             },
         ],
     },
@@ -118,7 +105,10 @@ export function QuickActionsMenu({
         <div className="flex items-center justify-center">
             <DropdownMenu>
                 <DropdownMenuTrigger>
-                    <Button variant="outline" className="w-fit"><ZapIcon/>Quick Actions</Button>
+                    <Button variant="outline" className="w-fit">
+                        <ZapIcon/>
+                        Quick Actions
+                    </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side={side} className={className}>
                     {actionGroups.map((group, groupIndex) => (
@@ -159,7 +149,7 @@ export function QuickActionsMenu({
                     mode="add"
                     open={activeItem?.label === "Add Contact"}
                     onOpenChange={(open) => {
-                        if (!open) setActiveLabel(null)
+                        if (!open) setActiveLabel(null);
                     }}
                     onSuccess={() => setActiveLabel(null)}
                 />
@@ -168,9 +158,20 @@ export function QuickActionsMenu({
                     mode="add"
                     open={activeItem?.label === "New Project"}
                     onOpenChange={(open) => {
-                        if (!open) setActiveLabel(null)
+                        if (!open) setActiveLabel(null);
                     }}
                     onSuccess={() => setActiveLabel(null)}
+                />
+            ) : activeItem?.label === "Message Broadcast" ? (
+                <ReusableSheet
+                    open={activeItem !== undefined}
+                    onOpenChange={(open) => {
+                        if (!open) setActiveLabel(null);
+                    }}
+                    title={activeItem?.sheetTitle ?? ""}
+                    description={activeItem?.sheetDescription}
+                    widthClassName="sm:max-w-full"
+                    children={<MessagingPortal/>}
                 />
             ) : (
                 <ReusableSheet
@@ -196,6 +197,5 @@ export function QuickActionsMenu({
                 />
             )}
         </div>
-
     );
 }

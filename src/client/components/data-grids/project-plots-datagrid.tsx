@@ -19,8 +19,22 @@ import {
 import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
 import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
 import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
-import {DataGridTable} from "@/components/reui/data-grid/data-grid-table.tsx"
-import {type ColumnDef, type PaginationState, type SortingState, useTable,} from "@tanstack/react-table"
+import {
+    DataGridTable,
+    DataGridTableRowSelect,
+    DataGridTableRowSelectAll,
+} from "@/components/reui/data-grid/data-grid-table.tsx"
+import {
+    type ColumnDef,
+    type PaginationState,
+    type Row,
+    type RowSelectionState,
+    type SortingState,
+    useTable,
+} from "@tanstack/react-table"
+import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
+import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
+import {type ExportColumn} from "@/lib/export-csv.ts"
 import {Badge} from "@/components/reui/badge.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {Card, CardAction, CardContent, CardFooter, CardHeader} from "@/components/ui/card.tsx"
@@ -31,8 +45,15 @@ import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover.tsx"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx"
 import {ReusableEmpty, SearchCardsIllustration} from "@/components-reusable/reusable-empty.tsx"
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
+import {
+    type CsvFieldConfig,
+    type CsvImportSummary,
+    ReusableCSVUploader,
+} from "@/components-reusable/reusable-csv-uploader.tsx"
 import {
     CheckIcon,
+    FilesIcon,
     FunnelIcon,
     LandPlot as LandPlotIcon,
     PlusIcon,
@@ -43,6 +64,7 @@ import {
 } from "lucide-react"
 import {thousandSeparator} from "@/lib/utils"
 import type {ClientProjectPlot} from "@/types/projects.ts"
+import type {NewPlot} from "../../../../drizzle/tenant/schema.ts"
 import {AddPlotForm} from "@/components/forms/projects/add-plot-form.tsx"
 
 type Availability = "AVAILABLE" | "SOLD"
@@ -80,6 +102,80 @@ function draftFromPlot(plot: ClientProjectPlot): EditDraft {
     }
 }
 
+// Bulk upload field config for plots. `projectId` is deliberately excluded —
+// this uploader is always scoped to the project this datagrid belongs to, so
+// it's injected onto every row client-side (see handleBulkImport below)
+// rather than asked for in the CSV, the same way AddPlotForm sets it per
+// line instead of exposing it as an input. Numeric columns use type:
+// "number" to match the precedent set by the projects/contacts bulk
+// uploaders (bulkProjectRowSchema etc. accept a parsed number for `numeric`
+// drizzle columns the same way).
+type PlotCsvRow = Omit<NewPlot, "projectId">
+
+const plotFields: CsvFieldConfig<PlotCsvRow>[] = [
+    {key: "plotNumber", label: "Plot Number", type: "string", required: true},
+    {key: "surveyedPlotNumber", label: "Surveyed Plot Number", type: "string"},
+    {key: "unsurveyedSize", label: "Plot Size (m²)", type: "string", required: true},
+    {key: "surveyedSize", label: "Surveyed Plot Size (m²)", type: "number"},
+    {
+        key: "availability",
+        label: "Availability",
+        type: "enum",
+        enumValues: ["AVAILABLE", "SOLD"] as const,
+    },
+]
+
+// CSV export column config — mirrors exportColumns in contacts-datagrid.tsx.
+// Fed to useTableCSVExport, which reads whatever rows are currently
+// selected (or the full filtered set for exportAll) straight off the table.
+const exportColumns: ExportColumn<ClientProjectPlot>[] = [
+    {header: "Plot Number", accessor: (d) => d.plotNumber},
+    {header: "Surveyed Plot Number", accessor: (d) => d.surveyedPlotNumber},
+    {header: "Plot Size (m²)", accessor: (d) => d.unsurveyedSize},
+    {header: "Surveyed Plot Size (m²)", accessor: (d) => d.surveyedSize},
+    {header: "Availability", accessor: (d) => d.availability},
+    {header: "Current Owner", accessor: (d) => d.contact?.fullName ?? ""},
+]
+
+// All editing state lives in table.options.meta instead of being closed
+// over inside the columns builder. Cell renderers below are declared at
+// module scope so their function identity never changes across renders —
+// if they were recreated inline inside a useMemo keyed on editDraft (as
+// they were before), flexRender would see a "new component" on every
+// keystroke and remount the input, kicking focus out after one character.
+interface PlotsTableMeta {
+    // Portal target for every Popover/Select rendered by a cell — see the
+    // `container` state near the bottom of ProjectPlotsDataGrid. Radix's
+    // Popover/Select portal to document.body by default, which is normally
+    // fine, but when this whole grid is nested inside another modal Sheet,
+    // that Sheet locks pointer interaction to its own content subtree while
+    // open. Pinning these portals inside it (rather than document.body)
+    // keeps them clickable regardless of nesting depth.
+    container: HTMLDivElement | null
+    editingRowId: string | null
+    editDraft: EditDraft | null
+    setEditDraft: (draft: EditDraft) => void
+    showSurveyedFields: boolean
+    setShowSurveyedFields: (show: boolean) => void
+    savingRowId: string | null
+    deletingRowIds: Set<string>
+    hasSurveyedPlotNumber: boolean
+    hasSurveyedSize: boolean
+    startEditing: (plot: ClientProjectPlot) => void
+    cancelEditing: () => void
+    saveEditing: (plotId: string) => void
+    handleDelete: (plot: ClientProjectPlot) => void
+}
+
+type PlotCellContext = {
+    row: { original: ClientProjectPlot }
+    table: { options: { meta?: unknown } }
+}
+
+function getMeta(table: PlotCellContext["table"]): PlotsTableMeta {
+    return table.options.meta as PlotsTableMeta
+}
+
 // Click-triggered confirm — not a hover Tooltip, since it needs to hold
 // interactive Cancel/Delete buttons — per the "click tooltip which displays
 // a confirm component" requirement for row deletion.
@@ -87,10 +183,12 @@ function DeletePlotPopover({
                                plotNumber,
                                onConfirm,
                                disabled,
+                               container,
                            }: {
     plotNumber: string
     onConfirm: () => void
     disabled?: boolean
+    container: HTMLDivElement | null
 }) {
     const [open, setOpen] = useState(false)
 
@@ -107,7 +205,7 @@ function DeletePlotPopover({
                     <Trash2Icon className="size-3.5 text-destructive"/>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
+            <PopoverContent className="w-56" align="end" container={container}>
                 <div className="space-y-2.5">
                     <p className="text-sm">
                         Delete plot {plotNumber}? This can&apos;t be undone.
@@ -134,6 +232,272 @@ function DeletePlotPopover({
     )
 }
 
+// Same accessorKey/id: "id" convention as contacts-datagrid.tsx's selection
+// column — reuses the row's own id field rather than a synthetic "select" id.
+// Needs the real Row instance (getIsSelected/toggleSelected/table), unlike
+// the other cells above which only ever touch `row.original`, so it's typed
+// against tanstack's Row directly rather than the narrower PlotCellContext.
+function RowSelectCell({row}: { row: Row<DataGridFeatures, ClientProjectPlot> }) {
+    return <DataGridTableRowSelect row={row}/>
+}
+
+function PlotNumberCell({row, table}: PlotCellContext) {
+    const meta = getMeta(table)
+    const {
+        editingRowId,
+        editDraft,
+        setEditDraft,
+        hasSurveyedPlotNumber,
+        hasSurveyedSize,
+        showSurveyedFields,
+        setShowSurveyedFields
+    } = meta
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <div className="space-y-1.5">
+                <Input
+                    className="h-8 w-24"
+                    value={editDraft.plotNumber}
+                    onChange={(e) => setEditDraft({...editDraft, plotNumber: e.target.value})}
+                    aria-label="Plot number"
+                />
+                {(!hasSurveyedPlotNumber || !hasSurveyedSize) && !showSurveyedFields && (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="link"
+                        className="h-auto p-0 text-xs"
+                        onClick={() => setShowSurveyedFields(true)}
+                    >
+                        <PlusIcon className="size-3"/> Add surveyed data
+                    </Button>
+                )}
+            </div>
+        )
+    }
+    return <div className="text-foreground font-medium">Plot No. {row.original.plotNumber}</div>
+}
+
+function SurveyedPlotNumberCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-28"
+                value={editDraft.surveyedPlotNumber}
+                onChange={(e) => setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})}
+                placeholder="—"
+                aria-label="Surveyed plot number"
+            />
+        )
+    }
+    return <div className="text-foreground font-medium">{row.original.surveyedPlotNumber ?? "—"}</div>
+}
+
+function UnsurveyedSizeCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-24"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={editDraft.unsurveyedSize}
+                onChange={(e) => setEditDraft({...editDraft, unsurveyedSize: e.target.value})}
+                aria-label="Plot size"
+            />
+        )
+    }
+    return <div className="text-foreground font-medium">{formatSize(row.original.unsurveyedSize)}</div>
+}
+
+function SurveyedSizeCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-24"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={editDraft.surveyedSize}
+                onChange={(e) => setEditDraft({...editDraft, surveyedSize: e.target.value})}
+                placeholder="—"
+                aria-label="Surveyed plot size"
+            />
+        )
+    }
+    return <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
+}
+
+function AvailabilityCell({row, table}: PlotCellContext) {
+    const meta = getMeta(table)
+    const {
+        editingRowId,
+        editDraft,
+        setEditDraft,
+        showSurveyedFields,
+        setShowSurveyedFields,
+        hasSurveyedPlotNumber,
+        hasSurveyedSize,
+        container,
+    } = meta
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <div className="flex items-center gap-1.5">
+                <Select
+                    value={editDraft.availability}
+                    onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
+                >
+                    <SelectTrigger className="h-8 w-32">
+                        <SelectValue/>
+                    </SelectTrigger>
+                    <SelectContent container={container}>
+                        <SelectItem value="AVAILABLE">Available</SelectItem>
+                        <SelectItem value="SOLD">Sold</SelectItem>
+                    </SelectContent>
+                </Select>
+                {showSurveyedFields && (!hasSurveyedPlotNumber || !hasSurveyedSize) && (
+                    <Popover defaultOpen>
+                        <PopoverTrigger asChild>
+                            <Button type="button" size="icon-sm" variant="outline" aria-label="Edit surveyed data">
+                                <LandPlotIcon className="size-3.5"/>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64" align="start" container={container}>
+                            <div className="space-y-3">
+                                <div className="text-muted-foreground text-xs font-medium">Surveyed data</div>
+                                <div className="space-y-2">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="surveyed-plot-number" className="text-xs">
+                                            Surveyed plot number
+                                        </Label>
+                                        <Input
+                                            id="surveyed-plot-number"
+                                            className="h-8"
+                                            value={editDraft.surveyedPlotNumber}
+                                            onChange={(e) =>
+                                                setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})
+                                            }
+                                            placeholder="—"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="surveyed-size" className="text-xs">
+                                            Surveyed plot size (m²)
+                                        </Label>
+                                        <Input
+                                            id="surveyed-size"
+                                            className="h-8"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            value={editDraft.surveyedSize}
+                                            onChange={(e) =>
+                                                setEditDraft({...editDraft, surveyedSize: e.target.value})
+                                            }
+                                            placeholder="—"
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-auto p-0 text-xs text-muted-foreground"
+                                    onClick={() => {
+                                        setEditDraft({...editDraft, surveyedPlotNumber: "", surveyedSize: ""})
+                                        setShowSurveyedFields(false)
+                                    }}
+                                >
+                                    Remove
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                )}
+            </div>
+        )
+    }
+    return availabilityBadge(row.original.availability)
+}
+
+function CurrentOwnerCell({row}: PlotCellContext) {
+    return <div className="text-foreground font-medium">{row.original.contact?.fullName ?? "—"}</div>
+}
+
+function ActionsCell({row, table}: PlotCellContext) {
+    const meta = getMeta(table)
+    const {
+        editingRowId,
+        savingRowId,
+        deletingRowIds,
+        startEditing,
+        cancelEditing,
+        saveEditing,
+        handleDelete,
+        container
+    } = meta
+    const plot = row.original
+    const isEditingRow = editingRowId === plot.id
+    const isSavingRow = savingRowId === plot.id
+    const isDeletingRow = deletingRowIds.has(plot.id)
+
+    if (isEditingRow) {
+        return (
+            <div className="flex items-center gap-1">
+                <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => saveEditing(plot.id)}
+                    disabled={isSavingRow}
+                    aria-label="Save changes"
+                >
+                    <CheckIcon className="size-3.5"/>
+                </Button>
+                <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={cancelEditing}
+                    disabled={isSavingRow}
+                    aria-label="Cancel editing"
+                >
+                    <XIcon className="size-3.5"/>
+                </Button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex items-center gap-1">
+            <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => startEditing(plot)}
+                disabled={editingRowId !== null || isDeletingRow}
+                aria-label={`Edit plot ${plot.plotNumber}`}
+            >
+                <SquarePenIcon className="size-3.5"/>
+            </Button>
+            <DeletePlotPopover
+                plotNumber={plot.plotNumber}
+                onConfirm={() => handleDelete(plot)}
+                disabled={editingRowId !== null || isDeletingRow}
+                container={container}
+            />
+        </div>
+    )
+}
+
 interface ProjectPlotsDataGridProps {
     projectId: string
     plots: ClientProjectPlot[]
@@ -153,7 +517,16 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     const [editingRowId, setEditingRowId] = useState<string | null>(null)
     const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
     const [savingRowId, setSavingRowId] = useState<string | null>(null)
-    const [deletingRowId, setDeletingRowId] = useState<string | null>(null)
+    const [deletingRowIds, setDeletingRowIds] = useState<Set<string>>(new Set())
+    const [showSurveyedFields, setShowSurveyedFields] = useState(false)
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+
+    // Portal target for every Popover/Select/ActionBar this grid renders —
+    // see the long comment on PlotsTableMeta.container above. Using a
+    // callback-ref-backed state (not a plain ref) so the value is actually
+    // available on first render once the node mounts, rather than staying
+    // null until some later re-render happens to read ref.current.
+    const [container, setContainer] = useState<HTMLDivElement | null>(null)
 
     const invalidate = () => {
         queryClient.invalidateQueries({queryKey: ["project-statement-data", projectId]})
@@ -171,6 +544,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             toast.success("Plot updated")
             setEditingRowId(null)
             setEditDraft(null)
+            setShowSurveyedFields(false)
         },
         onError: () => {
             toast.error("Failed to update plot")
@@ -184,24 +558,18 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             if (!res.ok) throw new Error("Failed to delete plot")
             return res.json()
         },
-        onSuccess: () => {
-            invalidate()
-            toast.success("Plot deleted")
-        },
-        onError: () => {
-            toast.error("Failed to delete plot")
-        },
-        onSettled: () => setDeletingRowId(null),
     })
 
     const startEditing = (plot: ClientProjectPlot) => {
         setEditingRowId(plot.id)
         setEditDraft(draftFromPlot(plot))
+        setShowSurveyedFields(Boolean(plot.surveyedPlotNumber || plot.surveyedSize))
     }
 
     const cancelEditing = () => {
         setEditingRowId(null)
         setEditDraft(null)
+        setShowSurveyedFields(false)
     }
 
     const saveEditing = (plotId: string) => {
@@ -237,8 +605,42 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     }
 
     const handleDelete = (plot: ClientProjectPlot) => {
-        setDeletingRowId(plot.id)
-        deletePlot.mutate(plot.id)
+        setDeletingRowIds((prev) => new Set(prev).add(plot.id))
+        deletePlot.mutate(plot.id, {
+            onSuccess: () => {
+                invalidate()
+                toast.success("Plot deleted")
+            },
+            onError: () => {
+                toast.error("Failed to delete plot")
+            },
+            onSettled: () => {
+                setDeletingRowIds((prev) => {
+                    const next = new Set(prev)
+                    next.delete(plot.id)
+                    return next
+                })
+            },
+        })
+    }
+
+    // Bulk import — the CSV never carries projectId (see plotFields above),
+    // so it's stamped onto every parsed row here before it's posted, the
+    // same way AddPlotForm sets it per line rather than exposing it as an
+    // input. Mirrors handleBulkImport in routes/_authed/_org/projects/index.tsx
+    // and contacts/index.tsx.
+    const handleBulkImport = async (rows: PlotCsvRow[]): Promise<CsvImportSummary> => {
+        const res = await api.api.plots.bulk.$post({
+            json: {rows: rows.map((row) => ({...row, projectId}))},
+        })
+        if (!res.ok) {
+            throw new Error(`Failed to import plots (${res.status})`)
+        }
+        const summary = await res.json()
+        if (summary.created > 0) {
+            invalidate()
+        }
+        return summary
     }
 
     const filteredData = useMemo(() => {
@@ -268,6 +670,19 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         )
     }, [plots])
 
+    // Surveyed plot number / size columns are only shown once at least one
+    // plot in the project actually has a value — otherwise they're dead
+    // weight in the grid. Checked against the full `plots` list (not
+    // filteredData) so columns don't flicker in/out while searching.
+    const hasSurveyedPlotNumber = useMemo(
+        () => plots.some((p) => p.surveyedPlotNumber && p.surveyedPlotNumber.trim().length > 0),
+        [plots]
+    )
+    const hasSurveyedSize = useMemo(
+        () => plots.some((p) => p.surveyedSize && p.surveyedSize.trim().length > 0),
+        [plots]
+    )
+
     const handleStatusChange = (checked: boolean, value: Availability) => {
         setSelectedStatuses((prev) => (checked ? [...prev, value] : prev.filter((v) => v !== value)))
         setPagination((prev) => ({...prev, pageIndex: 0}))
@@ -280,109 +695,67 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         setPagination((prev) => ({...prev, pageIndex: 0}))
     }
 
+    // Cell renderers are stable module-level function references (defined
+    // above), so this array only needs to be rebuilt when a column actually
+    // needs to appear/disappear — not on every keystroke. All the live
+    // editing state (editDraft, editingRowId, etc.) flows in separately via
+    // table.options.meta, read inside each cell renderer at call time.
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientProjectPlot>[]>(
         () => [
+            {
+                accessorKey: "id",
+                id: "id",
+                header: () => <DataGridTableRowSelectAll/>,
+                cell: RowSelectCell,
+                enableSorting: false,
+                size: 35,
+                enableResizing: false,
+            },
             {
                 accessorKey: "plotNumber",
                 id: "plotNumber",
                 header: ({column}) => <DataGridColumnHeader title="Plot Number" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-24"
-                            value={editDraft.plotNumber}
-                            onChange={(e) => setEditDraft({...editDraft, plotNumber: e.target.value})}
-                            aria-label="Plot number"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">Plot No. {row.original.plotNumber}</div>
-                    ),
+                cell: PlotNumberCell,
                 enableSorting: true,
                 size: 150,
             },
-            {
-                accessorKey: "surveyedPlotNumber",
-                id: "surveyedPlotNumber",
-                header: ({column}) => <DataGridColumnHeader title="Surveyed Plot Number" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-28"
-                            value={editDraft.surveyedPlotNumber}
-                            onChange={(e) => setEditDraft({...editDraft, surveyedPlotNumber: e.target.value})}
-                            placeholder="—"
-                            aria-label="Surveyed plot number"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">{row.original.surveyedPlotNumber ?? "—"}</div>
+            ...(hasSurveyedPlotNumber
+                ? [{
+                    accessorKey: "surveyedPlotNumber",
+                    id: "surveyedPlotNumber",
+                    header: ({column}) => (
+                        <DataGridColumnHeader title="Surveyed Plot Number" visibility column={column}/>
                     ),
-                enableSorting: true,
-                size: 190,
-            },
+                    cell: SurveyedPlotNumberCell,
+                    enableSorting: true,
+                    size: 190,
+                } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
+                : []),
             {
                 accessorKey: "unsurveyedSize",
                 id: "unsurveyedSize",
                 header: ({column}) => <DataGridColumnHeader title="Plot Size" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-24"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            value={editDraft.unsurveyedSize}
-                            onChange={(e) => setEditDraft({...editDraft, unsurveyedSize: e.target.value})}
-                            aria-label="Plot size"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">{formatSize(row.original.unsurveyedSize)}</div>
-                    ),
+                cell: UnsurveyedSizeCell,
                 enableSorting: true,
                 size: 140,
             },
-            {
-                accessorKey: "surveyedSize",
-                id: "surveyedSize",
-                header: ({column}) => <DataGridColumnHeader title="Surveyed Plot Size" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Input
-                            className="h-8 w-24"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            value={editDraft.surveyedSize}
-                            onChange={(e) => setEditDraft({...editDraft, surveyedSize: e.target.value})}
-                            placeholder="—"
-                            aria-label="Surveyed plot size"
-                        />
-                    ) : (
-                        <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
+            ...(hasSurveyedSize
+                ? [{
+                    accessorKey: "surveyedSize",
+                    id: "surveyedSize",
+                    header: ({column}) => (
+                        <DataGridColumnHeader title="Surveyed Plot Size" visibility column={column}/>
                     ),
-                enableSorting: true,
-                size: 170,
-            },
+                    cell: SurveyedSizeCell,
+                    enableSorting: true,
+                    size: 170,
+                } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
+                : []),
             {
                 accessorKey: "availability",
                 id: "availability",
                 header: ({column}) => <DataGridColumnHeader title="Availability Status" visibility column={column}/>,
-                cell: ({row}) =>
-                    editingRowId === row.original.id && editDraft ? (
-                        <Select
-                            value={editDraft.availability}
-                            onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
-                        >
-                            <SelectTrigger className="h-8 w-32">
-                                <SelectValue/>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="AVAILABLE">Available</SelectItem>
-                                <SelectItem value="SOLD">Sold</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        availabilityBadge(row.original.availability)
-                    ),
+                cell: AvailabilityCell,
                 enableSorting: true,
                 size: 170,
             },
@@ -390,76 +763,38 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 id: "currentOwner",
                 accessorFn: (row) => row.contact?.fullName ?? "",
                 header: ({column}) => <DataGridColumnHeader title="Current Owner" visibility column={column}/>,
-                cell: ({row}) => (
-                    <div className="text-foreground font-medium">{row.original.contact?.fullName ?? "—"}</div>
-                ),
+                cell: CurrentOwnerCell,
                 enableSorting: true,
                 size: 200,
             },
             {
                 id: "actions",
                 header: "",
-                cell: ({row}) => {
-                    const plot = row.original
-                    const isEditingRow = editingRowId === plot.id
-                    const isSavingRow = savingRowId === plot.id
-                    const isDeletingRow = deletingRowId === plot.id
-
-                    if (isEditingRow) {
-                        return (
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    type="button"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    onClick={() => saveEditing(plot.id)}
-                                    disabled={isSavingRow}
-                                    aria-label="Save changes"
-                                >
-                                    <CheckIcon className="size-3.5"/>
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    onClick={cancelEditing}
-                                    disabled={isSavingRow}
-                                    aria-label="Cancel editing"
-                                >
-                                    <XIcon className="size-3.5"/>
-                                </Button>
-                            </div>
-                        )
-                    }
-
-                    return (
-                        <div className="flex items-center gap-1">
-                            <Button
-                                type="button"
-                                size="icon-sm"
-                                variant="ghost"
-                                onClick={() => startEditing(plot)}
-                                disabled={editingRowId !== null || isDeletingRow}
-                                aria-label={`Edit plot ${plot.plotNumber}`}
-                            >
-                                <SquarePenIcon className="size-3.5"/>
-                            </Button>
-                            <DeletePlotPopover
-                                plotNumber={plot.plotNumber}
-                                onConfirm={() => handleDelete(plot)}
-                                disabled={editingRowId !== null || isDeletingRow}
-                            />
-                        </div>
-                    )
-                },
+                cell: ActionsCell,
                 enableSorting: false,
                 enableHiding: false,
                 size: 90,
             },
         ],
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [editingRowId, editDraft, savingRowId, deletingRowId]
+        [hasSurveyedPlotNumber, hasSurveyedSize]
     )
+
+    const meta: PlotsTableMeta = {
+        container,
+        editingRowId,
+        editDraft,
+        setEditDraft,
+        showSurveyedFields,
+        setShowSurveyedFields,
+        savingRowId,
+        deletingRowIds,
+        hasSurveyedPlotNumber,
+        hasSurveyedSize,
+        startEditing,
+        cancelEditing,
+        saveEditing,
+        handleDelete,
+    }
 
     const table = useTable({
         features: dataGridFeatures,
@@ -467,13 +802,59 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         data: filteredData,
         pageCount: Math.max(1, Math.ceil(filteredData.length / pagination.pageSize)),
         getRowId: (row: ClientProjectPlot) => row.id,
-        state: {pagination, sorting},
+        enableRowSelection: true,
+        state: {pagination, sorting, rowSelection},
+        onRowSelectionChange: setRowSelection,
         onPaginationChange: setPagination,
         onSortingChange: setSorting,
+        meta,
     })
 
+    // Reads whichever rows are currently checked straight off `table`; falls
+    // back to nothing selected until the user ticks a row, same as contacts.
+    const {exportSelected} = useTableCSVExport(table, exportColumns)
+
+    // Mirrors handleBulkDelete in contacts-datagrid.tsx: fire all deletes
+    // concurrently via mutateAsync (bypassing handleDelete's single-row
+    // onSuccess/onError so we get one summary toast instead of N), clear
+    // selection immediately so the action bar closes, and let deletingRowIds
+    // drive the per-row disabled state on ActionsCell in the meantime.
+    const handleBulkDelete = () => {
+        if (!table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()) return
+        const selectedIds = Object.keys(rowSelection)
+        if (selectedIds.length === 0) return
+
+        setDeletingRowIds((prev) => {
+            const next = new Set(prev)
+            selectedIds.forEach((id) => next.add(id))
+            return next
+        })
+        table.toggleAllRowsSelected(false)
+
+        Promise.all(selectedIds.map((id) => deletePlot.mutateAsync(id)))
+            .then(() => {
+                invalidate()
+                toast.success(`Deleted ${selectedIds.length} plot${selectedIds.length > 1 ? "s" : ""}`)
+            })
+            .catch(() => {
+                invalidate()
+                toast.error("Some plots could not be deleted")
+            })
+            .finally(() => {
+                setDeletingRowIds((prev) => {
+                    const next = new Set(prev)
+                    selectedIds.forEach((id) => next.delete(id))
+                    return next
+                })
+            })
+    }
+
     return (
-        <>
+        // display:contents keeps this node out of layout entirely — it exists
+        // only so Popover/Select/ActionBar have a DOM node inside the grid's
+        // own subtree to portal into (see the container comment above),
+        // never as a visual wrapper.
+        <div ref={setContainer} className="contents">
             <DataGrid
                 table={table}
                 recordCount={filteredData.length}
@@ -496,7 +877,13 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                     )
                 }
             >
-                <Card className="w-full gap-3 py-0">
+                <TableActionBar
+                    table={table}
+                    onExport={() => exportSelected("plots")}
+                    onDelete={handleBulkDelete}
+                    portalContainer={container}
+                />
+                <Card className="w-full gap-3 py-0 mt-4">
                     <CardHeader className="flex items-center justify-between px-3.5 py-2">
                         <div className="flex items-center gap-2.5">
                             <InputGroup className="w-48">
@@ -536,7 +923,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                                         )}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-48" align="start">
+                                <PopoverContent className="w-48" align="start" container={container}>
                                     <div className="space-y-3">
                                         <div className="text-muted-foreground text-xs font-medium">Filters</div>
                                         <div className="space-y-3">
@@ -565,10 +952,27 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <CardAction>
+                        <CardAction className="flex items-center gap-2">
                             <Button type="button" onClick={() => setIsAddOpen(true)}>
                                 <PlusIcon/> Add Plot
                             </Button>
+                            <ReusableSheet
+                                title="Plots Bulk Upload"
+                                description="Import plots into this project via CSV."
+                                trigger={
+                                    <Button type="button" variant="outline" size="icon" aria-label="Bulk upload plots">
+                                        <FilesIcon className="size-5"/>
+                                    </Button>
+                                }
+                                widthClassName="sm:max-w-full"
+                                children={
+                                    <ReusableCSVUploader
+                                        entityName="plots"
+                                        fields={plotFields}
+                                        onSubmit={handleBulkImport}
+                                    />
+                                }
+                            />
                         </CardAction>
                     </CardHeader>
                     <CardContent className="p-0.5">
@@ -581,12 +985,12 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination rowsPerPageLabel="Plots per Page"/>
+                        <DataGridPagination sizes={[8, 16, 50, 100, 500]} rowsPerPageLabel="Plots per Page"/>
                     </CardFooter>
                 </Card>
             </DataGrid>
 
             <AddPlotForm projectId={projectId} open={isAddOpen} onOpenChange={setIsAddOpen}/>
-        </>
+        </div>
     )
 }
