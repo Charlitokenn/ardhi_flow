@@ -31,8 +31,15 @@ import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover.tsx"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx"
 import {ReusableEmpty, SearchCardsIllustration} from "@/components-reusable/reusable-empty.tsx"
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
+import {
+    type CsvFieldConfig,
+    type CsvImportSummary,
+    ReusableCSVUploader,
+} from "@/components-reusable/reusable-csv-uploader.tsx"
 import {
     CheckIcon,
+    FilesIcon,
     FunnelIcon,
     LandPlot as LandPlotIcon,
     PlusIcon,
@@ -43,6 +50,7 @@ import {
 } from "lucide-react"
 import {thousandSeparator} from "@/lib/utils"
 import type {ClientProjectPlot} from "@/types/projects.ts"
+import type {NewPlot} from "../../../../drizzle/tenant/schema.ts"
 import {AddPlotForm} from "@/components/forms/projects/add-plot-form.tsx"
 
 type Availability = "AVAILABLE" | "SOLD"
@@ -79,6 +87,29 @@ function draftFromPlot(plot: ClientProjectPlot): EditDraft {
         availability: plot.availability,
     }
 }
+
+// Bulk upload field config for plots. `projectId` is deliberately excluded —
+// this uploader is always scoped to the project this datagrid belongs to, so
+// it's injected onto every row client-side (see handleBulkImport below)
+// rather than asked for in the CSV, the same way AddPlotForm sets it per
+// line instead of exposing it as an input. Numeric columns use type:
+// "number" to match the precedent set by the projects/contacts bulk
+// uploaders (bulkProjectRowSchema etc. accept a parsed number for `numeric`
+// drizzle columns the same way).
+type PlotCsvRow = Omit<NewPlot, "projectId">
+
+const plotFields: CsvFieldConfig<PlotCsvRow>[] = [
+    {key: "plotNumber", label: "Plot Number", type: "number", required: true},
+    {key: "surveyedPlotNumber", label: "Surveyed Plot Number", type: "string"},
+    {key: "unsurveyedSize", label: "Plot Size (m²)", type: "number", required: true},
+    {key: "surveyedSize", label: "Surveyed Plot Size (m²)", type: "number"},
+    {
+        key: "availability",
+        label: "Availability",
+        type: "enum",
+        enumValues: ["AVAILABLE", "SOLD"] as const,
+    },
+]
 
 // All editing state lives in table.options.meta instead of being closed
 // over inside the columns builder. Cell renderers below are declared at
@@ -522,6 +553,25 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         deletePlot.mutate(plot.id)
     }
 
+    // Bulk import — the CSV never carries projectId (see plotFields above),
+    // so it's stamped onto every parsed row here before it's posted, the
+    // same way AddPlotForm sets it per line rather than exposing it as an
+    // input. Mirrors handleBulkImport in routes/_authed/_org/projects/index.tsx
+    // and contacts/index.tsx.
+    const handleBulkImport = async (rows: PlotCsvRow[]): Promise<CsvImportSummary> => {
+        const res = await api.api.plots.bulk.$post({
+            json: {rows: rows.map((row) => ({...row, projectId}))},
+        })
+        if (!res.ok) {
+            throw new Error(`Failed to import plots (${res.status})`)
+        }
+        const summary = await res.json()
+        if (summary.created > 0) {
+            invalidate()
+        }
+        return summary
+    }
+
     const filteredData = useMemo(() => {
         return plots.filter((plot) => {
             const matchesStatus = !selectedStatuses.length || selectedStatuses.includes(plot.availability)
@@ -770,10 +820,27 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <CardAction>
+                        <CardAction className="flex items-center gap-2">
                             <Button type="button" onClick={() => setIsAddOpen(true)}>
                                 <PlusIcon/> Add Plot
                             </Button>
+                            <ReusableSheet
+                                title="Plots Bulk Upload"
+                                description="Import plots into this project via CSV."
+                                trigger={
+                                    <Button type="button" variant="outline" size="icon" aria-label="Bulk upload plots">
+                                        <FilesIcon className="size-5"/>
+                                    </Button>
+                                }
+                                widthClassName="sm:max-w-full"
+                                children={
+                                    <ReusableCSVUploader
+                                        entityName="plots"
+                                        fields={plotFields}
+                                        onSubmit={handleBulkImport}
+                                    />
+                                }
+                            />
                         </CardAction>
                     </CardHeader>
                     <CardContent className="p-0.5">
