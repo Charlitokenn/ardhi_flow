@@ -71,7 +71,10 @@ function deriveContractFinancials(
     contract: ClientContactContract | null,
 ): ContractFinancials {
     const plotSizeRaw = Number(plot?.surveyedSize ?? plot?.unsurveyedSize ?? "0");
-    const contractValue = contract ? Number(contract.totalContractValue) : 0;
+    // This plot's own share of the deal — not totalContractValue, which is
+    // the whole bucket (every plot on the contract combined). See the note
+    // on ClientContactContract.allocatedValue.
+    const contractValue = contract ? Number(contract.allocatedValue) : 0;
     const pricePerSqm = plotSizeRaw > 0 ? contractValue / plotSizeRaw : 0;
     const totalPayments = contract ? computeTotalPaid(contract) : 0;
     const balance = contract ? computeContractBalance(contract) : 0;
@@ -86,18 +89,25 @@ function deriveContractFinancials(
         balance,
         displayBalance: Math.max(balance, 0),
         fullyPaid: isContractFullyPaid(contract),
-        // Monthly installment follows the contract's own purchase plan. For the
-        // DOWNPAYMENT plan we use the contract's own `financedAmount` (already
-        // totalContractValue minus downpaymentAmount) rather than re-deriving it
-        // from downpaymentPercent, which is stored as a whole number (e.g. 20
-        // meaning 20%), not a 0-1 fraction.
+        // Read straight off this plot's own schedule (installmentNo 1 — the
+        // first regular installment after any downpayment at 0) rather than
+        // re-derived from bucket-wide financedAmount/totalContractValue,
+        // which no longer represents a single plot's amount once a bucket
+        // holds more than one. Falls back to the old bucket-wide formula
+        // only if the schedule hasn't been generated yet (no installments).
         monthlyInstallment: (() => {
             if (!contract) return 0;
-            const {termMonths: months, totalContractValue, purchasePlan} = contract;
+            const regularInstallment = contract.installments.find((i) => i.installmentNo === 1);
+            if (regularInstallment) return Number(regularInstallment.amountDue);
+            const {termMonths: months, purchasePlan} = contract;
             if (!months) return 0;
             if (purchasePlan === "FLAT_RATE")
-                return Number(totalContractValue) / months;
-            if (months > 1) return Number(contract.financedAmount) / (months - 1);
+                return contractValue / months;
+            const totalContractValue = Number(contract.totalContractValue);
+            const allocatedFinancedAmount = totalContractValue > 0
+                ? Number(contract.financedAmount) * (contractValue / totalContractValue)
+                : 0;
+            if (months > 1) return allocatedFinancedAmount / (months - 1);
             return 0;
         })(),
         installmentsWithRunning: contract

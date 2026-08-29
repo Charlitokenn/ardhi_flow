@@ -73,6 +73,25 @@ interface IContractPlot {
     surveyedPlotNumber: string | null
 }
 
+// One row of the bucket's contents — a contract can hold more than one
+// plot (always within a single project — see IContract.project), and this
+// keeps each plot's own allocatedValue/cancellation state alongside it.
+// Cancelled entries (cancelledAt set) are kept for history but should be
+// excluded from anything showing the contract's current holdings — see
+// livePlots().
+interface IContractPlotEntry {
+    id: string
+    plotId: string
+    allocatedValue: string
+    cancelledAt: string | null
+    plot: IContractPlot | null
+}
+
+interface IContractProject {
+    id: string
+    projectName: string
+}
+
 interface IContractClient {
     id: string
     fullName: string
@@ -89,14 +108,26 @@ interface IContract {
     financedAmount: string
     purchasePlan: "FLAT_RATE" | "DOWNPAYMENT"
     createdAt: string | null
-    plot: IContractPlot | null
+    projectId: string
+    project: IContractProject | null
+    contractPlots: IContractPlotEntry[]
     client: IContractClient | null
+}
+
+/** The plots still actually in this contract's bucket right now — drops
+ * any that have been individually cancelled/removed. */
+function livePlots(contract: Pick<IContract, "contractPlots">): IContractPlot[] {
+    return contract.contractPlots
+        .filter((entry) => !entry.cancelledAt)
+        .map((entry) => entry.plot)
+        .filter((plot): plot is IContractPlot => plot !== null)
 }
 
 const exportColumns: ExportColumn<IContract>[] = [
     {header: "ID", accessor: (d) => d.id},
     {header: "Client", accessor: (d) => d.client?.fullName ?? null},
-    {header: "Plot", accessor: (d) => d.plot?.plotNumber ?? null},
+    {header: "Project", accessor: (d) => d.project?.projectName ?? null},
+    {header: "Plot(s)", accessor: (d) => livePlots(d).map((p) => p.plotNumber).join(", ") || null},
     {header: "Value", accessor: (d) => d.totalContractValue},
     {header: "Plan", accessor: (d) => d.purchasePlan},
     {header: "Status", accessor: (d) => d.status},
@@ -247,9 +278,15 @@ export function ContractsDataGrid() {
             const matchesStatus = !selectedStatuses.length || selectedStatuses.includes(item.status)
 
             const searchLower = searchQuery.toLowerCase()
+            const plots = livePlots(item)
             const matchesSearch =
                 !searchQuery ||
-                [item.client?.fullName, item.plot?.plotNumber, item.plot?.surveyedPlotNumber, item.status]
+                [
+                    item.client?.fullName,
+                    ...plots.map((p) => p.plotNumber),
+                    ...plots.map((p) => p.surveyedPlotNumber),
+                    item.status,
+                ]
                     .filter(Boolean)
                     .join(" ")
                     .toLowerCase()
@@ -314,21 +351,26 @@ export function ContractsDataGrid() {
                 ),
                 cell: renderWithDeleteSkeleton(
                     <Skeleton className="h-7 w-auto"/>,
-                    (row) => (
-                        <div className="flex items-center gap-3">
-                            <Avatar className="size-8">
-                                <AvatarFallback>{initials(row.original.client?.fullName ?? "—")}</AvatarFallback>
-                            </Avatar>
-                            <div className="space-y-px">
-                                <div className="text-foreground font-medium">
-                                    {row.original.client?.fullName ?? "—"}
-                                </div>
-                                <div className="text-muted-foreground">
-                                    Plot {row.original.plot?.plotNumber ?? "—"}
+                    (row) => {
+                        const plots = livePlots(row.original)
+                        const plotLabel = plots.map((p) => p.plotNumber).join(", ") || "—"
+                        return (
+                            <div className="flex items-center gap-3">
+                                <Avatar className="size-8">
+                                    <AvatarFallback>{initials(row.original.client?.fullName ?? "—")}</AvatarFallback>
+                                </Avatar>
+                                <div className="space-y-px">
+                                    <div className="text-foreground font-medium">
+                                        {row.original.client?.fullName ?? "—"}
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                        Plot{plots.length === 1 ? "" : "s"} {plotLabel}
+                                        {row.original.project && ` · ${row.original.project.projectName}`}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )
+                        )
+                    }
                 ),
                 size: 260,
                 meta: {autoSize: true, skeleton: <Skeleton className="h-7 w-auto"/>},
@@ -648,10 +690,23 @@ export function ContractsDataGrid() {
                             <div><span
                                 className="text-muted-foreground">Mobile: </span>{viewingRow.client?.mobileNumber ?? "—"}
                             </div>
-                            <div><span className="text-muted-foreground">Plot: </span>{viewingRow.plot?.plotNumber ?? "—"}
-                            </div>
                             <div><span
-                                className="text-muted-foreground">Surveyed Plot No: </span>{viewingRow.plot?.surveyedPlotNumber ?? "—"}
+                                className="text-muted-foreground">Project: </span>{viewingRow.project?.projectName ?? "—"}
+                            </div>
+                            <div className="space-y-1">
+                                <span className="text-muted-foreground">Plots: </span>
+                                {livePlots(viewingRow).length === 0 ? (
+                                    "—"
+                                ) : (
+                                    <ul className="ml-4 list-disc">
+                                        {livePlots(viewingRow).map((plot) => (
+                                            <li key={plot.id}>
+                                                {plot.plotNumber}
+                                                {plot.surveyedPlotNumber && ` (Surveyed: ${plot.surveyedPlotNumber})`}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
                             <div><span className="text-muted-foreground">Status: </span>{viewingRow.status}</div>
                             <div><span className="text-muted-foreground">Purchase Plan: </span>{viewingRow.purchasePlan}

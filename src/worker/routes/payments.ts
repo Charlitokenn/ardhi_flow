@@ -14,7 +14,10 @@ const paymentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
         with: {
           contract: {
             with: {
-              plot: true,
+              project: true,
+              contractPlots: {
+                with: {plot: true},
+              },
             },
           },
           client: true,

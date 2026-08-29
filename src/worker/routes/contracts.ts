@@ -6,13 +6,26 @@ import type { Env, Variables } from '../types'
 import { plotSaleContracts } from '../../../drizzle/tenant/schema'
 
 const insertContractSchema = createInsertSchema(plotSaleContracts).omit({ id: true, createdAt: true, updatedAt: true })
+const updateContractSchema = insertContractSchema.omit({
+  projectId: true,
+  status: true,
+  completedAt: true,
+  cancelledAt: true,
+  cancelledBy: true,
+  cancellationFeeAmount: true,
+  refundedAmount: true,
+  cancellationReason: true,
+}).partial()
 
 const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
   .get('/', async (c) => {
     const rows = await c.get('tenantDb')
       .query.plotSaleContracts.findMany({
         with: {
-          plot: true,
+          project: true,
+          contractPlots: {
+            with: {plot: true},
+          },
           client: true,
           installments: true,
         },
@@ -26,7 +39,10 @@ const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
       .query.plotSaleContracts.findFirst({
         where: eq(plotSaleContracts.id, id),
         with: {
-          plot: true,
+          project: true,
+          contractPlots: {
+            with: {plot: true},
+          },
           client: true,
           installments: true,
           payments: true,
@@ -37,12 +53,14 @@ const contractsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     if (!row) return c.json({ error: 'Not found' }, 404)
     return c.json(row)
   })
+  // Contract creation requires an atomic insert of the bucket, its plots,
+  // and every plot's installment schedule. The current Neon HTTP database
+  // client cannot run that interactive transaction, so gate this endpoint
+  // instead of persisting a parent row that can never be used.
   .post('/', zValidator('json', insertContractSchema), async (c) => {
-    const input = c.req.valid('json')
-    const [created] = await c.get('tenantDb').insert(plotSaleContracts).values(input).returning()
-    return c.json(created, 201)
+    return c.json({error: 'Contract creation is not available yet'}, 501)
   })
-  .patch('/:id', zValidator('json', insertContractSchema.partial()), async (c) => {
+  .patch('/:id', zValidator('json', updateContractSchema), async (c) => {
     const id = c.req.param('id')
     const input = c.req.valid('json')
     const [updated] = await c.get('tenantDb')

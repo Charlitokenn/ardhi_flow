@@ -6,6 +6,7 @@
 import {
     boolean,
     date,
+    foreignKey,
     index,
     integer,
     jsonb,
@@ -14,6 +15,7 @@ import {
     pgTable,
     text,
     timestamp,
+    unique,
     uniqueIndex,
     uuid,
     varchar,
@@ -234,12 +236,16 @@ export const plotSaleContracts = pgTable(
     {
         id: uuid('id').primaryKey().defaultRandom(),
 
-        // FIX: plots is defined above this table, so referencing it here is a
-        // backward reference and does NOT create the circular-typing problem
-        // that activeContractId has. Safe to declare at the Drizzle level.
-        plotId: uuid('plot_id')
+        // A contract is a "bucket" that can hold one or more plots (see
+        // contractPlots below) — but only ever plots from a single project.
+        // This is what pins that rule down: every row inserted into
+        // contractPlots for this contract must point at a plot whose
+        // projectId matches this one (enforced at the app layer at contract
+        // creation — plots can only be *removed* from a bucket afterwards,
+        // never added, so this never needs re-checking post-creation).
+        projectId: uuid('project_id')
             .notNull()
-            .references(() => plots.id, {onDelete: 'restrict'}),
+            .references(() => projects.id, {onDelete: 'restrict'}),
 
         clientContactId: uuid('client_contact_id')
             .notNull()
@@ -295,17 +301,62 @@ export const plotSaleContracts = pgTable(
         updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
-        index('plot_sale_contracts_plot_idx').on(table.plotId),
+        index('plot_sale_contracts_project_idx').on(table.projectId),
         index('plot_sale_contracts_client_idx').on(table.clientContactId),
         index('plot_sale_contracts_status_idx').on(table.status),
         index('plot_sale_contracts_agent_idx').on(table.salesAgentContactId),
-        // Enforces at the DB level what activeContractId enforces at the app level:
-        // a plot can't have two ACTIVE/DELINQUENT contracts simultaneously.
-        // Requires drizzle-orm >= 0.31 for uniqueIndex().where().
-        uniqueIndex('plot_sale_contracts_one_active_per_plot')
+    ],
+);
+
+export const contractPlots = pgTable(
+    'contract_plots',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        contractId: uuid('contract_id')
+            .notNull()
+            .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
+        plotId: uuid('plot_id')
+            .notNull()
+            .references(() => plots.id, {onDelete: 'restrict'}),
+
+        // Portion of the contract's totalContractValue this specific plot
+        // represents. Plot-level installment schedules are generated off
+        // this figure, not off totalContractValue directly — the
+        // allocatedValue of every plot in a contract must sum to that
+        // contract's totalContractValue at creation time.
+        allocatedValue: numeric('allocated_value').notNull(),
+
+        // Set when this specific plot is removed from the bucket (client
+        // drops one plot while keeping the others). On removal: this plot
+        // reverts to AVAILABLE, plots.activeContractId is cleared for it,
+        // and its remaining unpaid installments are closed out — see
+        // contractInstallments. This row is never deleted, so the bucket's
+        // original composition stays visible. Mirrors the contract-level
+        // cancellation fields on plotSaleContracts, but scoped to just this
+        // one plot. Plots can only ever be removed from a bucket, never
+        // added after contract creation.
+        cancelledAt: timestamp('cancelled_at', {withTimezone: true}),
+        cancelledBy: text('cancelled_by'),
+        cancellationFeeAmount: numeric('cancellation_fee_amount'),
+        refundedAmount: numeric('refunded_amount'),
+        cancellationReason: text('cancellation_reason'),
+
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
+    },
+    (table) => [
+        unique('contract_plots_id_plot_id_unique').on(table.id, table.plotId),
+        index('contract_plots_contract_idx').on(table.contractId),
+        index('contract_plots_plot_idx').on(table.plotId),
+        // A plot can only belong to one *live* (not-yet-removed) contract
+        // bucket at a time — the DB-level guarantee that used to live on
+        // plotSaleContracts.plotId (see the note that was there). Enforced
+        // via cancelledAt rather than the parent contract's own status,
+        // since a Postgres partial index can only reference columns on the
+        // table it's defined on, not a joined table's.
+        uniqueIndex('contract_plots_plot_active_unique')
             .on(table.plotId)
-            .where(sql`status
-            IN ('ACTIVE', 'DELINQUENT')`),
+            .where(sql`cancelled_at IS NULL`),
     ],
 );
 
@@ -316,6 +367,23 @@ export const contractInstallments = pgTable(
         contractId: uuid('contract_id')
             .notNull()
             .references(() => plotSaleContracts.id, {onDelete: 'cascade'}),
+
+        // Which plot-in-this-bucket this installment is for. A multi-plot
+        // contract gets one full schedule PER plot (same due dates, since
+        // they're all signed together — different amounts, since each
+        // plot's schedule is sized off its own contractPlots.allocatedValue).
+        // Cascades with the bucket slot itself; restrict on the plot so a
+        // plot row can never be deleted out from under existing history.
+        contractPlotId: uuid('contract_plot_id')
+            .notNull()
+            .references(() => contractPlots.id, {onDelete: 'cascade'}),
+        // Denormalized from contractPlotId (same pattern as
+        // commissionPayouts.salesAgentContactId below) so "all installments
+        // for this plot" and simple `.with({ plot: true })` queries don't
+        // need an extra join through contractPlots every time.
+        plotId: uuid('plot_id')
+            .notNull()
+            .references(() => plots.id, {onDelete: 'restrict'}),
 
         // installment_no = 0 is reserved for an optional downpayment installment
         installmentNo: integer('installment_no').notNull(),
@@ -342,7 +410,14 @@ export const contractInstallments = pgTable(
         updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
+        foreignKey({
+            columns: [table.contractPlotId, table.plotId],
+            foreignColumns: [contractPlots.id, contractPlots.plotId],
+            name: 'contract_installments_contract_plot_plot_fk',
+        }).onDelete('cascade'),
         index('contract_installments_contract_idx').on(table.contractId),
+        index('contract_installments_contract_plot_idx').on(table.contractPlotId),
+        index('contract_installments_plot_idx').on(table.plotId),
         index('contract_installments_due_idx').on(table.dueDate),
         index('contract_installments_contract_due_idx').on(table.contractId, table.dueDate),
         // Speeds up "all overdue installments across all contracts" aging reports.
@@ -803,6 +878,8 @@ export type Plot = typeof plots.$inferSelect;
 export type NewPlot = typeof plots.$inferInsert;
 export type PlotSaleContract = typeof plotSaleContracts.$inferSelect;
 export type NewPlotSaleContract = typeof plotSaleContracts.$inferInsert;
+export type ContractPlot = typeof contractPlots.$inferSelect;
+export type NewContractPlot = typeof contractPlots.$inferInsert;
 export type ContractInstallment = typeof contractInstallments.$inferSelect;
 export type NewContractInstallment = typeof contractInstallments.$inferInsert;
 export type ContractPayment = typeof contractPayments.$inferSelect;
@@ -840,6 +917,9 @@ export type ProjectWithPlots = Project & {
 // Relations
 export const projectsRelations = relations(projects, ({many}) => ({
     plots: many(plots),
+    // Contracts whose bucket is locked to this project (plotSaleContracts.projectId)
+    // — not the same as walking through every plot; this is the direct FK.
+    contracts: many(plotSaleContracts),
     expenses: many(expenses),
     acquisitions: many(projectAcquisitions),
     vendorJobProjects: many(vendorJobProjects),
@@ -874,13 +954,16 @@ export const plotsRelations = relations(plots, ({one, many}) => ({
         fields: [plots.activeContractId],
         references: [plotSaleContracts.id],
     }),
-    contracts: many(plotSaleContracts),
+    // A plot's contract history — at most one row with cancelledAt IS NULL
+    // at a time (see contract_plots_plot_active_unique), but many over time
+    // if it's cancelled out of one bucket and later sold into another.
+    contractPlots: many(contractPlots),
 }));
 
 export const plotSaleContractsRelations = relations(plotSaleContracts, ({one, many}) => ({
-    plot: one(plots, {
-        fields: [plotSaleContracts.plotId],
-        references: [plots.id],
+    project: one(projects, {
+        fields: [plotSaleContracts.projectId],
+        references: [projects.id],
     }),
     client: one(contacts, {
         fields: [plotSaleContracts.clientContactId],
@@ -892,6 +975,9 @@ export const plotSaleContractsRelations = relations(plotSaleContracts, ({one, ma
         references: [contacts.id],
         relationName: 'salesAgentContact',
     }),
+    // The bucket's contents — one row per plot, past and present (cancelled
+    // rows kept for history, see contractPlots.cancelledAt).
+    contractPlots: many(contractPlots),
     installments: many(contractInstallments),
     payments: many(contractPayments),
     events: many(contractEvents),
@@ -899,10 +985,30 @@ export const plotSaleContractsRelations = relations(plotSaleContracts, ({one, ma
     smsMessages: many(smsMessages),
 }));
 
+export const contractPlotsRelations = relations(contractPlots, ({one, many}) => ({
+    contract: one(plotSaleContracts, {
+        fields: [contractPlots.contractId],
+        references: [plotSaleContracts.id],
+    }),
+    plot: one(plots, {
+        fields: [contractPlots.plotId],
+        references: [plots.id],
+    }),
+    installments: many(contractInstallments),
+}));
+
 export const contractInstallmentsRelations = relations(contractInstallments, ({one, many}) => ({
     contract: one(plotSaleContracts, {
         fields: [contractInstallments.contractId],
         references: [plotSaleContracts.id],
+    }),
+    contractPlot: one(contractPlots, {
+        fields: [contractInstallments.contractPlotId],
+        references: [contractPlots.id],
+    }),
+    plot: one(plots, {
+        fields: [contractInstallments.plotId],
+        references: [plots.id],
     }),
     allocations: many(contractPaymentAllocations),
     smsMessages: many(smsMessages),

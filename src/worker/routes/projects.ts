@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { createInsertSchema } from 'drizzle-zod'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, asc, desc } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Env, Variables } from '../types'
-import { projects } from '../../../drizzle/tenant/schema'
+import { expenses, plots, projectAcquisitions, projects } from '../../../drizzle/tenant/schema'
 
 const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true })
 
@@ -59,6 +59,43 @@ const projectsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
     }
 
     return c.json({ created, results })
+  })
+  // A project plus its plots (each with its current holding contact), its
+  // acquisition deals, and every LAND_ACQUISITION expense logged directly
+  // against it (each with the payee/supplier contact) — feeds the view
+  // sheet's Overview (Project Payments) and Plots tabs. See
+  // types/projects.ts's `ClientProject` for the shape this returns.
+  .get('/:id/statement-data', async (c) => {
+    const id = c.req.param('id')
+    const row = await c.get('tenantDb')
+      .query.projects.findFirst({
+        where: and(eq(projects.id, id), eq(projects.isDeleted, false)),
+        with: {
+          plots: {
+            where: eq(plots.isDeleted, false),
+            orderBy: [asc(plots.plotNumber)],
+            with: {
+              contact: true,
+            },
+          },
+          acquisitions: {
+            orderBy: [desc(projectAcquisitions.dealDate), desc(projectAcquisitions.createdAt)],
+          },
+          expenses: {
+            where: eq(expenses.category, 'LAND_ACQUISITION'),
+            orderBy: [asc(expenses.paidAt)],
+            with: {
+              payee: true,
+            },
+          },
+        },
+      })
+    if (!row) return c.json({ error: 'Not found' }, 404)
+
+    // Rename `expenses` -> `payments` to match the Project Payments tab's
+    // vocabulary (and ClientProject's shape) rather than the raw relation name.
+    const { expenses: payments, ...rest } = row
+    return c.json({ ...rest, payments })
   })
   .get('/:id', async (c) => {
     const id = c.req.param('id')

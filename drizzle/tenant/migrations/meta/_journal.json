@@ -43,6 +43,13 @@
       "when": 1787573367665,
       "tag": "0005_init",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787877256930,
+      "tag": "0006_contract_plots_bucket",
+      "breakpoints": true
     }
   ]
 }

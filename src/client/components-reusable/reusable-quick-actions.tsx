@@ -6,7 +6,7 @@ import {
     HandCoinsIcon,
     ShoppingCartIcon,
     UserPlusIcon,
-    ZapIcon
+    ZapIcon,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -20,6 +20,7 @@ import {
 import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet";
 import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
+import {AddEditProjectsForm} from "@/components/forms/projects/add-edit-projects-form.tsx";
 
 interface QuickActionsMenuProps {
     side?: "top" | "right" | "bottom" | "left";
@@ -148,13 +149,24 @@ export function QuickActionsMenu({
             </DropdownMenu>
 
             {/*
-              Render AddEditContactForm directly when the action is "Add Contact"
-              (it has its own sheet), otherwise use ReusableSheet for other actions.
+              Render AddEditContactForm/AddEditProjectsForm directly for the
+              actions that have their own sheet ("Add Contact", "New
+              Project"), otherwise use ReusableSheet's placeholder for
+              actions that don't have a real form yet.
             */}
             {activeItem?.label === "Add Contact" ? (
                 <AddEditContactForm
                     mode="add"
                     open={activeItem?.label === "Add Contact"}
+                    onOpenChange={(open) => {
+                        if (!open) setActiveLabel(null)
+                    }}
+                    onSuccess={() => setActiveLabel(null)}
+                />
+            ) : activeItem?.label === "New Project" ? (
+                <AddEditProjectsForm
+                    mode="add"
+                    open={activeItem?.label === "New Project"}
                     onOpenChange={(open) => {
                         if (!open) setActiveLabel(null)
                     }}

@@ -31,7 +31,16 @@ import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover.tsx"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx"
 import {ReusableEmpty, SearchCardsIllustration} from "@/components-reusable/reusable-empty.tsx"
-import {LandPlot as LandPlotIcon, PlusIcon, FunnelIcon, SearchIcon, CheckIcon, XIcon, SquarePenIcon, Trash2Icon,} from "lucide-react"
+import {
+    CheckIcon,
+    FunnelIcon,
+    LandPlot as LandPlotIcon,
+    PlusIcon,
+    SearchIcon,
+    SquarePenIcon,
+    Trash2Icon,
+    XIcon,
+} from "lucide-react"
 import {thousandSeparator} from "@/lib/utils"
 import type {ClientProjectPlot} from "@/types/projects.ts"
 import {AddPlotForm} from "@/components/forms/projects/add-plot-form.tsx"
@@ -75,10 +84,10 @@ function draftFromPlot(plot: ClientProjectPlot): EditDraft {
 // interactive Cancel/Delete buttons — per the "click tooltip which displays
 // a confirm component" requirement for row deletion.
 function DeletePlotPopover({
-                                plotNumber,
-                                onConfirm,
-                                disabled,
-                            }: {
+                               plotNumber,
+                               onConfirm,
+                               disabled,
+                           }: {
     plotNumber: string
     onConfirm: () => void
     disabled?: boolean
@@ -286,7 +295,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                             aria-label="Plot number"
                         />
                     ) : (
-                        <div className="text-foreground font-medium">{row.original.plotNumber}</div>
+                        <div className="text-foreground font-medium">Plot No. {row.original.plotNumber}</div>
                     ),
                 enableSorting: true,
                 size: 150,
@@ -572,7 +581,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination/>
+                        <DataGridPagination rowsPerPageLabel="Plots per Page"/>
                     </CardFooter>
                 </Card>
             </DataGrid>
