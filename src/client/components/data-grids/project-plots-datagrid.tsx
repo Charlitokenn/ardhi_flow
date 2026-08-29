@@ -19,8 +19,22 @@ import {
 import {DataGridColumnHeader} from "@/components/reui/data-grid/data-grid-column-header.tsx"
 import {DataGridPagination} from "@/components/reui/data-grid/data-grid-pagination.tsx"
 import {DataGridScrollArea} from "@/components/reui/data-grid/data-grid-scroll-area.tsx"
-import {DataGridTable} from "@/components/reui/data-grid/data-grid-table.tsx"
-import {type ColumnDef, type PaginationState, type SortingState, useTable,} from "@tanstack/react-table"
+import {
+    DataGridTable,
+    DataGridTableRowSelect,
+    DataGridTableRowSelectAll,
+} from "@/components/reui/data-grid/data-grid-table.tsx"
+import {
+    type ColumnDef,
+    type PaginationState,
+    type Row,
+    type RowSelectionState,
+    type SortingState,
+    useTable,
+} from "@tanstack/react-table"
+import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
+import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
+import {type ExportColumn} from "@/lib/export-csv.ts"
 import {Badge} from "@/components/reui/badge.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {Card, CardAction, CardContent, CardFooter, CardHeader} from "@/components/ui/card.tsx"
@@ -111,6 +125,18 @@ const plotFields: CsvFieldConfig<PlotCsvRow>[] = [
     },
 ]
 
+// CSV export column config — mirrors exportColumns in contacts-datagrid.tsx.
+// Fed to useTableCSVExport, which reads whatever rows are currently
+// selected (or the full filtered set for exportAll) straight off the table.
+const exportColumns: ExportColumn<ClientProjectPlot>[] = [
+    {header: "Plot Number", accessor: (d) => d.plotNumber},
+    {header: "Surveyed Plot Number", accessor: (d) => d.surveyedPlotNumber},
+    {header: "Plot Size (m²)", accessor: (d) => d.unsurveyedSize},
+    {header: "Surveyed Plot Size (m²)", accessor: (d) => d.surveyedSize},
+    {header: "Availability", accessor: (d) => d.availability},
+    {header: "Current Owner", accessor: (d) => d.contact?.fullName ?? ""},
+]
+
 // All editing state lives in table.options.meta instead of being closed
 // over inside the columns builder. Cell renderers below are declared at
 // module scope so their function identity never changes across renders —
@@ -124,7 +150,7 @@ interface PlotsTableMeta {
     showSurveyedFields: boolean
     setShowSurveyedFields: (show: boolean) => void
     savingRowId: string | null
-    deletingRowId: string | null
+    deletingRowIds: Set<string>
     hasSurveyedPlotNumber: boolean
     hasSurveyedSize: boolean
     startEditing: (plot: ClientProjectPlot) => void
@@ -194,6 +220,15 @@ function DeletePlotPopover({
             </PopoverContent>
         </Popover>
     )
+}
+
+// Same accessorKey/id: "id" convention as contacts-datagrid.tsx's selection
+// column — reuses the row's own id field rather than a synthetic "select" id.
+// Needs the real Row instance (getIsSelected/toggleSelected/table), unlike
+// the other cells above which only ever touch `row.original`, so it's typed
+// against tanstack's Row directly rather than the narrower PlotCellContext.
+function RowSelectCell({row}: { row: Row<DataGridFeatures, ClientProjectPlot> }) {
+    return <DataGridTableRowSelect row={row}/>
 }
 
 function PlotNumberCell({row, table}: PlotCellContext) {
@@ -388,11 +423,11 @@ function CurrentOwnerCell({row}: PlotCellContext) {
 
 function ActionsCell({row, table}: PlotCellContext) {
     const meta = getMeta(table)
-    const {editingRowId, savingRowId, deletingRowId, startEditing, cancelEditing, saveEditing, handleDelete} = meta
+    const {editingRowId, savingRowId, deletingRowIds, startEditing, cancelEditing, saveEditing, handleDelete} = meta
     const plot = row.original
     const isEditingRow = editingRowId === plot.id
     const isSavingRow = savingRowId === plot.id
-    const isDeletingRow = deletingRowId === plot.id
+    const isDeletingRow = deletingRowIds.has(plot.id)
 
     if (isEditingRow) {
         return (
@@ -461,8 +496,9 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     const [editingRowId, setEditingRowId] = useState<string | null>(null)
     const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
     const [savingRowId, setSavingRowId] = useState<string | null>(null)
-    const [deletingRowId, setDeletingRowId] = useState<string | null>(null)
+    const [deletingRowIds, setDeletingRowIds] = useState<Set<string>>(new Set())
     const [showSurveyedFields, setShowSurveyedFields] = useState(false)
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
     const invalidate = () => {
         queryClient.invalidateQueries({queryKey: ["project-statement-data", projectId]})
@@ -494,14 +530,6 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             if (!res.ok) throw new Error("Failed to delete plot")
             return res.json()
         },
-        onSuccess: () => {
-            invalidate()
-            toast.success("Plot deleted")
-        },
-        onError: () => {
-            toast.error("Failed to delete plot")
-        },
-        onSettled: () => setDeletingRowId(null),
     })
 
     const startEditing = (plot: ClientProjectPlot) => {
@@ -549,8 +577,23 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     }
 
     const handleDelete = (plot: ClientProjectPlot) => {
-        setDeletingRowId(plot.id)
-        deletePlot.mutate(plot.id)
+        setDeletingRowIds((prev) => new Set(prev).add(plot.id))
+        deletePlot.mutate(plot.id, {
+            onSuccess: () => {
+                invalidate()
+                toast.success("Plot deleted")
+            },
+            onError: () => {
+                toast.error("Failed to delete plot")
+            },
+            onSettled: () => {
+                setDeletingRowIds((prev) => {
+                    const next = new Set(prev)
+                    next.delete(plot.id)
+                    return next
+                })
+            },
+        })
     }
 
     // Bulk import — the CSV never carries projectId (see plotFields above),
@@ -632,6 +675,15 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
     const columns = useMemo<ColumnDef<DataGridFeatures, ClientProjectPlot>[]>(
         () => [
             {
+                accessorKey: "id",
+                id: "id",
+                header: () => <DataGridTableRowSelectAll/>,
+                cell: RowSelectCell,
+                enableSorting: false,
+                size: 35,
+                enableResizing: false,
+            },
+            {
                 accessorKey: "plotNumber",
                 id: "plotNumber",
                 header: ({column}) => <DataGridColumnHeader title="Plot Number" visibility column={column}/>,
@@ -706,7 +758,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         showSurveyedFields,
         setShowSurveyedFields,
         savingRowId,
-        deletingRowId,
+        deletingRowIds,
         hasSurveyedPlotNumber,
         hasSurveyedSize,
         startEditing,
@@ -721,11 +773,52 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
         data: filteredData,
         pageCount: Math.max(1, Math.ceil(filteredData.length / pagination.pageSize)),
         getRowId: (row: ClientProjectPlot) => row.id,
-        state: {pagination, sorting},
+        enableRowSelection: true,
+        state: {pagination, sorting, rowSelection},
+        onRowSelectionChange: setRowSelection,
         onPaginationChange: setPagination,
         onSortingChange: setSorting,
         meta,
     })
+
+    // Reads whichever rows are currently checked straight off `table`; falls
+    // back to nothing selected until the user ticks a row, same as contacts.
+    const {exportSelected} = useTableCSVExport(table, exportColumns)
+
+    // Mirrors handleBulkDelete in contacts-datagrid.tsx: fire all deletes
+    // concurrently via mutateAsync (bypassing handleDelete's single-row
+    // onSuccess/onError so we get one summary toast instead of N), clear
+    // selection immediately so the action bar closes, and let deletingRowIds
+    // drive the per-row disabled state on ActionsCell in the meantime.
+    const handleBulkDelete = () => {
+        if (!table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()) return
+        const selectedIds = Object.keys(rowSelection)
+        if (selectedIds.length === 0) return
+
+        setDeletingRowIds((prev) => {
+            const next = new Set(prev)
+            selectedIds.forEach((id) => next.add(id))
+            return next
+        })
+        table.toggleAllRowsSelected(false)
+
+        Promise.all(selectedIds.map((id) => deletePlot.mutateAsync(id)))
+            .then(() => {
+                invalidate()
+                toast.success(`Deleted ${selectedIds.length} plot${selectedIds.length > 1 ? "s" : ""}`)
+            })
+            .catch(() => {
+                invalidate()
+                toast.error("Some plots could not be deleted")
+            })
+            .finally(() => {
+                setDeletingRowIds((prev) => {
+                    const next = new Set(prev)
+                    selectedIds.forEach((id) => next.delete(id))
+                    return next
+                })
+            })
+    }
 
     return (
         <>
@@ -751,7 +844,12 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                     )
                 }
             >
-                <Card className="w-full gap-3 py-0">
+                <TableActionBar
+                    table={table}
+                    onExport={() => exportSelected("plots")}
+                    onDelete={handleBulkDelete}
+                />
+                <Card className="w-full gap-3 py-0 mt-4">
                     <CardHeader className="flex items-center justify-between px-3.5 py-2">
                         <div className="flex items-center gap-2.5">
                             <InputGroup className="w-48">

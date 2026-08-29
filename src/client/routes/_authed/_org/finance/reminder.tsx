@@ -4,6 +4,7 @@ import {BellRingIcon, MessagesSquareIcon} from "lucide-react";
 import {InstallmentsReminderDataGrid} from "@/components/data-grids/installments-reminder-datagrid.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
+import MessagingPortal from "@/components/messaging/messaging-portal.tsx";
 
 export const Route = createFileRoute('/_authed/_org/finance/reminder')({
     staticData: {
@@ -30,7 +31,7 @@ function RouteComponent() {
                         </Button>
                     }
                     widthClassName="sm:max-w-full"
-                    children={<div/>}
+                    children={<MessagingPortal/>}
                 />
             </div>
             <InstallmentsReminderDataGrid/>
