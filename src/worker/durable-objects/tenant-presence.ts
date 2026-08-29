@@ -1,6 +1,7 @@
 import {type Connection, type ConnectionContext, Server, type WSMessage} from "partyserver";
-import {verifyToken} from "@clerk/backend";
+import {createClerkClient} from "@clerk/backend";
 import type {Env} from "../types";
+import {verifyClerkToken} from "../middleware/clerk-auth";
 
 /**
  * Tenant presence, as a Durable Object inside the ArdhiFlow Worker.
@@ -37,6 +38,17 @@ type PresenceUser = {
 const STALE_TIMEOUT_MS = 50_000; // ~2.5x the client's heartbeat interval
 const SWEEP_INTERVAL_MS = 25_000;
 
+function readPresenceHeader(request: Request, name: string): string | undefined {
+    const value = request.headers.get(name);
+    if (!value) return undefined;
+
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return undefined;
+    }
+}
+
 export class TenantPresence extends Server<Env> {
     // Sleep when no one's connected — zero duration billing for idle tenants.
     static options = {hibernate: true};
@@ -48,13 +60,12 @@ export class TenantPresence extends Server<Env> {
             return;
         }
 
-        const url = new URL(ctx.request.url);
         const presence: PresenceUser = {
             connectionId: connection.id,
             userId,
-            name: url.searchParams.get("name") ?? "Unknown user",
-            imageUrl: url.searchParams.get("imageUrl") ?? undefined,
-            email: url.searchParams.get("email") ?? undefined,
+            name: readPresenceHeader(ctx.request, "X-Presence-Name") ?? "Unknown user",
+            imageUrl: readPresenceHeader(ctx.request, "X-Presence-Image-Url"),
+            email: readPresenceHeader(ctx.request, "X-Presence-Email"),
             connectedAt: Date.now(),
             lastSeen: Date.now(),
         };
@@ -121,6 +132,10 @@ export class TenantPresence extends Server<Env> {
 
         if (closedAny) this.broadcastRoster();
 
+        // conn.close() above may not have removed the connection from
+        // getConnections() synchronously — if not, this just reschedules one
+        // extra sweep before the room actually goes quiet, which self-corrects
+        // next cycle.
         const stillConnected = [...this.getConnections()].length > 0;
         if (stillConnected) {
             await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
@@ -141,12 +156,14 @@ export class TenantPresence extends Server<Env> {
 }
 
 /**
- * Edge auth guard for the presence websocket. Mirrors clerkAuth() in
- * src/worker/middleware/clerk-auth.ts (same verifyToken({ secretKey, jwtKey })
- * call, same reliance on the `org_id` custom session claim), but reads the
+ * Edge auth guard for the presence websocket. Shares the same
+ * verifyToken({ secretKey, jwtKey }) call as clerkAuth() in
+ * src/worker/middleware/clerk-auth.ts via verifyClerkToken(), but reads the
  * token from a query param instead of an Authorization header — the browser
  * WebSocket API can't set custom headers on the upgrade request, so the
- * client attaches `?token=<sessionToken>` instead (see use-tenant-presence.ts).
+ * client attaches `?token=<sessionToken>` instead (see use-tenant-presence.ts)
+ * — and checks org_id against this specific room rather than just requiring
+ * one to be present.
  */
 export async function verifyPresenceConnection(
     request: Request,
@@ -157,10 +174,7 @@ export async function verifyPresenceConnection(
     if (!token) return new Response("Missing token", {status: 401});
 
     try {
-        const claims = await verifyToken(token, {
-            secretKey: env.CLERK_SECRET_KEY,
-            jwtKey: env.CLERK_JWT_KEY,
-        });
+        const claims = await verifyClerkToken(token, env);
 
         const orgId = claims.org_id as string | undefined;
         if (!orgId || orgId !== roomId) {
@@ -168,6 +182,22 @@ export async function verifyPresenceConnection(
         }
 
         request.headers.set("X-User-Id", claims.sub);
+        request.headers.set("X-Presence-Name", encodeURIComponent("Unknown user"));
+        request.headers.delete("X-Presence-Image-Url");
+        request.headers.delete("X-Presence-Email");
+
+        try {
+            const user = await createClerkClient({secretKey: env.CLERK_SECRET_KEY}).users.getUser(claims.sub);
+            const name = user.fullName ?? user.username ?? "Unknown user";
+            const email = user.emailAddresses.find(({id}) => id === user.primaryEmailAddressId)?.emailAddress;
+
+            request.headers.set("X-Presence-Name", encodeURIComponent(name));
+            if (user.imageUrl) request.headers.set("X-Presence-Image-Url", encodeURIComponent(user.imageUrl));
+            if (email) request.headers.set("X-Presence-Email", encodeURIComponent(email));
+        } catch (error) {
+            console.error("Failed to load verified Clerk presence profile:", error);
+        }
+
         return request;
     } catch {
         return new Response("Unauthorized", {status: 401});

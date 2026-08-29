@@ -44,11 +44,14 @@ export function useTenantPresence() {
         prefix: "api/party", // matches partyserverMiddleware({ options: { prefix: "api/party" } })
         room: organization?.id ?? "no-org",
         enabled,
+        // Only the session token goes over the wire — name/imageUrl/email
+        // are deliberately NOT sent here. The server derives them itself
+        // from a verified Clerk lookup on the token's subject (see
+        // verifyPresenceConnection in tenant-presence.ts) rather than
+        // trusting whatever this client claims, so a connection can't put
+        // an arbitrary name/photo into another org member's roster.
         query: async () => ({
             token: (await getToken()) ?? "",
-            name: user?.fullName ?? user?.username ?? "Unknown user",
-            imageUrl: user?.imageUrl ?? "",
-            email: user?.primaryEmailAddress?.emailAddress ?? "",
         }),
         onMessage(event) {
             try {

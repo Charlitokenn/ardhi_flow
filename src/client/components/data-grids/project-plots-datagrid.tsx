@@ -985,7 +985,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                         </Card>
                     </CardContent>
                     <CardFooter className="border-none bg-transparent! px-3.5 py-2">
-                        <DataGridPagination rowsPerPageLabel="Plots per Page"/>
+                        <DataGridPagination sizes={[8, 16, 50, 100, 500]} rowsPerPageLabel="Plots per Page"/>
                     </CardFooter>
                 </Card>
             </DataGrid>

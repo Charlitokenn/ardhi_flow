@@ -307,7 +307,7 @@ export function AddEditContactForm({
         setValues(isEdit && initialData ? toFormValues(initialData) : EMPTY_VALUES)
         setErrors({})
         setCurrentStep(1)
-        setHighestStep(1)
+
     }
 
     const update = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
@@ -347,7 +347,7 @@ export function AddEditContactForm({
                 setValues(EMPTY_VALUES)
                 setErrors({})
                 setCurrentStep(1)
-                setHighestStep(1)
+
             }
         },
         onError: (error) => {
@@ -408,7 +408,6 @@ export function AddEditContactForm({
     const goToStep = (step: number) => {
         if (step > currentStep && !validateStep(currentStep)) return
         setCurrentStep(step)
-        setHighestStep((prev) => Math.max(prev, step))
     }
 
     const handleNext = () => goToStep(Math.min(currentStep + 1, TOTAL_STEPS))
@@ -424,7 +423,6 @@ export function AddEditContactForm({
 
         if (firstInvalidStep !== null) {
             setCurrentStep(firstInvalidStep)
-            setHighestStep((prev) => Math.max(prev, firstInvalidStep!))
             toast.error("Please fix the highlighted fields")
             return
         }
