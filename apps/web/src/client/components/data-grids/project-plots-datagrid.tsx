@@ -33,7 +33,7 @@ import {
     useTable,
 } from "@tanstack/react-table"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
-import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
+import {useTableCSVExport} from "@ardhiflow/api-client"
 import {type ExportColumn} from "@/lib/export-csv.ts"
 import {Badge} from "@/components/reui/badge.tsx"
 import {Button} from "@/components/ui/button.tsx"
@@ -63,7 +63,7 @@ import {
     XIcon,
 } from "lucide-react"
 import {thousandSeparator} from "@/lib/utils"
-import type {ClientProjectPlot} from "@/types/projects.ts"
+import type {ClientProjectPlot} from "@ardhiflow/shared-schema"
 import type {NewPlot} from "../../../../drizzle/tenant/schema.ts"
 import {AddPlotForm} from "@/components/forms/projects/add-plot-form.tsx"
 

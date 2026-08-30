@@ -33,7 +33,7 @@ import {
 import {Button} from "@/components/ui/button.tsx"
 import {Card} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
-import type {ClientContactVendorJob} from "@/types/contacts.ts"
+import type {ClientContactVendorJob} from "@ardhiflow/shared-schema"
 import {ChevronDownIcon, ChevronUpIcon} from "lucide-react"
 import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 import {PaymentsSubTable} from "@/components/data-grids/payments-subtable.tsx"

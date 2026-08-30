@@ -32,7 +32,7 @@ import {type ColumnDef, type PaginationState, type SortingState, useTable,} from
 
 import {Card} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
-import type {ClientContactExpensePayment} from "@/types/contacts.ts"
+import type {ClientContactExpensePayment} from "@ardhiflow/shared-schema"
 
 // ---------------------------------------------------------------------------
 // Formatting helpers

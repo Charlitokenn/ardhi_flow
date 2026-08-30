@@ -23,7 +23,7 @@ import {
 import {type ColumnDef, type PaginationState, type SortingState, useTable,} from "@tanstack/react-table"
 import {Card} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
-import type {ClientProjectExpensePayment} from "@/types/projects.ts"
+import type {ClientProjectExpensePayment} from "@ardhiflow/shared-schema"
 import {withProjectPaymentRunningTotals} from "@/lib/project-balance.ts"
 
 function formatTzs(value: string | number): string {

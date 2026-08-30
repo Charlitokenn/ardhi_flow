@@ -1,4 +1,4 @@
-import type { ClientProject, ClientProjectExpensePayment } from "@/types/projects.ts"
+import type { ClientProject, ClientProjectExpensePayment } from "@ardhiflow/shared-schema"
 
 // A project's target acquisition cost — what all the payments in the
 // "Project Payments" tab are being measured against. Prefers the sum of its

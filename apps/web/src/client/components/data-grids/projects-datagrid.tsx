@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu.tsx";
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx";
 import {EyeDashedIcon, MoreHorizontalIcon, SearchIcon, SquarePenIcon, Trash2Icon, XIcon,} from "lucide-react";
-import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts";
+import {useTableCSVExport} from "@ardhiflow/api-client";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
 import {type ExportColumn} from "@/lib/export-csv.ts";
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
@@ -48,7 +48,7 @@ import {ArchiveIcon} from "@/assets/icons";
 import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
 import {AddEditProjectsForm, type ProjectRecord} from "@/components/forms/projects/add-edit-projects-form.tsx";
 import {ProjectsView} from "@/components/views/projects-view.tsx";
-import type {ClientProject} from "@/types/projects.ts";
+import type {ClientProject} from "@ardhiflow/shared-schema";
 import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
 
 interface IPlot {

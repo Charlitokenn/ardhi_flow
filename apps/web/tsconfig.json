@@ -14,7 +14,7 @@
   "compilerOptions": {
     "paths": {
       "@/*": [
-        "./src/*"
+        "./src/client/*"
       ]
     }
   }

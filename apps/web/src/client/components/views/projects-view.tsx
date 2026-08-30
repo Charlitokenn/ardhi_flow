@@ -7,7 +7,7 @@ import {ContactSection, DetailItem} from "@/components/views/contact-overview.ts
 import {ProjectPaymentsDataGrid} from "@/components/data-grids/project-payments-datagrid.tsx"
 import {ProjectPlotsDataGrid} from "@/components/data-grids/project-plots-datagrid.tsx"
 import {computeProjectAcquisitionTarget} from "@/lib/project-balance.ts"
-import type {ClientProject} from "@/types/projects.ts"
+import type {ClientProject} from "@ardhiflow/shared-schema"
 
 function formatTzs(value: string | number | null): string | null {
     if (value === null) return null

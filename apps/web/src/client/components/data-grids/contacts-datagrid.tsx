@@ -59,7 +59,7 @@ import {AddEditContactForm, type ContactRecord,} from "@/components/forms/contac
 import {formatMobileNumber} from "@/lib/utils.ts";
 import {UserDeleteIcon} from "@/assets/icons/index.tsx";
 import {ViewContactForm} from "@/components/forms/contacts/view-contact-form.tsx";
-import type {ClientContact} from "@/types/contacts.ts";
+import type {ClientContact} from "@ardhiflow/shared-schema";
 import {type DocumentBrandingExtra, EMPTY_BRANDING_EXTRA,} from "../../../../../../packages/shared-schema/src/index.ts"
 import {TabsScrollSwitchSkeleton} from "@/components/custom-tabs-vertical.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx";

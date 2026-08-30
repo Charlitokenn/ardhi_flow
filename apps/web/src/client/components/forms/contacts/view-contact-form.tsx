@@ -19,8 +19,8 @@ import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmati
 import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
 import {ImportIcon} from "@/assets/icons";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
-import type {ClientContact, ClientContactContract, ClientContactPlot,} from "@/types/contacts.ts";
-import type {DocumentBrandingExtra} from "@/types/branding.ts";
+import type {ClientContact, ClientContactContract, ClientContactPlot,} from "@ardhiflow/shared-schema";
+import type {DocumentBrandingExtra} from "@ardhiflow/shared-schema";
 import {buildDocumentReferenceNumber} from "@/lib/document-reference.ts";
 import {
     computeContractBalance,

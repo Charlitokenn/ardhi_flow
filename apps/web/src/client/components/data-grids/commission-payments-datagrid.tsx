@@ -34,7 +34,7 @@ import {Avatar, AvatarFallback} from "@/components/ui/avatar.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {Card} from "@/components/ui/card.tsx"
 import {thousandSeparator} from "@/lib/utils"
-import type {ClientContactAsAgentContract, ClientContactCommissionPayout,} from "@/types/contacts.ts"
+import type {ClientContactAsAgentContract, ClientContactCommissionPayout,} from "@ardhiflow/shared-schema"
 import {ChevronDownIcon, ChevronUpIcon} from "lucide-react"
 import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 

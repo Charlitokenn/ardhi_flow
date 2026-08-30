@@ -32,7 +32,7 @@ import {
 import {Button} from "@/components/ui/button.tsx"
 import {Card} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
-import type {ClientContactAsSellerAcquisition, ClientContactExpensePayment,} from "@/types/contacts.ts"
+import type {ClientContactAsSellerAcquisition, ClientContactExpensePayment,} from "@ardhiflow/shared-schema"
 import {ChevronDownIcon, ChevronUpIcon} from "lucide-react"
 import {PaymentsSubTable} from "@/components/data-grids/payments-subtable.tsx"
 

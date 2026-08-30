@@ -1,4 +1,4 @@
-import type { ClientContactContract, ClientContactInstallment } from "@/types/contacts.ts"
+import type { ClientContactContract, ClientContactInstallment } from "@ardhiflow/shared-schema"
 
 // A contract is a "bucket" that can hold more than one plot (see the
 // schema's contractPlots table). `ClientContactContract.installments` is

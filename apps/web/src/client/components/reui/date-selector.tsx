@@ -17,7 +17,7 @@ import {
 } from "date-fns"
 import type { DateRange, DayButton } from "react-day-picker"
 
-import { useIsMobile } from "@/hooks/use-mobile.ts"
+import { useIsMobile } from "@ardhiflow/api-client"
 import { cn } from "@/lib/utils.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar.tsx"

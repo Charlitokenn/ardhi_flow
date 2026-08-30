@@ -34,7 +34,7 @@ import {
 import {Button} from "@/components/ui/button.tsx"
 import {Card, CardAction, CardTitle} from "@/components/ui/card.tsx"
 import {formatDate, thousandSeparator} from "@/lib/utils"
-import type {ClientContactInstallment, ClientContactPlot} from "@/types/contacts.ts"
+import type {ClientContactInstallment, ClientContactPlot} from "@ardhiflow/shared-schema"
 import {ChevronDownIcon, ChevronUpIcon, Columns3Icon} from "lucide-react"
 
 // ---------------------------------------------------------------------------
