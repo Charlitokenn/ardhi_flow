@@ -49,7 +49,7 @@ import {
     Trash2Icon,
     XIcon,
 } from "lucide-react"
-import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts"
+import {useTableCSVExport} from "../../../../../../packages/api-client/src/index.ts"
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type ExportColumn} from "@/lib/export-csv.ts"
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx"

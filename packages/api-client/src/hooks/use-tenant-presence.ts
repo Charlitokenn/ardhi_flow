@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useState} from "react";
 import {useAuth, useOrganization, useUser} from "@clerk/react";
-import usePartySocket from "@partysocket/react";
+import usePartySocket from "partysocket/react";
 
 export type PresenceUser = {
     connectionId: string;
