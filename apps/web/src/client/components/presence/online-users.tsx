@@ -1,7 +1,7 @@
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from "@/components/ui/tooltip";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {cn} from "@/lib/utils";
-import {useTenantPresence} from "@/hooks/use-tenant-presence";
+import {useTenantPresence} from "../../../../../../packages/api-client/src/index.ts"
 
 const MAX_VISIBLE = 5;
 

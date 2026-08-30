@@ -1,5 +1,5 @@
 import {type FormEvent, type ReactNode, useEffect, useMemo, useState} from "react"
-import {useCopyToClipboard} from "@/hooks/use-copy-to-clipboard.ts"
+import {useCopyToClipboard, useTableCSVExport} from "../../../../../../packages/api-client/src/index.ts"
 import {Badge} from "@/components/reui/badge.tsx"
 import {
     DataGrid,
@@ -50,7 +50,6 @@ import {
     UserPlusIcon,
     XIcon
 } from "lucide-react"
-import {useTableCSVExport} from "@/hooks/use-table-csv-export.ts";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx"
 import {type DateRange} from "react-day-picker"
 import {DateRangePicker} from "@/components/ui/date-range-picker.tsx"
