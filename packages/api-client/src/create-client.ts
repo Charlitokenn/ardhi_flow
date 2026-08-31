@@ -9,14 +9,27 @@ import type {Hono} from 'hono'
  */
 export function createApiClient<AppType extends Hono<any, any, any>>(
     baseUrl: string,
-    getToken: () => Promise<string | null>
+    getToken: () => Promise<string | null>,
+    onUnauthorized?: () => void
 ) {
     return hc<AppType>(baseUrl, {
         fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
             const token = await getToken()
             const headers = new Headers(init?.headers)
             if (token) headers.set('Authorization', `Bearer ${token}`)
-            return fetch(input, {...init, headers})
+            const response = await fetch(input, {...init, headers})
+
+            // 401 = missing/invalid/expired session token (see clerkAuth() in
+            // apps/web/src/worker/middleware/clerk-auth.ts), distinct from 403
+            // (valid session, no active org). No platform-specific redirect
+            // here — this package is shared with apps/mobile, which has no
+            // `window` and its own navigation stack, so each app supplies its
+            // own onUnauthorized behavior.
+            if (response.status === 401) {
+                onUnauthorized?.()
+            }
+
+            return response
         },
     })
 }

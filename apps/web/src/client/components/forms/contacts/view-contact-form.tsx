@@ -16,11 +16,15 @@ import {
 import {formatInternationalWithSpaces, getInitials, thousandSeparator, toProperCase,} from "@/lib/utils";
 import {ClientStatementDocument} from "@/components/forms/contacts/client-statement.tsx";
 import {ConfirmationLetterDocument} from "@/components/forms/contacts/confirmation-letter.tsx";
-import {PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
+import {type DocumentProps, PDFDownloadLink, PDFViewer} from "@react-pdf/renderer";
 import {ImportIcon} from "@/assets/icons";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
-import type {ClientContact, ClientContactContract, ClientContactPlot,} from "@ardhiflow/shared-schema";
-import type {DocumentBrandingExtra} from "@ardhiflow/shared-schema";
+import type {
+    ClientContact,
+    ClientContactContract,
+    ClientContactPlot,
+    DocumentBrandingExtra,
+} from "@ardhiflow/shared-schema";
 import {buildDocumentReferenceNumber} from "@/lib/document-reference.ts";
 import {
     computeContractBalance,
@@ -327,7 +331,7 @@ function PdfTabHeader({
                           disabledLabel,
                       }: {
     plotSelector: React.ReactNode;
-    document: React.ReactElement;
+    document: React.ReactElement<DocumentProps>;
     fileName: string;
     enabled?: boolean;
     loadingLabel?: string;
@@ -374,7 +378,7 @@ function StatementTabContent({
                                  hasContract,
                              }: {
     plotSelector: React.ReactNode;
-    document: React.ReactElement;
+    document: React.ReactElement<DocumentProps>;
     fileName: string;
     hasContract: boolean;
 }) {
@@ -408,7 +412,7 @@ function ConfirmationLetterTabContent({
                                           fullyPaid,
                                       }: {
     plotSelector: React.ReactNode;
-    document: React.ReactElement | null;
+    document: React.ReactElement<DocumentProps> | null
     fileName: string;
     fullyPaid: boolean;
 }) {
@@ -418,7 +422,7 @@ function ConfirmationLetterTabContent({
         <div className="rounded border-dashed min-h-122.5 mr-3 pl-6 py-1 mx-3">
             <PdfTabHeader
                 plotSelector={plotSelector}
-                document={document as React.ReactElement}
+                document={document as React.ReactElement<DocumentProps>}
                 fileName={fileName}
                 enabled={available}
                 loadingLabel="Preparing..."

@@ -411,7 +411,7 @@ export function MobileMockup({
                                 {avatarUrl ? (
                                     <img
                                         src={avatarUrl}
-                                        alt={headerTitle}
+                                        alt={headerTitle ?? undefined}
                                         className="h-full w-full object-cover"
                                     />
                                 ) : (
