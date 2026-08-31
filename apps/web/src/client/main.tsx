@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { ClerkProvider, useAuth } from '@clerk/react'
@@ -18,6 +18,21 @@ if (!CLERK_PUBLISHABLE_KEY) {
 
 function InnerApp() {
   const auth = useAuth()
+  const wasSignedIn = useRef(false)
+
+  // beforeLoad guards (see routes/_authed/route.tsx) only rerun on
+  // navigation, not just because the `context` prop below changed. Without
+  // this, a session that dies while the user sits idle on an authed page
+  // (inactivity timeout, revoked elsewhere, max session age) leaves them
+  // stranded there until their next click. Only fires on the true->false
+  // transition, not on the initial unauthenticated render.
+  useEffect(() => {
+    if (!auth.isLoaded) return
+    if (wasSignedIn.current && !auth.isSignedIn) {
+      router.invalidate()
+    }
+    wasSignedIn.current = auth.isSignedIn
+  }, [auth.isLoaded, auth.isSignedIn])
 
   // Wait for Clerk before mounting the router at all, so every route's
   // beforeLoad sees a resolved isSignedIn/orgId rather than a mid-load
