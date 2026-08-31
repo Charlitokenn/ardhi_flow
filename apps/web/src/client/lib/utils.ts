@@ -1,6 +1,6 @@
 import {type ClassValue, clsx} from "clsx"
 import {twMerge} from "tailwind-merge"
-import {differenceInDays, endOfMonth, startOfMonth, subDays, subMonths} from "date-fns"
+import {differenceInDays, endOfMonth, format, startOfMonth, subDays, subMonths} from "date-fns"
 import type {DateRange} from "react-day-picker"
 
 export function cn(...inputs: ClassValue[]) {
@@ -209,6 +209,15 @@ export function formatDate(date: string) {
         'Dec'
     ]
     return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}
+
+/** e.g. "Aug 12, 2026 11:23 PM" — short month + no-leading-zero day/hour, no
+ *  comma before the time. Used wherever the exact time (not just the day)
+ *  matters, like comment/event timestamps. */
+export function formatDateTimeShort(date: string | Date): string {
+    const d = typeof date === "string" ? new Date(date) : date
+    if (Number.isNaN(d.getTime())) return "—"
+    return format(d, "MMM d, yyyy h:mm a")
 }
 
 export function timeUntil(targetDate: string | Date): string {

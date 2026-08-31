@@ -22,16 +22,18 @@ import {Checkbox} from "@/components/ui/checkbox.tsx";
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx";
-import {EyeIcon, FunnelIcon, MessageCircleIcon, SearchIcon, Settings2Icon, XIcon,} from "lucide-react";
+import {FunnelIcon, MessageSquareTextIcon, SearchIcon, Settings2Icon, XIcon,} from "lucide-react";
 import {useTableCSVExport} from "../../../../../../packages/api-client/src/index.ts";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
 import {type ExportColumn} from "@/lib/export-csv.ts";
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
+import ReusableScrollspy, {type ReusableScrollspyItem,} from "@/components-reusable/reusable-scrollspy.tsx";
 import {Skeleton} from "@/components/ui/skeleton.tsx";
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
-import {ArchiveIcon} from "@/assets/icons";
-import {formatDate, thousandSeparator} from "@/lib/utils.ts";
+import {ArchiveIcon, ChatLineIcon} from "@/assets/icons";
+import {formatDate, formatDateTimeShort, thousandSeparator,} from "@/lib/utils.ts";
 import {DataGridTableVirtual} from "@/components/reui/data-grid/data-grid-table-virtual";
+import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 // ---------------------------------------------------------------------------
 // Row shape — matches GET /api/installments (src/worker/routes/installments.ts)
 // ---------------------------------------------------------------------------
@@ -63,6 +65,10 @@ interface IInstallmentComment {
     id: string;
     message: string | null;
     eventType: string;
+    // Free-text name of whoever logged the comment. Null/empty for
+    // system-generated entries (e.g. an automatic delinquency marker) —
+    // those are attributed to "ArdhiFlow System" in the UI.
+    createdBy: string | null;
     createdAt: string | null;
 }
 
@@ -206,6 +212,43 @@ function latestComment(
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bTime - aTime;
     })[0];
+}
+
+/** Human-entered comments carry the staff member's name in `createdBy`;
+ *  system-generated entries (e.g. an automatic delinquency marker) leave it
+ *  blank, so those are attributed to ArdhiFlow itself. */
+function commentAuthorLabel(comment: IInstallmentComment): string {
+    return comment.createdBy?.trim() || "ArdhiFlow System";
+}
+
+/** Maps installment comments into ReusableScrollspy's generic item shape —
+ *  latest first, nav label = timestamp, content = the "Comment By" /
+ *  "Comment Details" card. */
+function commentsToScrollspyItems(
+    comments: IInstallmentComment[],
+): ReusableScrollspyItem[] {
+    return [...comments]
+        .sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+        })
+        .map((comment) => ({
+            id: comment.id,
+            label: comment.createdAt ? formatDateTimeShort(comment.createdAt) : "—",
+            content: (
+                <div className="rounded-md border p-2.5 text-sm">
+                    <p>
+                        <span className="text-muted-foreground">Comment By: </span>
+                        {commentAuthorLabel(comment)}
+                    </p>
+                    <p className="mt-1">
+                        <span className="text-muted-foreground">Comment Details: </span>
+                        {comment.message ?? "—"}
+                    </p>
+                </div>
+            ),
+        }));
 }
 
 const exportColumns: ExportColumn<IInstallment>[] = [
@@ -572,35 +615,6 @@ export function InstallmentsReminderDataGrid() {
                 enableResizing: true,
             },
             {
-                id: "comments",
-                accessorFn: (row) => latestComment(row.comments)?.message ?? "",
-                header: ({column}) => (
-                    <DataGridColumnHeader
-                        title="Comments"
-                        visibility={true}
-                        column={column}
-                    />
-                ),
-                cell: ({row}) => {
-                    const comment = latestComment(row.original.comments);
-                    if (!comment?.message)
-                        return <span className="text-muted-foreground">—</span>;
-                    return (
-                        <div className="flex items-center gap-1.5 max-w-64">
-                            <MessageCircleIcon className="size-3.5 text-muted-foreground shrink-0"/>
-                            <span className="truncate" title={comment.message}>
-                {comment.message}
-              </span>
-                        </div>
-                    );
-                },
-                size: 220,
-                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
-                enableSorting: false,
-                enableHiding: true,
-                enableResizing: true,
-            },
-            {
                 id: "reminderStatus",
                 accessorFn: (row) => computeReminderStatus(row),
                 header: ({column}) => (
@@ -621,18 +635,37 @@ export function InstallmentsReminderDataGrid() {
             {
                 id: "actions",
                 header: "",
-                cell: ({row}) => (
-                    <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="View installment details"
-                        title="View installment details"
-                        onClick={() => setViewingRow(row.original)}
-                    >
-                        <EyeIcon aria-hidden="true"/>
-                    </Button>
-                ),
-                size: 50,
+                cell: ({row}) => {
+                    const commentCount = row.original.comments.length;
+                    return (
+                        <div className="relative inline-flex">
+                            <ReusableTooltip
+                                orientation="left"
+                                trigger={
+                                    <MessageSquareTextIcon
+                                        aria-hidden="true"
+                                        className="size-4 cursor-pointer"
+                                        onClick={() => setViewingRow(row.original)}
+                                    />
+                                }
+                                tooltip={
+                                    commentCount > 0
+                                        ? `${commentCount} ${commentCount > 0 ? "comments" : "comment"}`
+                                        : "No comments"
+                                }
+                            />
+                            {commentCount > 0 && (
+                                <Badge
+                                    variant="warning"
+                                    radius="full"
+                                    className="pointer-events-none absolute w-2.5 h-2.5 -top-1 -inset-e-1 p-0 min-w-0 min-h-0"
+                                    aria-hidden="true"
+                                />
+                            )}
+                        </div>
+                    );
+                },
+                size: 60,
                 enableSorting: false,
                 enableHiding: false,
                 enableResizing: false,
@@ -845,104 +878,29 @@ export function InstallmentsReminderDataGrid() {
                             </DataGridContainer>
                         </Card>
                     </CardContent>
-                    {/*<CardFooter className="border-none bg-transparent! px-3.5 py-2">*/}
-                    {/*    <DataGridPagination/>*/}
-                    {/*</CardFooter>*/}
                 </Card>
             </DataGrid>
 
             <ReusableSheet
-                title="Installment details"
-                description="Read-only details for this installment."
+                title="Followup Comments"
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null);
                 }}
                 children={
                     viewingRow && (
-                        <div className="space-y-4 text-sm">
-                            <div className="space-y-2">
-                                <div>
-                                    <span className="text-muted-foreground">Client: </span>
-                                    {viewingRow.contract?.client?.fullName ?? "—"}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Project: </span>
-                                    {viewingRow.plot?.project?.projectName ?? "—"}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Plot: </span>
-                                    {viewingRow.plot?.plotNumber ?? "—"}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Installment: </span>
-                                    {formatInstallmentLabel(viewingRow.installmentNo)}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Due Date: </span>
-                                    {formatDate(viewingRow.dueDate)}
-                                </div>
-                                <div>
-                  <span className="text-muted-foreground">
-                    Installment Amount:{" "}
-                  </span>
-                                    {formatTzs(viewingRow.amountDue)}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Penalty: </span>
-                                    {formatTzs(viewingRow.penaltyAmount)}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Paid Amount: </span>
-                                    {formatTzs(viewingRow.amountPaid)}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Payment Date: </span>
-                                    {viewingRow.paidAt ? formatDate(viewingRow.paidAt) : "—"}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Outstanding: </span>
-                                    {formatTzs(computeOutstanding(viewingRow))}
-                                </div>
-                                <div>
-                                    <span className="text-muted-foreground">Status: </span>
-                                    {reminderStatusBadge(computeReminderStatus(viewingRow))}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 border-t pt-3">
-                                <div className="text-muted-foreground text-xs font-medium">
-                                    Comments
-                                </div>
-                                {viewingRow.comments.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No comments logged for this installment.
-                                    </p>
-                                ) : (
-                                    <ul className="space-y-2">
-                                        {[...viewingRow.comments]
-                                            .sort((a, b) => {
-                                                const aTime = a.createdAt
-                                                    ? new Date(a.createdAt).getTime()
-                                                    : 0;
-                                                const bTime = b.createdAt
-                                                    ? new Date(b.createdAt).getTime()
-                                                    : 0;
-                                                return bTime - aTime;
-                                            })
-                                            .map((comment) => (
-                                                <li key={comment.id} className="rounded-md border p-2">
-                                                    <p>{comment.message ?? "—"}</p>
-                                                    <p className="text-muted-foreground text-xs mt-1">
-                                                        {comment.createdAt
-                                                            ? formatDate(comment.createdAt)
-                                                            : "—"}
-                                                    </p>
-                                                </li>
-                                            ))}
-                                    </ul>
-                                )}
-                            </div>
+                        <div className="space-y-2">
+                            {viewingRow.comments.length === 0 ? (
+                                <ReusableEmpty
+                                    title="No Comments here!"
+                                    description="No comments to display here"
+                                    media={<ChatLineIcon className="size-16"/>}
+                                />
+                            ) : (
+                                <ReusableScrollspy
+                                    items={commentsToScrollspyItems(viewingRow.comments)}
+                                />
+                            )}
                         </div>
                     )
                 }
