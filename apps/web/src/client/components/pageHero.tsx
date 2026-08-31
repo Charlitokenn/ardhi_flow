@@ -44,16 +44,9 @@ export const PageHero = ({
                              bulkUploaderClass,
                              bulkUploaderTitle,
                              bulkUploaderDescription,
-                             bulkUploaderSaveButtonText,
-                             hideBulkUploaderHeader,
-                             hideBulkUploaderFooter,
                              sheetContent,
                              sheetTitle,
                              sheetDescription,
-                             sheetIcon,
-                             sheetSaveButtonText,
-                             hideSheetHeader,
-                             hideSheetFooter,
                              sheetSizeClass
                          }: PageHeroProps): JSX.Element => {
     return (
@@ -76,12 +69,8 @@ export const PageHero = ({
                         }
                         title={sheetTitle ?? ''}
                         description={sheetDescription}
-                        titleIcon={sheetIcon}
-                        formContent={sheetContent}
-                        saveButtonText={sheetSaveButtonText}
-                        hideHeader={hideSheetHeader}
-                        hideFooter={hideSheetFooter}
-                        popupClass={sheetSizeClass}
+                        children={sheetContent}
+                        widthClassName={sheetSizeClass}
                     />
                 )}
                 {showBulkUploader && (
@@ -94,12 +83,8 @@ export const PageHero = ({
                         }
                         title={bulkUploaderTitle ?? ''}
                         description={bulkUploaderDescription}
-                        titleIcon={sheetIcon}
-                        formContent={bulkUploader}
-                        saveButtonText={bulkUploaderSaveButtonText}
-                        hideHeader={hideBulkUploaderHeader}
-                        hideFooter={hideBulkUploaderFooter}
-                        popupClass={bulkUploaderClass}
+                        children={bulkUploader}
+                        widthClassName={bulkUploaderClass}
                     />
                 )}
             </div>
