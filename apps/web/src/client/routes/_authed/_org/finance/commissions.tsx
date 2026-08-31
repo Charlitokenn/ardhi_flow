@@ -1,6 +1,7 @@
 import {createFileRoute} from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
 import {CalendarSyncIcon} from "lucide-react";
+import {CommissionsDataGrid} from "@/components/data-grids/commissions-datagrid.tsx";
 
 export const Route = createFileRoute('/_authed/_org/finance/commissions')({
     staticData: {
@@ -20,6 +21,7 @@ function RouteComponent() {
                 buttonText="Pay Commission"
                 buttonIcon={<CalendarSyncIcon/>}
             />
+            <CommissionsDataGrid/>
         </section>
     )
 }

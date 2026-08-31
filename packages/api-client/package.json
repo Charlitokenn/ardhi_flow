@@ -13,6 +13,7 @@
     "@ardhiflow/shared-schema": "workspace:^",
     "@clerk/react": "^6.13.0",
     "@tanstack/react-query": "^5.101.4",
+    "hono": "^4.13.1",
     "partysocket": "^1.3.0"
   },
   "devDependencies": {
