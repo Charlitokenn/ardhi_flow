@@ -304,7 +304,7 @@ function PhonePreview({campaign}: { campaign: Campaign }) {
         <MobileMockup
             autoPlay={false}
             headerTitle={organization?.name}
-            headerSubtitle={isSms ? (formatInternationalWithSpaces(mobile) ?? undefined) : "online"}
+            headerSubtitle={isSms ? (formatInternationalWithSpaces(mobile) ?? "") : "online"}
             avatarUrl={organization?.imageUrl}
             avatarFallback={getNameInitials(organization?.name ?? "JD")}
             currentTime={time}

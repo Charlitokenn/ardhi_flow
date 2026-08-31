@@ -412,7 +412,7 @@ function ConfirmationLetterTabContent({
                                           fullyPaid,
                                       }: {
     plotSelector: React.ReactNode;
-    document: React.ReactElement<DocumentProps>
+    document: React.ReactElement<DocumentProps> | null
     fileName: string;
     fullyPaid: boolean;
 }) {
