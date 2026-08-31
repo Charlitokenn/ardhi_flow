@@ -1058,6 +1058,7 @@ export function InstallmentsReminderDataGrid() {
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null);
                 }}
+                widthClassName="w-100"
                 children={
                     viewingRow && (
                         <ReusableTimeline

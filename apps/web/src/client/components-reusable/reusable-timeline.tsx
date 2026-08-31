@@ -87,44 +87,46 @@ export default function ReusableTimeline({
         // its left edge a few px outside the timeline's own box — fine in
         // open page flow, but ScrollArea clips anything past its edge, so
         // without this gutter the leftmost indicator gets visibly clipped.
-        <ScrollArea className={cn("-me-5 ps-4 pe-5", scrollAreaClassName)}>
-            <div className={cn("w-full", className)}>
-                {topSlot && <div className="ms-8 mb-6">{topSlot}</div>}
-                <Timeline defaultValue={items.length}>
-                    {items.map((item, index) => {
-                        const step = items.length - index;
-                        return (
-                            <TimelineItem
-                                key={item.id}
-                                step={step}
-                                className={cn("pb-6", itemClassName)}
-                            >
-                                <TimelineHeader>
-                                    <TimelineSeparator
-                                        className="group-data-[orientation=vertical]/timeline:-left-7 group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-7"/>
-                                    <TimelineTitle
-                                        className={cn("text-sm font-semibold", titleClassName)}
-                                    >
-                                        {item.title}
-                                    </TimelineTitle>
-                                    <TimelineIndicator
-                                        className={cn(
-                                            "bg-muted text-muted-foreground group-data-completed/timeline-item:bg-primary group-data-completed/timeline-item:text-primary-foreground flex size-6 items-center justify-center border-none text-[11px] font-medium group-data-[orientation=vertical]/timeline:-left-7",
-                                            indicatorClassName,
-                                        )}
-                                    >
-                                        {item.indicator ?? step}
-                                    </TimelineIndicator>
-                                </TimelineHeader>
-                                <TimelineContent className="mt-2">
-                                    {item.content}
-                                </TimelineContent>
-                            </TimelineItem>
-                        );
-                    })}
-                </Timeline>
-            </div>
-        </ScrollArea>
+        <>
+            {topSlot && <div className="ms-8 mb-4">{topSlot}</div>}
+            <ScrollArea className={cn("-me-5 ps-4 pe-5", scrollAreaClassName)}>
+                <div className={cn("w-full px-2", className)}>
+                    <Timeline defaultValue={items.length}>
+                        {items.map((item, index) => {
+                            const step = items.length - index;
+                            return (
+                                <TimelineItem
+                                    key={item.id}
+                                    step={step}
+                                    className={cn("pb-6", itemClassName)}
+                                >
+                                    <TimelineHeader>
+                                        <TimelineSeparator
+                                            className="group-data-[orientation=vertical]/timeline:-left-7 group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-7"/>
+                                        <TimelineTitle
+                                            className={cn("text-xs font-semibold", titleClassName)}
+                                        >
+                                            {item.title}
+                                        </TimelineTitle>
+                                        <TimelineIndicator
+                                            className={cn(
+                                                "bg-muted text-muted-foreground group-data-completed/timeline-item:bg-primary group-data-completed/timeline-item:text-primary-foreground flex size-6 items-center justify-center border-none text-[11px] font-medium group-data-[orientation=vertical]/timeline:-left-7",
+                                                indicatorClassName,
+                                            )}
+                                        >
+                                            {item.indicator ?? step}
+                                        </TimelineIndicator>
+                                    </TimelineHeader>
+                                    <TimelineContent className="mt-2">
+                                        {item.content}
+                                    </TimelineContent>
+                                </TimelineItem>
+                            );
+                        })}
+                    </Timeline>
+                </div>
+            </ScrollArea>
+        </>
     );
 }
 
