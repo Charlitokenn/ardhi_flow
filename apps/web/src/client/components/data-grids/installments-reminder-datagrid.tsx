@@ -1,9 +1,11 @@
 import {useEffect, useMemo, useState} from "react";
-import {useAuth} from "@clerk/react";
-import {useQuery} from "@tanstack/react-query";
+import {useAuth, useUser} from "@clerk/react";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {apiClient} from "@/lib/api.ts";
 import {Badge} from "@/components/reui/badge.tsx";
 import {Avatar, AvatarFallback} from "@/components/ui/avatar.tsx";
+import {Frame, FrameHeader, FramePanel} from "@/components/reui/frame.tsx";
+import {Textarea} from "@/components/ui/textarea.tsx";
 import {
     DataGrid,
     DataGridContainer,
@@ -22,12 +24,12 @@ import {Checkbox} from "@/components/ui/checkbox.tsx";
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx";
-import {FunnelIcon, MessageSquareTextIcon, SearchIcon, Settings2Icon, XIcon,} from "lucide-react";
+import {FunnelIcon, MessageSquareTextIcon, PlusIcon, SearchIcon, Settings2Icon, XIcon,} from "lucide-react";
 import {useTableCSVExport} from "../../../../../../packages/api-client/src/index.ts";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
 import {type ExportColumn} from "@/lib/export-csv.ts";
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
-import ReusableScrollspy, {type ReusableScrollspyItem,} from "@/components-reusable/reusable-scrollspy.tsx";
+import ReusableTimeline, {type ReusableTimelineItem,} from "@/components-reusable/reusable-timeline.tsx";
 import {Skeleton} from "@/components/ui/skeleton.tsx";
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
 import {ArchiveIcon, ChatLineIcon} from "@/assets/icons";
@@ -221,34 +223,134 @@ function commentAuthorLabel(comment: IInstallmentComment): string {
     return comment.createdBy?.trim() || "ArdhiFlow System";
 }
 
-/** Maps installment comments into ReusableScrollspy's generic item shape —
- *  latest first, nav label = timestamp, content = the "Comment By" /
- *  "Comment Details" card. */
-function commentsToScrollspyItems(
+/** Maps installment comments into ReusableTimeline's generic item shape —
+ *  latest first (so the timeline numbers them down from the total count),
+ *  step title = timestamp, content = the "Comment By" / "Comment Details"
+ *  card rendered inside the same Frame primitive used for the "add comment"
+ *  trigger above it. */
+function commentsToTimelineItems(
     comments: IInstallmentComment[],
-): ReusableScrollspyItem[] {
+): ReusableTimelineItem[] {
     return [...comments]
         .sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return bTime - aTime;
         })
-        .map((comment) => ({
-            id: comment.id,
-            label: comment.createdAt ? formatDateTimeShort(comment.createdAt) : "—",
-            content: (
-                <div className="rounded-md border p-2.5 text-sm">
-                    <p>
-                        <span className="text-muted-foreground">Comment By: </span>
-                        {commentAuthorLabel(comment)}
-                    </p>
-                    <p className="mt-1">
-                        <span className="text-muted-foreground">Comment Details: </span>
-                        {comment.message ?? "—"}
-                    </p>
+        .map((comment) => {
+            const author = commentAuthorLabel(comment);
+            return {
+                id: comment.id,
+                title: comment.createdAt ? formatDateTimeShort(comment.createdAt) : "—",
+                content: (
+                    <Frame spacing="sm" className="w-full">
+                        <FrameHeader className="flex-row items-center gap-2">
+                            <Avatar className="size-5">
+                                <AvatarFallback className="text-[10px]">
+                                    {initials(author)}
+                                </AvatarFallback>
+                            </Avatar>
+                            <span className="text-muted-foreground text-xs font-medium">
+                                {author}
+                            </span>
+                        </FrameHeader>
+                        <FramePanel>
+                            <p className="text-sm leading-relaxed">
+                                {comment.message ?? "—"}
+                            </p>
+                        </FramePanel>
+                    </Frame>
+                ),
+            };
+        });
+}
+
+/** A dashed placeholder shaped like the same Frame used for each comment
+ *  (see commentsToTimelineItems) that sits above the latest comment. Click
+ *  opens a popover with a textarea to write and submit a new follow-up
+ *  comment. Stays presentational — the caller supplies `onSubmit`, which
+ *  receives the trimmed message plus a callback to fire once the save
+ *  succeeds (closes the popover and clears the draft). */
+function AddCommentTrigger({
+                               onSubmit,
+                               isPending,
+                           }: {
+    onSubmit: (message: string, callbacks: { onSuccess: () => void }) => void;
+    isPending: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [message, setMessage] = useState("");
+
+    return (
+        <Popover
+            open={open}
+            onOpenChange={(next) => {
+                setOpen(next);
+                if (!next) setMessage("");
+            }}
+        >
+            <PopoverTrigger asChild>
+                <button type="button" className="block w-full text-left">
+                    <Frame
+                        spacing="sm"
+                        className="w-full items-center justify-center border-dashed py-3 transition-colors hover:bg-muted/50"
+                    >
+                        <div
+                            className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs font-medium">
+                            <PlusIcon className="size-3.5"/>
+                            Add comment
+                        </div>
+                    </Frame>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="start">
+                <div className="space-y-2.5">
+                    <Label
+                        htmlFor="new-installment-comment"
+                        className="text-xs font-medium"
+                    >
+                        New comment
+                    </Label>
+                    <Textarea
+                        id="new-installment-comment"
+                        placeholder="Write a comment..."
+                        rows={4}
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        autoFocus
+                    />
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                setOpen(false);
+                                setMessage("");
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={!message.trim() || isPending}
+                            onClick={() =>
+                                onSubmit(message.trim(), {
+                                    onSuccess: () => {
+                                        setOpen(false);
+                                        setMessage("");
+                                    },
+                                })
+                            }
+                        >
+                            {isPending ? "Saving..." : "Submit"}
+                        </Button>
+                    </div>
                 </div>
-            ),
-        }));
+            </PopoverContent>
+        </Popover>
+    );
 }
 
 const exportColumns: ExportColumn<IInstallment>[] = [
@@ -280,7 +382,9 @@ const exportColumns: ExportColumn<IInstallment>[] = [
 
 export function InstallmentsReminderDataGrid() {
     const {getToken} = useAuth();
+    const {user} = useUser();
     const api = apiClient(getToken);
+    const queryClient = useQueryClient();
 
     // const [pagination, setPagination] = useState<PaginationState>({
     //     pageIndex: 0,
@@ -306,6 +410,73 @@ export function InstallmentsReminderDataGrid() {
 
     const [viewingRow, setViewingRow] = useState<IInstallment | null>(null);
     const isViewSheetOpen = viewingRow !== null;
+
+    // Logs a follow-up comment against whichever installment is open in the
+    // sheet (see the AddCommentTrigger inside ReusableTimeline below).
+    // `viewingRow` is a snapshot of the row, not a live subscription to the
+    // installments query, so success also appends the new comment onto it
+    // directly — that's what makes the sheet reflect it immediately, on top
+    // of invalidating ["installments"] so the grid's own comment count
+    // catches up next time it renders.
+    const addCommentMutation = useMutation({
+        mutationFn: async ({
+                               installmentId,
+                               message,
+                               createdBy,
+                           }: {
+            installmentId: string;
+            message: string;
+            createdBy: string | null;
+        }) => {
+            const res = await api.api.installments[":id"].comments.$post({
+                param: {id: installmentId},
+                json: {message, createdBy},
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                const errorMessage =
+                    (body && typeof body === "object" && "error" in body
+                        ? (body as { error?: string }).error
+                        : null) ?? "Failed to add comment";
+                throw new Error(errorMessage);
+            }
+            return res.json();
+        },
+        onSuccess: (created) => {
+            setViewingRow((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        comments: [
+                            ...prev.comments,
+                            created as unknown as IInstallmentComment,
+                        ],
+                    }
+                    : prev,
+            );
+            queryClient.invalidateQueries({queryKey: ["installments"]});
+        },
+        onError: (err) => {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to add comment",
+            );
+        },
+    });
+
+    function handleAddComment(
+        message: string,
+        callbacks: { onSuccess: () => void },
+    ) {
+        if (!viewingRow) return;
+        addCommentMutation.mutate(
+            {
+                installmentId: viewingRow.id,
+                message,
+                createdBy: user?.fullName?.trim() || user?.username || null,
+            },
+            {onSuccess: callbacks.onSuccess},
+        );
+    }
 
     const installmentsQuery = useQuery({
         queryKey: ["installments"],
@@ -889,19 +1060,28 @@ export function InstallmentsReminderDataGrid() {
                 }}
                 children={
                     viewingRow && (
-                        <div className="space-y-2">
-                            {viewingRow.comments.length === 0 ? (
-                                <ReusableEmpty
-                                    title="No Comments here!"
-                                    description="No comments to display here"
-                                    media={<ChatLineIcon className="size-16"/>}
+                        <ReusableTimeline
+                            items={commentsToTimelineItems(viewingRow.comments)}
+                            topSlot={
+                                <AddCommentTrigger
+                                    onSubmit={handleAddComment}
+                                    isPending={addCommentMutation.isPending}
                                 />
-                            ) : (
-                                <ReusableScrollspy
-                                    items={commentsToScrollspyItems(viewingRow.comments)}
-                                />
-                            )}
-                        </div>
+                            }
+                            emptyState={
+                                <div className="flex h-full flex-col gap-4">
+                                    <AddCommentTrigger
+                                        onSubmit={handleAddComment}
+                                        isPending={addCommentMutation.isPending}
+                                    />
+                                    <ReusableEmpty
+                                        title="No Comments here!"
+                                        description="No comments to display here"
+                                        media={<ChatLineIcon className="size-16"/>}
+                                    />
+                                </div>
+                            }
+                        />
                     )
                 }
             />
