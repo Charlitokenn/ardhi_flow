@@ -1053,7 +1053,7 @@ export function InstallmentsReminderDataGrid() {
             </DataGrid>
 
             <ReusableSheet
-                title="Followup Comments"
+                title="Comments History"
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null);
@@ -1071,14 +1071,15 @@ export function InstallmentsReminderDataGrid() {
                             }
                             emptyState={
                                 <div className="flex h-full flex-col gap-4">
-                                    <AddCommentTrigger
-                                        onSubmit={handleAddComment}
-                                        isPending={addCommentMutation.isPending}
-                                    />
+
                                     <ReusableEmpty
                                         title="No Comments here!"
                                         description="No comments to display here"
                                         media={<ChatLineIcon className="size-16"/>}
+                                        children={<AddCommentTrigger
+                                            onSubmit={handleAddComment}
+                                            isPending={addCommentMutation.isPending}
+                                        />}
                                     />
                                 </div>
                             }

@@ -5,6 +5,8 @@ import {InstallmentsReminderDataGrid} from "@/components/data-grids/installments
 import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 import MessagingPortal from "@/components/messaging/messaging-portal.tsx";
+import {CalendarSearchIcon} from "@/assets/icons";
+import {ReusableEventsCalendar} from "@/components-reusable/reusable-event-calendar.tsx"
 
 export const Route = createFileRoute('/_authed/_org/finance/reminder')({
     staticData: {
@@ -23,16 +25,28 @@ function RouteComponent() {
                     subtitle="Followup on outstanding payments"
                     buttonIcon={<BellRingIcon/>}
                 />
-                <ReusableSheet
-                    title="Message Broadcasting"
-                    trigger={
-                        <Button variant="outline">
-                            <RadioIcon className="size-4"/> Message Broadcast
-                        </Button>
-                    }
-                    widthClassName="sm:max-w-full"
-                    children={<MessagingPortal/>}
-                />
+                <div className="flex gap-2">
+                    <ReusableSheet
+                        title="Recovery Calendar"
+                        trigger={
+                            <Button variant="outline">
+                                <CalendarSearchIcon className="size-4"/> Recovery Calendar
+                            </Button>
+                        }
+                        widthClassName="sm:max-w-full"
+                        children={<ReusableEventsCalendar/>}
+                    />
+                    <ReusableSheet
+                        title="Message Broadcasting"
+                        trigger={
+                            <Button variant="outline">
+                                <RadioIcon className="size-4"/> Message Broadcast
+                            </Button>
+                        }
+                        widthClassName="sm:max-w-full"
+                        children={<MessagingPortal/>}
+                    />
+                </div>
             </div>
             <InstallmentsReminderDataGrid/>
         </section>
