@@ -304,25 +304,26 @@ interface EventCalendarInstance<TData = unknown> {
 function resolveSettings<TData>(
   options: UseEventCalendarStateOptions<TData>
 ): EventCalendarSettings<TData> {
-  const {
-    // strip state pairs; the rest flows into settings
-    events: _e,
-    defaultEvents: _de,
-    view: _v,
-    defaultView: _dv,
-    date: _d,
-    defaultDate: _dd,
-    dayCount: _dc,
-    defaultDayCount: _ddc,
-    selection: _s,
-    defaultSelection: _ds,
-    interactions: _i,
-    defaultInteractions: _di,
-    viewSettings: _vs,
-    defaultViewSettings: _dvs,
-    loading: _l,
-    ...rest
-  } = options
+  const rest = { ...options }
+  for (const key of [
+    "events",
+    "defaultEvents",
+    "view",
+    "defaultView",
+    "date",
+    "defaultDate",
+    "dayCount",
+    "defaultDayCount",
+    "selection",
+    "defaultSelection",
+    "interactions",
+    "defaultInteractions",
+    "viewSettings",
+    "defaultViewSettings",
+    "loading",
+  ] as const) {
+    delete rest[key]
+  }
   const getEventPriority =
     options.getEventPriority ??
     (DEFAULT_EVENT_PRIORITY as (event: CalendarEvent<TData>) => number)
@@ -935,15 +936,15 @@ function useEventCalendarState<TData = unknown>(
   options: UseEventCalendarStateOptions<TData> = {}
 ): EventCalendarInstance<TData> {
   const [store] = useState(() => createEventCalendarStore<TData>(options))
-  const changed = store.setOptions(options)
-  const changedRef = useRef(false)
-  if (changed) changedRef.current = true
+  const lastAppliedOptionsRef = useRef(options)
   useLayoutEffect(() => {
-    if (changedRef.current) {
-      changedRef.current = false
+    if (lastAppliedOptionsRef.current !== options) {
+      const changed = store.setOptions(options)
+      lastAppliedOptionsRef.current = options
+      if (!changed) return
       store.notify()
     }
-  })
+  }, [options, store])
   useEffect(() => {
     store.emitRangeIfChanged()
     // mount-only: onRangeChange fires once for the initial range

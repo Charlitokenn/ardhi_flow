@@ -20,6 +20,7 @@ const insertInstallmentCommentSchema = createInsertSchema(contractEvents)
         eventType: true,
         meta: true,
         isInternal: true,
+        createdBy: true,
         createdAt: true,
     })
     .extend({
@@ -85,7 +86,7 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 installmentId: installment.id,
                 eventType: 'FOLLOWUP_COMMENT',
                 message: input.message,
-                createdBy: input.createdBy ?? null,
+                createdBy: c.get('userId'),
             })
             .returning()
 

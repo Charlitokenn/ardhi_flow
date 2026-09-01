@@ -291,14 +291,12 @@ function beginBlockedGesture<TData>(
     // body class alongside the inline cursor so consumer CSS can restyle or
     // detect the blocked-drag state (mirrors "ec-dragging")
     document.body.classList.add("ec-drag-blocked")
-    // only now is there anything to get stuck: focus loss means the release
-    // may never be delivered, leaving the cursor not-allowed document-wide
-    window.addEventListener("blur", cleanup)
     instance.settings.onDragBlocked?.(segment.occurrence, { gesture, reason })
   }
   const cleanup = () => {
     if (finished) return
     finished = true
+    activeGestureCancels.delete(cleanup)
     window.removeEventListener("pointermove", onMove)
     window.removeEventListener("pointerup", onRelease)
     window.removeEventListener("pointercancel", onRelease)
@@ -320,6 +318,8 @@ function beginBlockedGesture<TData>(
   window.addEventListener("pointermove", onMove)
   window.addEventListener("pointerup", onRelease)
   window.addEventListener("pointercancel", onRelease)
+  window.addEventListener("blur", cleanup)
+  activeGestureCancels.add(cleanup)
 }
 
 function beginGesture<TData>(config: BeginGestureConfig<TData>) {

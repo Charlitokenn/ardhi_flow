@@ -106,7 +106,13 @@ function parseRRuleString(
         })
         break
       case "BYMONTH":
-        rule.byMonth = value.split(",").map((v) => parseInt(v, 10))
+        rule.byMonth = value.split(",").map((v) => {
+          const month = parseInt(v, 10)
+          if (Number.isNaN(month)) {
+            throw new EventCalendarRecurrenceError(`BYMONTH=${v}`)
+          }
+          return month
+        })
         break
       case "WKST": {
         const day = value.trim().toUpperCase() as EventCalendarWeekday
@@ -469,10 +475,14 @@ function expandRecurrence<TData>(
   let startPeriod =
     aheadMs > 0 ? Math.max(0, Math.floor(aheadMs / stepMs) - 2) : 0
   // mean-length drift is bounded well under one period - refine forward
-  while (
-    periodEdge(startPeriod, "last").getTime() + durationMs <=
-    range.start.getTime()
-  ) {
+  while (true) {
+    const periodEnd = periodEdge(startPeriod, "last").getTime() + durationMs
+    if (
+      periodEnd > range.start.getTime() ||
+      (durationMs === 0 && periodEnd === range.start.getTime())
+    ) {
+      break
+    }
     startPeriod++
   }
 
@@ -506,7 +516,11 @@ function expandRecurrence<TData>(
     const start = new Date(rawStart.getTime())
     if (exTimes.has(start.getTime())) return
     const end = endFor(start)
-    if (start < range.end && end > range.start) {
+    const isPoint = end.getTime() === start.getTime()
+    if (
+      start < range.end &&
+      (end > range.start || (isPoint && start >= range.start))
+    ) {
       occurrences.push({
         key: `${event.id}::${start.toISOString()}`,
         eventId: event.id,
@@ -561,7 +575,13 @@ function expandRecurrence<TData>(
       const start = new Date(rDate.getTime())
       if (seen.has(start.getTime()) || exTimes.has(start.getTime())) continue
       const end = endFor(start)
-      if (start >= range.end || end <= range.start) continue
+      const isPoint = end.getTime() === start.getTime()
+      if (
+        start >= range.end ||
+        (end <= range.start && !(isPoint && start >= range.start))
+      ) {
+        continue
+      }
       seen.add(start.getTime())
       occurrences.push({
         key: `${event.id}::${start.toISOString()}`,
