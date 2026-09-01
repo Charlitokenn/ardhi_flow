@@ -122,6 +122,7 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 .set({message})
                 .where(eq(contractEvents.id, commentId))
                 .returning()
+            if (!updated) return c.json({error: 'Comment not found'}, 404)
 
             return c.json(updated)
         },

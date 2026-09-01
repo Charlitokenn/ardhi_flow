@@ -255,6 +255,7 @@ function CommentActionsPopover({
                     type="button"
                     variant="ghost"
                     size="icon"
+                    aria-label="Open comment actions"
                     className="text-muted-foreground size-6 shrink-0"
                 >
                     <MoreHorizontalIcon className="size-3.5"/>
@@ -324,7 +325,7 @@ function CommentCard({
         <Frame spacing="sm" className="w-full">
             <FrameHeader className="flex-row items-center gap-2">
                 <Avatar className="size-5">
-                    <AvatarFallback className="text-[10px]">
+                    <AvatarFallback className="text-2xs">
                         {initials(author)}
                     </AvatarFallback>
                 </Avatar>
