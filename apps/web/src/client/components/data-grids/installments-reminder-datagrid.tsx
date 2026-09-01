@@ -24,16 +24,27 @@ import {Checkbox} from "@/components/ui/checkbox.tsx";
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx";
-import {FunnelIcon, MessageSquareTextIcon, PlusIcon, SearchIcon, Settings2Icon, XIcon,} from "lucide-react";
+import {
+    FunnelIcon,
+    MessageSquareTextIcon,
+    MoreHorizontalIcon,
+    PlusIcon,
+    SearchIcon,
+    Settings2Icon,
+    SquarePenIcon,
+    Trash2Icon,
+    XIcon,
+} from "lucide-react";
 import {useTableCSVExport} from "../../../../../../packages/api-client/src/index.ts";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
 import {type ExportColumn} from "@/lib/export-csv.ts";
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
+import {ReusableDeleteDialog} from "@/components-reusable/reusable-delete.tsx";
 import ReusableTimeline, {type ReusableTimelineItem,} from "@/components-reusable/reusable-timeline.tsx";
 import {Skeleton} from "@/components/ui/skeleton.tsx";
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
 import {ArchiveIcon, ChatLineIcon} from "@/assets/icons";
-import {formatDate, formatDateTimeShort, thousandSeparator,} from "@/lib/utils.ts";
+import {cn, formatDate, formatDateTimeShort, thousandSeparator,} from "@/lib/utils.ts";
 import {DataGridTableVirtual} from "@/components/reui/data-grid/data-grid-table-virtual";
 import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 // ---------------------------------------------------------------------------
@@ -223,13 +234,188 @@ function commentAuthorLabel(comment: IInstallmentComment): string {
     return comment.createdBy?.trim() || "ArdhiFlow System";
 }
 
+/** Small popover of row actions ("Edit comment" / "Delete Comment") that
+ *  sits at the far right of a comment's title row, next to createdBy.
+ *  Presentational only — CommentCard owns what each action actually does. */
+function CommentActionsPopover({
+                                   onEdit,
+                                   onDeleteClick,
+                               }: {
+    onEdit: () => void;
+    onDeleteClick: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const itemClassName =
+        "group/dropdown-menu-item relative flex min-h-7 w-full cursor-default items-center gap-2 rounded-md px-2 py-1 text-left text-xs/relaxed outline-hidden select-none hover:bg-accent hover:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5";
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground size-6 shrink-0"
+                >
+                    <MoreHorizontalIcon className="size-3.5"/>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-40 p-1">
+                <button
+                    type="button"
+                    className={itemClassName}
+                    onClick={() => {
+                        setOpen(false);
+                        onEdit();
+                    }}
+                >
+                    <SquarePenIcon/>
+                    Edit comment
+                </button>
+                <button
+                    type="button"
+                    className={cn(
+                        itemClassName,
+                        "text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 [&_svg]:text-destructive",
+                    )}
+                    onClick={() => {
+                        setOpen(false);
+                        onDeleteClick();
+                    }}
+                >
+                    <Trash2Icon/>
+                    Delete Comment
+                </button>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+/** One comment card: avatar + createdBy + actions popover up top, message
+ *  below. System-generated entries (e.g. an automatic delinquency marker —
+ *  eventType other than FOLLOWUP_COMMENT) get no actions popover, since
+ *  they're part of the audit trail rather than something a user wrote.
+ *  Clicking "Edit comment" turns the message into a Textarea in place, with
+ *  Save/Cancel; "Delete Comment" opens a confirm dialog before removing it. */
+function CommentCard({
+                         comment,
+                         onEdit,
+                         onDelete,
+                         isEditPending,
+                         isDeletePending,
+                     }: {
+    comment: IInstallmentComment;
+    onEdit: (
+        commentId: string,
+        message: string,
+        callbacks: { onSuccess: () => void },
+    ) => void;
+    onDelete: (commentId: string, callbacks: { onSuccess: () => void }) => void;
+    isEditPending: boolean;
+    isDeletePending: boolean;
+}) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [draft, setDraft] = useState(comment.message ?? "");
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
+    const author = commentAuthorLabel(comment);
+    const isUserComment = comment.eventType === "FOLLOWUP_COMMENT";
+
+    return (
+        <Frame spacing="sm" className="w-full">
+            <FrameHeader className="flex-row items-center gap-2">
+                <Avatar className="size-5">
+                    <AvatarFallback className="text-[10px]">
+                        {initials(author)}
+                    </AvatarFallback>
+                </Avatar>
+                <span className="text-muted-foreground flex-1 text-xs font-medium">
+                    {author}
+                </span>
+                {isUserComment && !isEditing && (
+                    <CommentActionsPopover
+                        onEdit={() => {
+                            setDraft(comment.message ?? "");
+                            setIsEditing(true);
+                        }}
+                        onDeleteClick={() => setConfirmingDelete(true)}
+                    />
+                )}
+            </FrameHeader>
+            <FramePanel>
+                {isEditing ? (
+                    <div className="space-y-2">
+                        <Textarea
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            rows={3}
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isEditPending}
+                                onClick={() => setIsEditing(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                disabled={!draft.trim() || isEditPending}
+                                onClick={() =>
+                                    onEdit(comment.id, draft.trim(), {
+                                        onSuccess: () => setIsEditing(false),
+                                    })
+                                }
+                            >
+                                {isEditPending ? "Saving..." : "Save"}
+                            </Button>
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm leading-relaxed">
+                        {comment.message ?? "—"}
+                    </p>
+                )}
+            </FramePanel>
+
+            {isUserComment && (
+                <ReusableDeleteDialog
+                    open={confirmingDelete}
+                    onOpenChange={setConfirmingDelete}
+                    title="Delete this comment?"
+                    description="This can't be undone — the comment will be permanently removed."
+                    icon={<Trash2Icon className="size-5"/>}
+                    isDeleting={isDeletePending}
+                    onDelete={() =>
+                        onDelete(comment.id, {
+                            onSuccess: () => setConfirmingDelete(false),
+                        })
+                    }
+                />
+            )}
+        </Frame>
+    );
+}
+
 /** Maps installment comments into ReusableTimeline's generic item shape —
  *  latest first (so the timeline numbers them down from the total count),
- *  step title = timestamp, content = the "Comment By" / "Comment Details"
- *  card rendered inside the same Frame primitive used for the "add comment"
- *  trigger above it. */
+ *  step title = timestamp, content = a CommentCard rendered inside the same
+ *  Frame primitive used for the "add comment" trigger above it. */
 function commentsToTimelineItems(
     comments: IInstallmentComment[],
+    handlers: {
+        onEdit: (
+            commentId: string,
+            message: string,
+            callbacks: { onSuccess: () => void },
+        ) => void;
+        onDelete: (commentId: string, callbacks: { onSuccess: () => void }) => void;
+        isEditPending: (commentId: string) => boolean;
+        isDeletePending: (commentId: string) => boolean;
+    },
 ): ReusableTimelineItem[] {
     return [...comments]
         .sort((a, b) => {
@@ -237,32 +423,19 @@ function commentsToTimelineItems(
             const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return bTime - aTime;
         })
-        .map((comment) => {
-            const author = commentAuthorLabel(comment);
-            return {
-                id: comment.id,
-                title: comment.createdAt ? formatDateTimeShort(comment.createdAt) : "—",
-                content: (
-                    <Frame spacing="sm" className="w-full">
-                        <FrameHeader className="flex-row items-center gap-2">
-                            <Avatar className="size-5">
-                                <AvatarFallback className="text-[10px]">
-                                    {initials(author)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <span className="text-muted-foreground text-xs font-medium">
-                                {author}
-                            </span>
-                        </FrameHeader>
-                        <FramePanel>
-                            <p className="text-sm leading-relaxed">
-                                {comment.message ?? "—"}
-                            </p>
-                        </FramePanel>
-                    </Frame>
-                ),
-            };
-        });
+        .map((comment) => ({
+            id: comment.id,
+            title: comment.createdAt ? formatDateTimeShort(comment.createdAt) : "—",
+            content: (
+                <CommentCard
+                    comment={comment}
+                    onEdit={handlers.onEdit}
+                    onDelete={handlers.onDelete}
+                    isEditPending={handlers.isEditPending(comment.id)}
+                    isDeletePending={handlers.isDeletePending(comment.id)}
+                />
+            ),
+        }));
 }
 
 /** A dashed placeholder shaped like the same Frame used for each comment
@@ -474,6 +647,125 @@ export function InstallmentsReminderDataGrid() {
                 message,
                 createdBy: user?.fullName?.trim() || user?.username || null,
             },
+            {onSuccess: callbacks.onSuccess},
+        );
+    }
+
+    // Edits a comment's message in place (see CommentCard's inline
+    // textarea). Same local-state-append pattern as addCommentMutation
+    // above: viewingRow is a snapshot, so success also patches it directly
+    // rather than waiting on the invalidated query to refetch.
+    const editCommentMutation = useMutation({
+        mutationFn: async ({
+                               installmentId,
+                               commentId,
+                               message,
+                           }: {
+            installmentId: string;
+            commentId: string;
+            message: string;
+        }) => {
+            const res = await api.api.installments[":id"].comments[
+                ":commentId"
+                ].$patch({
+                param: {id: installmentId, commentId},
+                json: {message},
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                const errorMessage =
+                    (body && typeof body === "object" && "error" in body
+                        ? (body as { error?: string }).error
+                        : null) ?? "Failed to update comment";
+                throw new Error(errorMessage);
+            }
+            return res.json();
+        },
+        onSuccess: (updated, variables) => {
+            setViewingRow((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        comments: prev.comments.map((c) =>
+                            c.id === variables.commentId
+                                ? (updated as unknown as IInstallmentComment)
+                                : c,
+                        ),
+                    }
+                    : prev,
+            );
+            queryClient.invalidateQueries({queryKey: ["installments"]});
+        },
+        onError: (err) => {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to update comment",
+            );
+        },
+    });
+
+    function handleEditComment(
+        commentId: string,
+        message: string,
+        callbacks: { onSuccess: () => void },
+    ) {
+        if (!viewingRow) return;
+        editCommentMutation.mutate(
+            {installmentId: viewingRow.id, commentId, message},
+            {onSuccess: callbacks.onSuccess},
+        );
+    }
+
+    // Deletes a comment. Same local-state removal + invalidation pattern.
+    const deleteCommentMutation = useMutation({
+        mutationFn: async ({
+                               installmentId,
+                               commentId,
+                           }: {
+            installmentId: string;
+            commentId: string;
+        }) => {
+            const res = await api.api.installments[":id"].comments[
+                ":commentId"
+                ].$delete({
+                param: {id: installmentId, commentId},
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                const errorMessage =
+                    (body && typeof body === "object" && "error" in body
+                        ? (body as { error?: string }).error
+                        : null) ?? "Failed to delete comment";
+                throw new Error(errorMessage);
+            }
+            return res.json();
+        },
+        onSuccess: (_data, variables) => {
+            setViewingRow((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        comments: prev.comments.filter(
+                            (c) => c.id !== variables.commentId,
+                        ),
+                    }
+                    : prev,
+            );
+            queryClient.invalidateQueries({queryKey: ["installments"]});
+        },
+        onError: (err) => {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to delete comment",
+            );
+        },
+    });
+
+    function handleDeleteComment(
+        commentId: string,
+        callbacks: { onSuccess: () => void },
+    ) {
+        if (!viewingRow) return;
+        deleteCommentMutation.mutate(
+            {installmentId: viewingRow.id, commentId},
             {onSuccess: callbacks.onSuccess},
         );
     }
@@ -821,7 +1113,7 @@ export function InstallmentsReminderDataGrid() {
                                 }
                                 tooltip={
                                     commentCount > 0
-                                        ? `${commentCount} ${commentCount > 0 ? "comments" : "comment"}`
+                                        ? `${commentCount} ${commentCount > 1 ? "comments" : "comment"}`
                                         : "No comments"
                                 }
                             />
@@ -1062,7 +1354,16 @@ export function InstallmentsReminderDataGrid() {
                 children={
                     viewingRow && (
                         <ReusableTimeline
-                            items={commentsToTimelineItems(viewingRow.comments)}
+                            items={commentsToTimelineItems(viewingRow.comments, {
+                                onEdit: handleEditComment,
+                                onDelete: handleDeleteComment,
+                                isEditPending: (commentId) =>
+                                    editCommentMutation.isPending &&
+                                    editCommentMutation.variables?.commentId === commentId,
+                                isDeletePending: (commentId) =>
+                                    deleteCommentMutation.isPending &&
+                                    deleteCommentMutation.variables?.commentId === commentId,
+                            })}
                             topSlot={
                                 <AddCommentTrigger
                                     onSubmit={handleAddComment}
