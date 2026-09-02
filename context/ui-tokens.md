@@ -72,7 +72,9 @@ Dark mode is supported via a `.dark` class scope (`@custom-variant dark (&:is(.d
 --font-heading: var(--font-sans);     /* headings use the same family, no separate display font */
 ```
 
-Tailwind's default type scale (`text-xs` through `text-4xl`) is used as-is — no custom scale is defined. Use standard Tailwind size classes.
+Tailwind's default type scale (`text-xs` through `text-4xl`) is used as-is. Use standard Tailwind size classes.
+
+The `text-2xs` utility maps to `0.625rem` (10px) for compact text in controls such as small avatar fallbacks.
 
 ## Border Radius
 

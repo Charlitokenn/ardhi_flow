@@ -20,6 +20,7 @@ const insertInstallmentCommentSchema = createInsertSchema(contractEvents)
         eventType: true,
         meta: true,
         isInternal: true,
+        createdBy: true,
         createdAt: true,
     })
     .extend({
@@ -85,7 +86,7 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 installmentId: installment.id,
                 eventType: 'FOLLOWUP_COMMENT',
                 message: input.message,
-                createdBy: input.createdBy ?? null,
+                createdBy: c.get('userId'),
             })
             .returning()
 
@@ -122,6 +123,7 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 .set({message})
                 .where(eq(contractEvents.id, commentId))
                 .returning()
+            if (!updated) return c.json({error: 'Comment not found'}, 404)
 
             return c.json(updated)
         },
