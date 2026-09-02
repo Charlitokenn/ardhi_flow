@@ -26,6 +26,7 @@ import SMSEdit from "@/assets/sms-edit.svg?react"
 import SMSNotification from "@/assets/sms-notification.svg?react"
 import SMSSearch from "@/assets/sms-search.svg?react"
 import SMSTracking from "@/assets/sms-tracking.svg?react"
+import Calendar from "@/assets/calendar.svg?react"
 
 export const ArchiveIcon = ({className}: { className: string }) => {
     return <Archive className={className}/>
@@ -137,4 +138,8 @@ export const SMSSearchIcon = ({className}: { className: string }) => {
 
 export const SMSTrackingIcon = ({className}: { className: string }) => {
     return <SMSTracking className={className}/>
+}
+
+export const CalendarSearchIcon = ({className}: { className: string }) => {
+    return <Calendar className={className}/>
 }
