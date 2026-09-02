@@ -110,7 +110,7 @@ export default function ReusableTimeline({
                                         </TimelineTitle>
                                         <TimelineIndicator
                                             className={cn(
-                                                "bg-muted text-muted-foreground group-data-completed/timeline-item:bg-primary group-data-completed/timeline-item:text-primary-foreground flex size-6 items-center justify-center border-none text-[11px] font-medium group-data-[orientation=vertical]/timeline:-left-7",
+                                                "bg-muted text-muted-foreground group-data-completed/timeline-item:bg-primary group-data-completed/timeline-item:text-primary-foreground flex size-6 items-center justify-center border-none text-xs font-medium group-data-[orientation=vertical]/timeline:-left-7",
                                                 indicatorClassName,
                                             )}
                                         >

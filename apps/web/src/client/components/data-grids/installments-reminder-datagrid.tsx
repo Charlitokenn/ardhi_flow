@@ -25,6 +25,7 @@ import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@
 import {Label} from "@/components/ui/label.tsx";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx";
 import {
+    BanknoteIcon,
     FunnelIcon,
     MessageSquareTextIcon,
     MoreHorizontalIcon,
@@ -47,6 +48,10 @@ import {ArchiveIcon, ChatLineIcon} from "@/assets/icons";
 import {cn, formatDate, formatDateTimeShort, thousandSeparator,} from "@/lib/utils.ts";
 import {DataGridTableVirtual} from "@/components/reui/data-grid/data-grid-table-virtual";
 import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
+import {ReusableEventsCalendar} from "@/components-reusable/reusable-event-calendar.tsx";
+import type {CalendarEvent, EventCalendarOccurrence,} from "@/components/reui/event-calendar/event-calendar-types";
+import {ScrollArea} from "@/components/ui/scroll-area.tsx";
+import {addDays, startOfDay} from "date-fns";
 // ---------------------------------------------------------------------------
 // Row shape — matches GET /api/installments (src/worker/routes/installments.ts)
 // ---------------------------------------------------------------------------
@@ -1113,7 +1118,7 @@ export function InstallmentsReminderDataGrid() {
                                 }
                                 tooltip={
                                     commentCount > 0
-                                        ? `${commentCount} ${commentCount > 1 ? "comments" : "comment"}`
+                                        ? `${commentCount} ${commentCount > 0 ? "comments" : "comment"}`
                                         : "No comments"
                                 }
                             />
@@ -1389,5 +1394,261 @@ export function InstallmentsReminderDataGrid() {
                 }
             />
         </>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Recovery calendar — installments plotted on their due date, grouped per
+// day since several installments can share one due date. Reuses the same
+// status/amount helpers as the datagrid above so the two stay in sync.
+// ---------------------------------------------------------------------------
+
+/** Same urgency order the status filter uses (REMINDER_STATUSES) — picks the
+ *  most urgent status present in a day's bucket to color that day's event. */
+function dominantReminderStatus(statuses: ReminderStatus[]): ReminderStatus {
+    for (const status of REMINDER_STATUSES) {
+        if (statuses.includes(status)) return status;
+    }
+    return "OPEN";
+}
+
+/** Same semantic colors the status badges use (success/warning/destructive/
+ *  info), as the CSS vars the calendar's `color` field expects. */
+const REMINDER_STATUS_COLOR_VAR: Record<ReminderStatus, string> = {
+    OVERDUE: "var(--color-destructive)",
+    UPCOMING: "var(--color-warning)",
+    OPEN: "var(--color-info)",
+    PAID: "var(--color-success)",
+};
+
+/** Compact "2.5M" / "89.6K" style formatting for amounts that need to fit a
+ *  calendar chip or a toolbar summary number — full comma-separated amounts
+ *  (formatTzs) are too wide for either. */
+function formatCompactAmount(value: number): string {
+    const abs = Math.abs(value);
+    let scaled: number;
+    let suffix: string;
+    if (abs >= 1_000_000) {
+        scaled = value / 1_000_000;
+        suffix = "M";
+    } else if (abs >= 1_000) {
+        scaled = value / 1_000;
+        suffix = "K";
+    } else {
+        return thousandSeparator(value);
+    }
+    const trimmed = scaled.toFixed(2).replace(/\.?0+$/, "");
+    return `${trimmed}${suffix}`;
+}
+
+interface InstallmentCalendarEventData {
+    installments: IInstallment[];
+    totalOutstanding: number;
+    status: ReminderStatus;
+}
+
+/** Groups installments by due date (local calendar day) into one all-day
+ *  event per day, titled with that day's total outstanding amount. */
+function buildInstallmentCalendarEvents(
+    installments: IInstallment[],
+): CalendarEvent<InstallmentCalendarEventData>[] {
+    const buckets = new Map<number, IInstallment[]>();
+    for (const installment of installments) {
+        const due = new Date(installment.dueDate);
+        if (Number.isNaN(due.getTime())) continue;
+        const key = startOfDay(due).getTime();
+        const bucket = buckets.get(key);
+        if (bucket) bucket.push(installment);
+        else buckets.set(key, [installment]);
+    }
+
+    return Array.from(buckets.entries()).map(([key, dayInstallments]) => {
+        const dayStart = new Date(key);
+        const totalOutstanding = dayInstallments.reduce(
+            (sum, item) => sum + computeOutstanding(item),
+            0,
+        );
+        const status = dominantReminderStatus(
+            dayInstallments.map((item) => computeReminderStatus(item)),
+        );
+        return {
+            id: `installments-${key}`,
+            title: `Tsh. ${formatCompactAmount(totalOutstanding)} Outstanding`,
+            start: dayStart,
+            end: addDays(dayStart, 1),
+            allDay: true,
+            color: REMINDER_STATUS_COLOR_VAR[status],
+            data: {installments: dayInstallments, totalOutstanding, status},
+        };
+    });
+}
+
+/** One installment row inside an event's hover tooltip — avatar, bold client
+ *  name with a project-name badge on the header row, outstanding amount on
+ *  the row below. Same avatar + bold-name-with-badge / detail-row-beneath
+ *  shape used for contact cards elsewhere in the app. */
+function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
+    const clientName = installment.contract?.client?.fullName ?? "Unknown client";
+    const projectName = installment.plot?.project?.projectName ?? "—";
+    return (
+        <div className="flex flex-col gap-1.5 border-b py-2.5 last:border-b-0">
+            <div className="flex items-center gap-2">
+                <Avatar className="size-6 shrink-0">
+                    <AvatarFallback className="text-[10px]">
+                        {initials(clientName)}
+                    </AvatarFallback>
+                </Avatar>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+                    {clientName}
+                </span>
+                <Badge size="sm" variant="secondary" className="shrink-0">
+                    {projectName}
+                </Badge>
+            </div>
+            <div className="text-muted-foreground flex items-center gap-1.5 ps-8 text-xs">
+                <BanknoteIcon className="size-3.5"/>
+                {formatTzs(computeOutstanding(installment))}
+            </div>
+        </div>
+    );
+}
+
+/** Hover-tooltip content for a day's grouped installments — a scrollable
+ *  vertical list, one row per installment. Rendered inside HoverCardContent
+ *  (which already applies p-3), so the ScrollArea reclaims that padding via
+ *  negative margin and re-adds it inside itself — the same gutter trick
+ *  ReusableTimeline uses — so the scrollbar sits flush at the card's edge. */
+function InstallmentCalendarEventTooltip({
+                                             occurrence,
+                                         }: {
+    occurrence: EventCalendarOccurrence<InstallmentCalendarEventData>;
+}) {
+    const data = occurrence.event.data;
+    if (!data) return null;
+    return (
+        <>
+            <p className="pb-2 text-xs font-semibold">
+                {data.installments.length}{" "}
+                {data.installments.length === 1 ? "installment" : "installments"} due
+            </p>
+            {/* type="always": the default "hover" type only turns on real
+                overflow/wheel-scrolling after the pointer lingers on the
+                scroll area long enough for Radix's resize-based detection to
+                finish - inside a transient hover tooltip that often never
+                settles before someone tries to scroll, so wheel scrolling
+                silently does nothing. "always" mounts the scrollbar (and its
+                wheel handling) immediately instead of waiting on that. */}
+            <ScrollArea type="always" className="-mx-3 -mb-3 h-64 px-3 pb-3">
+                {data.installments.map((installment) => (
+                    <InstallmentTooltipRow
+                        key={installment.id}
+                        installment={installment}
+                    />
+                ))}
+            </ScrollArea>
+        </>
+    );
+}
+
+/** Recovery Calendar shown on the Reminder route: installments plotted by
+ *  due date via ReusableEventsCalendar, wired up through its generic slots —
+ *  a search box (client/project), a "New event" button left hidden (no
+ *  onAddEvent supplied — installments aren't created from the calendar),
+ *  and range-scoped Outstanding/Overdue totals in the middle of the toolbar. */
+export function InstallmentsRecoveryCalendar() {
+    const {getToken} = useAuth();
+    const api = apiClient(getToken);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const installmentsQuery = useQuery({
+        queryKey: ["installments"],
+        queryFn: async () => {
+            const res = await api.api.installments.$get();
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                const message =
+                    (body && typeof body === "object" && "error" in body
+                        ? (body as { error?: string }).error
+                        : null) ?? `Failed to load installments (${res.status})`;
+                throw new Error(message);
+            }
+            return res.json();
+        },
+    });
+
+    const data = useMemo(
+        () => (installmentsQuery.data ?? []) as unknown as IInstallment[],
+        [installmentsQuery.data],
+    );
+
+    const filteredData = useMemo(() => {
+        const searchLower = searchQuery.toLowerCase();
+        if (!searchLower) return data;
+        return data.filter((item) => {
+            const clientName = item.contract?.client?.fullName ?? "";
+            const projectName = item.plot?.project?.projectName ?? "";
+            return (
+                clientName.toLowerCase().includes(searchLower) ||
+                projectName.toLowerCase().includes(searchLower)
+            );
+        });
+    }, [data, searchQuery]);
+
+    const events = useMemo(
+        () => buildInstallmentCalendarEvents(filteredData),
+        [filteredData],
+    );
+
+    return (
+        <ReusableEventsCalendar<InstallmentCalendarEventData>
+            events={events}
+            views={["month", "week", "agenda"]}
+            i18n={{viewNames: {agenda: "List View"}}}
+            renderEventTooltip={({occurrence}) => (
+                <InstallmentCalendarEventTooltip occurrence={occurrence}/>
+            )}
+            search={{
+                value: searchQuery,
+                onChange: setSearchQuery,
+                placeholder: "Search client or project...",
+            }}
+            headerCenter={({activeRange, hasChangedView}) => {
+                // "All time" until the person actually switches views, then
+                // scoped to whatever range the active view is showing.
+                const scoped = hasChangedView
+                    ? filteredData.filter((item) => {
+                        const due = new Date(item.dueDate);
+                        return (
+                            !Number.isNaN(due.getTime()) &&
+                            due >= activeRange.start &&
+                            due < activeRange.end
+                        );
+                    })
+                    : filteredData;
+                const outstanding = scoped.reduce(
+                    (sum, item) => sum + computeOutstanding(item),
+                    0,
+                );
+                const overdue = scoped
+                    .filter((item) => computeReminderStatus(item) === "OVERDUE")
+                    .reduce((sum, item) => sum + computeOutstanding(item), 0);
+                return (
+                    <div className="text-muted-foreground flex items-center gap-4 text-xs font-medium">
+                        <span>
+                            Outstanding:{" "}
+                            <span className="text-foreground font-semibold">
+                                Tshs. {formatCompactAmount(outstanding)}
+                            </span>
+                        </span>
+                        <span>
+                            Overdue:{" "}
+                            <span className="text-destructive font-semibold">
+                                Tshs. {formatCompactAmount(overdue)}
+                            </span>
+                        </span>
+                    </div>
+                );
+            }}
+        />
     );
 }

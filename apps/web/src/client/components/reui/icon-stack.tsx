@@ -32,7 +32,7 @@ function IconStack({ className, children, style, ...props }: IconStackProps) {
           ry="7"
           fill="currentColor"
           fillOpacity="0.055"
-          className="blur-[4px]"
+          className="blur-xs"
         />
 
         <IconStackLayer opacity="0.4" />
@@ -43,7 +43,7 @@ function IconStack({ className, children, style, ...props }: IconStackProps) {
       {children ? (
         <div
           data-slot="icon-stack-content"
-          className="text-muted-foreground pointer-events-none absolute top-[var(--icon-stack-content-y)] left-[var(--icon-stack-content-x)] flex -translate-x-1/2 -translate-y-1/2 scale-x-90 -skew-y-26 items-center justify-center"
+          className="text-muted-foreground pointer-events-none absolute top-(--icon-stack-content-y) left-(--icon-stack-content-x) flex -translate-x-1/2 -translate-y-1/2 scale-x-90 -skew-y-26 items-center justify-center"
         >
           {children}
         </div>

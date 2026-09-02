@@ -304,6 +304,8 @@ interface EventCalendarInstance<TData = unknown> {
 function resolveSettings<TData>(
   options: UseEventCalendarStateOptions<TData>
 ): EventCalendarSettings<TData> {
+  /* eslint-disable @typescript-eslint/no-unused-vars -- destructured only
+     to omit these keys from `rest`; the values themselves aren't used. */
   const {
     // strip state pairs; the rest flows into settings
     events: _e,
@@ -323,6 +325,7 @@ function resolveSettings<TData>(
     loading: _l,
     ...rest
   } = options
+  /* eslint-enable @typescript-eslint/no-unused-vars */
   const getEventPriority =
     options.getEventPriority ??
     (DEFAULT_EVENT_PRIORITY as (event: CalendarEvent<TData>) => number)
@@ -935,13 +938,17 @@ function useEventCalendarState<TData = unknown>(
   options: UseEventCalendarStateOptions<TData> = {}
 ): EventCalendarInstance<TData> {
   const [store] = useState(() => createEventCalendarStore<TData>(options))
-  const changed = store.setOptions(options)
-  const changedRef = useRef(false)
-  if (changed) changedRef.current = true
+  // Tracks the options object the store was last synced to. Only mutated
+  // inside the layout effect (post-commit) so a discarded/throwaway render
+  // never mutates the shared store — comparing here, during render, would
+  // read this on every pass but must never write it.
+  const lastAppliedOptionsRef = useRef(options)
   useLayoutEffect(() => {
-    if (changedRef.current) {
-      changedRef.current = false
-      store.notify()
+    if (lastAppliedOptionsRef.current !== options) {
+      lastAppliedOptionsRef.current = options
+      if (store.setOptions(options)) {
+        store.notify()
+      }
     }
   })
   useEffect(() => {

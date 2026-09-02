@@ -651,7 +651,6 @@ function EventCalendarMonthCell({
   /** Set on the first cell only: measured to derive the "auto" cap. */
   contentRef?: Ref<HTMLDivElement>
 }) {
-  const instance = useEventCalendar()
   const settings = useEventCalendarSettings()
   const viewConfig = useEventCalendarViewConfig()
   const gestures = useEventCalendarGestures()

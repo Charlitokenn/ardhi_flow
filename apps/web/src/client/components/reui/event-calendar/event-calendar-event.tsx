@@ -36,6 +36,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 import { RepeatIcon } from "lucide-react"
 
 /** Event color presets; each stays legible on light and dark surfaces. */
@@ -351,18 +356,25 @@ function EventCalendarEvent<TData = unknown>({
   // the native title so the two never stack, and a preview never gets one. A
   // falsy renderEventTooltip result (including the false/"" of `cond && <node>`)
   // falls back to the label; an empty label leaves no content and skips it.
+  // Custom content gets a HoverCard (interactive/scrollable) instead of a
+  // Tooltip (glance-only, can close before the pointer reaches interactive
+  // content) - the plain label fallback keeps the lighter Tooltip treatment.
   const tooltipOpts =
     typeof viewConfig.eventTooltip === "object" ? viewConfig.eventTooltip : null
-  const tooltipContent =
+  const customTooltipContent =
     !preview && viewConfig.eventTooltip
       ? viewConfig.renderEventTooltip?.({
           occurrence,
           segment,
           view,
           label,
-        }) || label
+        }) || null
       : null
+  const tooltipContent =
+    customTooltipContent ??
+    (!preview && viewConfig.eventTooltip ? label : null)
   const tooltipOn = Boolean(tooltipContent)
+  const isCustomTooltip = Boolean(customTooltipContent)
 
   const showResize =
     interactive && resizeOn && !event.readOnly && event.resizable !== false
@@ -538,17 +550,29 @@ function EventCalendarEvent<TData = unknown>({
       value={{ occurrence, segment, isDragging, isSelected }}
     >
       {tooltipOn ? (
-        <TooltipProvider delayDuration={tooltipOpts?.delay ?? 600}>
-          <Tooltip>
-            <TooltipTrigger asChild>{chip}</TooltipTrigger>
-            <TooltipContent
+        isCustomTooltip ? (
+          <HoverCard openDelay={tooltipOpts?.delay ?? 600} closeDelay={100}>
+            <HoverCardTrigger asChild>{chip}</HoverCardTrigger>
+            <HoverCardContent
               side={tooltipOpts?.side ?? "top"}
               className={viewConfig.classNames?.eventTooltip}
             >
               {tooltipContent}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </HoverCardContent>
+          </HoverCard>
+        ) : (
+          <TooltipProvider delayDuration={tooltipOpts?.delay ?? 600}>
+            <Tooltip>
+              <TooltipTrigger asChild>{chip}</TooltipTrigger>
+              <TooltipContent
+                side={tooltipOpts?.side ?? "top"}
+                className={viewConfig.classNames?.eventTooltip}
+              >
+                {tooltipContent}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
       ) : (
         chip
       )}

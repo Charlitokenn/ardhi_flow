@@ -106,7 +106,16 @@ function parseRRuleString(
         })
         break
       case "BYMONTH":
-        rule.byMonth = value.split(",").map((v) => parseInt(v, 10))
+        rule.byMonth = value.split(",").map((v) => {
+          const month = parseInt(v, 10)
+          // same failure mode as BYMONTHDAY above: an unchecked NaN would
+          // match no month in any year and leave the event permanently
+          // invisible with no error anywhere
+          if (Number.isNaN(month)) {
+            throw new EventCalendarRecurrenceError(`BYMONTH=${v}`)
+          }
+          return month
+        })
         break
       case "WKST": {
         const day = value.trim().toUpperCase() as EventCalendarWeekday
@@ -500,13 +509,21 @@ function expandRecurrence<TData>(
 
   const occurrences: EventCalendarOccurrence<TData>[] = []
 
+  // Same zero-length-milestone case as the non-recurring branch above: the
+  // exclusive `end > start` test drops a point occurrence pinned to the
+  // first visible instant of its period, which reads as an occurrence that
+  // randomly disappears until you page one period back.
+  const isPoint = durationMs === 0
   const pushIfVisible = (rawStart: Date) => {
     // normalize to a plain instant so consumers never receive zone-carrying
     // TZDate instances (mixed-zone formatting bugs)
     const start = new Date(rawStart.getTime())
     if (exTimes.has(start.getTime())) return
     const end = endFor(start)
-    if (start < range.end && end > range.start) {
+    if (
+      start < range.end &&
+      (end > range.start || (isPoint && start >= range.start))
+    ) {
       occurrences.push({
         key: `${event.id}::${start.toISOString()}`,
         eventId: event.id,
@@ -561,7 +578,12 @@ function expandRecurrence<TData>(
       const start = new Date(rDate.getTime())
       if (seen.has(start.getTime()) || exTimes.has(start.getTime())) continue
       const end = endFor(start)
-      if (start >= range.end || end <= range.start) continue
+      if (
+        start >= range.end ||
+        (end <= range.start && !(isPoint && start >= range.start))
+      ) {
+        continue
+      }
       seen.add(start.getTime())
       occurrences.push({
         key: `${event.id}::${start.toISOString()}`,

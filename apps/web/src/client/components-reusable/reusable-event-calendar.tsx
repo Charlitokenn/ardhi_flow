@@ -1,175 +1,63 @@
-import {useMemo, useRef, useState} from "react"
+import {type ReactNode, useRef, useState} from "react"
 import {
-  EventCalendar,
-  type EventCalendarApi,
-  type EventCalendarRenderEventProps,
+    EventCalendar,
+    type EventCalendarApi,
+    type EventCalendarRenderEventProps,
+    useEventCalendarNavigation,
+    useEventCalendarView,
 } from "@/components/reui/event-calendar/event-calendar"
 import {EventCalendarContent} from "@/components/reui/event-calendar/event-calendar-content"
 import type {EventCalendarI18nOverrides} from "@/components/reui/event-calendar/event-calendar-i18n"
 import {EventCalendarNav, EventCalendarToolbar,} from "@/components/reui/event-calendar/event-calendar-nav"
 import type {
-  CalendarEvent,
-  CalendarView,
-  EventCalendarInteractions,
-  EventCalendarResource,
-  EventCalendarViewSettings,
+    CalendarEvent,
+    CalendarView,
+    EventCalendarDateRange,
+    EventCalendarInteractions,
+    EventCalendarOccurrence,
+    EventCalendarResource,
+    EventCalendarSegment,
+    EventCalendarViewSettings,
 } from "@/components/reui/event-calendar/event-calendar-types"
-import {addDays, addMinutes, type Locale, setHours, startOfDay, startOfWeek,} from "date-fns"
+import {type Locale} from "date-fns"
 import {ar, de, es, fr, ja} from "date-fns/locale"
 
-import {Avatar, AvatarFallback} from "@/components/ui/avatar"
 import {Button} from "@/components/ui/button"
 import {Card, CardContent} from "@/components/ui/card"
+import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@/components/ui/input-group"
 import {Label} from "@/components/ui/label"
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select"
 import {Switch} from "@/components/ui/switch"
 import {Tabs, TabsContent, TabsList, TabsTrigger,} from "@/components/ui/tabs"
-import {PlusIcon, Settings2Icon} from "lucide-react"
+import {PlusIcon, SearchIcon, Settings2Icon, XIcon} from "lucide-react"
+import {cn} from "@/lib/utils"
 
-/** Team members - passing resources unlocks the resource day view, so the
- *  view switcher offers every view the calendar ships. */
-const TEAM: EventCalendarResource[] = [
-    {id: "alex", title: "Alex", color: "var(--color-blue-500)"},
-    {id: "mia", title: "Mia", color: "var(--color-violet-500)"},
-    {id: "sam", title: "Sam", color: "var(--color-emerald-500)"},
-]
-
-/** Demo events: a balanced current week (timed, multi-day, all-day, two
- *  custom-rendered chips) plus a light scatter in the nearby weeks so the
- *  month view reads naturally without crowding any cell. */
-function buildEvents(anchor: Date): CalendarEvent[] {
-    const week = startOfWeek(startOfDay(anchor), {weekStartsOn: 0})
-    const at = (dayOffset: number, hour: number, minute = 0) =>
-        addMinutes(setHours(addDays(week, dayOffset), hour), minute)
-    const day = (dayOffset: number) => addDays(week, dayOffset)
-
-    return [
-        {
-            id: "team-sync",
-            title: "Team sync",
-            start: at(1, 9, 0),
-            end: at(1, 9, 30),
-            resourceId: "alex",
-        },
-        {
-            id: "design-review",
-            title: "Design review",
-            start: at(2, 11, 0),
-            end: at(2, 12, 0),
-            resourceId: "mia",
-            color: "var(--color-violet-500)",
-        },
-        {
-            id: "product-demo",
-            title: "Product demo",
-            start: at(3, 15, 0),
-            end: at(3, 16, 0),
-            resourceId: "sam",
-            color: "var(--color-emerald-500)",
-        },
-        {
-            id: "roadmap-planning",
-            title: "Roadmap planning",
-            start: at(4, 10, 0),
-            end: at(4, 11, 30),
-            resourceId: "alex",
-            color: "var(--color-indigo-500)",
-        },
-        {
-            id: "client-call",
-            title: "Client call",
-            start: at(5, 14, 0),
-            end: at(5, 15, 0),
-            resourceId: "mia",
-            color: "var(--color-amber-500)",
-        },
-        {
-            id: "team-offsite",
-            title: "Team offsite",
-            start: day(4),
-            end: day(6),
-            allDay: true,
-            color: "var(--color-rose-500)",
-        },
-        {
-            id: "sprint-planning",
-            title: "Sprint planning",
-            start: at(9, 9, 30),
-            end: at(9, 10, 30),
-            resourceId: "sam",
-            color: "var(--color-blue-500)",
-        },
-        {
-            id: "quarterly-review",
-            title: "Quarterly review",
-            start: at(17, 13, 0),
-            end: at(17, 14, 30),
-            resourceId: "alex",
-            color: "var(--color-cyan-500)",
-        },
-    ]
-}
-
-/**
- * Custom chip content for a couple of events - proof that the chip is fully
- * yours to shape via `renderEvent`. Returning undefined for everything else
- * falls back to the built-in dot + title + time.
- */
-function renderEventContent({occurrence}: EventCalendarRenderEventProps) {
-    const {event} = occurrence
-
-    // Attendee avatars (real shadcn Avatar + AvatarFallback) in place of the
-    // leading color dot; a thin ring-1 keeps the overlap crisp at this size.
-    if (event.id === "design-review") {
-        return (
-            <>
-        <span className="flex shrink-0 -space-x-1">
-          <Avatar className="ring-background size-4 ring-1">
-            <AvatarFallback className="bg-violet-500 text-[8px] font-semibold text-white">
-              MJ
-            </AvatarFallback>
-          </Avatar>
-          <Avatar className="ring-background size-4 ring-1">
-            <AvatarFallback className="bg-sky-500 text-[8px] font-semibold text-white">
-              AL
-            </AvatarFallback>
-          </Avatar>
-        </span>
-                <span className="truncate font-medium">{event.title}</span>
-            </>
-        )
-    }
-
-    // Title with a trailing status pill. The dot, title and pill share one
-    // flex row so the leading dot stays glued to the label - a stacked
-    // (flex-col) timed-grid chip would otherwise drop the dot onto its own line.
-    if (event.id === "client-call") {
-        return (
-            <span className="flex w-full min-w-0 items-center gap-1.5">
-        <span
-            aria-hidden
-            className="-me-0.5 size-1.5 shrink-0 rounded-full bg-(--ec-event-color)"
-        />
-        <span className="truncate font-medium">{event.title}</span>
-        <span className="ms-auto shrink-0 rounded bg-(--ec-event-color)/25 px-1 text-[10px] font-semibold">
-          30m
-        </span>
-      </span>
-        )
-    }
-
-    return undefined
-}
+// ============================================================================
+// ReusableEventsCalendar — a full-featured month/week/day/agenda calendar
+// (built on the reui EventCalendar primitive) with a Settings popover for
+// view/time-grid/behavior/region preferences baked in.
+//
+// This component owns no domain knowledge and ships with zero sample/demo
+// data — `events` is required and everything shown (chip content, tooltip
+// content, the "add event" button, the search box, the middle-of-toolbar
+// summary slot) is either the primitive's own default rendering or supplied
+// by the consumer via props. That's what makes it safe to drop into any
+// context (a sales pipeline, a delivery schedule, a payment-recovery
+// calendar, a team roster) just by shaping data into `CalendarEvent<TData>[]`
+// and passing the render props that context needs.
+// ============================================================================
 
 /**
  * i18n presets - each language ships a date-fns `locale` (localizes every
  * formatted date: weekday headers, month title, time gutter) plus an `i18n`
  * override map for the static UI strings the locale can't reach (Today, view
  * names, "+N more"). Arabic also flips the whole calendar to right-to-left.
- * English is the built-in default, so it leaves both undefined.
+ * English is the built-in default, so it leaves both undefined — a consumer
+ * can still override individual English labels via the `i18n` prop, which is
+ * merged on top of whichever locale preset is active.
  */
-interface DemoLocale {
+interface CalendarLocalePreset {
     id: string
     /** Native language name, shown in the picker. */
     label: string
@@ -178,7 +66,7 @@ interface DemoLocale {
     i18n: EventCalendarI18nOverrides | undefined
 }
 
-const LOCALES: DemoLocale[] = [
+const LOCALES: CalendarLocalePreset[] = [
     {
         id: "en",
         label: "English",
@@ -308,8 +196,8 @@ const TIME_ZONES: Array<{ id: string; label: string; value?: string }> = [
     {id: "kolkata", label: "Kolkata", value: "Asia/Kolkata"},
 ]
 
-/** Everything the settings panel drives, as one resettable object. */
-interface DemoSettings {
+/** Everything the Settings popover drives, as one resettable object. */
+interface CalendarPanelSettings {
     viewSettings: EventCalendarViewSettings
     interactions: EventCalendarInteractions
     weekStartsOn: 0 | 1
@@ -323,7 +211,7 @@ interface DemoSettings {
     timeZoneId: string
 }
 
-const DEFAULT_SETTINGS: DemoSettings = {
+const DEFAULT_SETTINGS: CalendarPanelSettings = {
     viewSettings: {
         weekends: true,
         weekNumbers: false,
@@ -336,7 +224,10 @@ const DEFAULT_SETTINGS: DemoSettings = {
     dayEndHour: 24,
     interval: 60,
     snapDuration: 15,
-    eventTooltip: false,
+    // Tooltips on by default — a consumer relying on renderEventTooltip
+    // (e.g. to surface a day's grouped items on hover) wants this visible
+    // without an extra click into Settings.
+    eventTooltip: true,
     showDayAddButton: false,
     localeId: "en",
     timeZoneId: "local",
@@ -435,15 +326,103 @@ function SettingsTextSelect({
     )
 }
 
-export function ReusableEventsCalendar() {
-    const events = useMemo(() => buildEvents(new Date()), [])
-    const apiRef = useRef<EventCalendarApi | null>(null)
-    const newEventCount = useRef(0)
-    const [settings, setSettings] = useState<DemoSettings>(DEFAULT_SETTINGS)
+/** Pulls the calendar's live view + active date range (only available inside
+ *  the <EventCalendar> provider tree) and hands them to the consumer's
+ *  `headerCenter` render prop, so the consumer never needs to know about
+ *  the primitive's own hooks to show a range-scoped summary. */
+function HeaderCenterSlot({
+                              headerCenter,
+                              hasChangedView,
+                          }: {
+    headerCenter: (ctx: {
+        activeRange: EventCalendarDateRange
+        view: CalendarView
+        hasChangedView: boolean
+    }) => ReactNode
+    hasChangedView: boolean
+}) {
+    const {activeRange} = useEventCalendarNavigation()
+    const {view} = useEventCalendarView()
+    return <>{headerCenter({activeRange, view, hasChangedView})}</>
+}
+
+export interface ReusableEventsCalendarProps<TData = unknown> {
+    /** Events to display. This component ships with no sample data of its
+     *  own, so nothing renders on the grid until this is supplied. */
+    events: CalendarEvent<TData>[]
+    /** Bookable resources — passing these unlocks the resource view. Omit
+     *  for a calendar with no resource concept. */
+    resources?: EventCalendarResource[]
+    /** Restricts (and orders) the view switcher, e.g. ["month", "week",
+     *  "agenda"]. Omit for every view the calendar ships. */
+    views?: CalendarView[]
+    defaultView?: CalendarView
+    /** Custom chip content. Return undefined for any event to fall back to
+     *  the built-in dot + title + time rendering. */
+    renderEvent?: (props: EventCalendarRenderEventProps<TData>) => ReactNode
+    /** Custom hover-tooltip content (see the "Event tooltips" Behavior
+     *  setting — on by default here). Return a falsy value to fall back to
+     *  the default title + time tooltip. */
+    renderEventTooltip?: (props: {
+        occurrence: EventCalendarOccurrence<TData>
+        segment: EventCalendarSegment<TData>
+        view: CalendarView
+        label: string | undefined
+    }) => ReactNode
+    /** Label overrides merged on top of whichever language is active in the
+     *  Settings panel — e.g. {viewNames: {agenda: "List View"}}. */
+    i18n?: EventCalendarI18nOverrides
+    /** Rendered in the middle of the top bar, between the date/title and the
+     *  Settings button. Called with the calendar's live view + active date
+     *  range so a consumer can show range-scoped summary numbers (e.g.
+     *  totals for whatever month/week is currently visible). */
+    headerCenter?: (ctx: {
+        activeRange: EventCalendarDateRange
+        view: CalendarView
+        /** False until the person has manually switched views at least
+         *  once — lets a consumer start with an unscoped ("all time")
+         *  figure and only switch to range-scoped once there's an explicit
+         *  view change to scope from. */
+        hasChangedView: boolean
+    }) => ReactNode
+    /** Controlled search box in the toolbar, right before Settings. Omit to
+     *  leave the toolbar without one — this component does no filtering of
+     *  `events` itself; the consumer owns what `value`/`onChange` filter. */
+    search?: {
+        value: string
+        onChange: (value: string) => void
+        placeholder?: string
+    }
+    /** "New event" button in the toolbar. Omit to hide it entirely — this
+     *  component has no built-in create-event flow, so the button only
+     *  appears when the consumer supplies one. */
+    onAddEvent?: () => void
+    addEventLabel?: string
+    className?: string
+}
+
+export function ReusableEventsCalendar<TData = unknown>({
+                                                            events,
+                                                            resources,
+                                                            views,
+                                                            defaultView = "month",
+                                                            renderEvent,
+                                                            renderEventTooltip,
+                                                            i18n: i18nProp,
+                                                            headerCenter,
+                                                            search,
+                                                            onAddEvent,
+                                                            addEventLabel = "New event",
+                                                            className,
+                                                        }: ReusableEventsCalendarProps<TData>) {
+    const apiRef = useRef<EventCalendarApi<TData> | null>(null)
+    const [settings, setSettings] = useState<CalendarPanelSettings>(DEFAULT_SETTINGS)
     // Mirror the active view so the settings panel can show the time-grid
     // internals tab only where those options are visible (week/day/N-days and
-    // the resource time grid - month and agenda render no hour track).
-    const [view, setView] = useState<CalendarView>("month")
+    // the resource time grid - month and agenda render no hour track), and so
+    // headerCenter can tell whether the person has switched views at all.
+    const [view, setView] = useState<CalendarView>(defaultView)
+    const [hasChangedView, setHasChangedView] = useState(false)
     const isTimeGridView = view !== "month" && view !== "agenda"
 
     const activeLocale =
@@ -452,25 +431,28 @@ export function ReusableEventsCalendar() {
         TIME_ZONES.find((entry) => entry.id === settings.timeZoneId) ??
         TIME_ZONES[0]
 
-    const patch = (partial: Partial<DemoSettings>) =>
+    // The active locale preset supplies its own view-name/label overrides;
+    // a consumer's `i18n` prop is merged on top so e.g. renaming "Agenda" to
+    // "List View" doesn't require forking a whole locale preset.
+    const mergedI18n: EventCalendarI18nOverrides | undefined =
+        activeLocale.i18n || i18nProp
+            ? {
+                ...activeLocale.i18n,
+                ...i18nProp,
+                labels: {...activeLocale.i18n?.labels, ...i18nProp?.labels},
+                viewNames: {
+                    ...activeLocale.i18n?.viewNames,
+                    ...i18nProp?.viewNames,
+                },
+            }
+            : undefined
+
+    const patch = (partial: Partial<CalendarPanelSettings>) =>
         setSettings((current) => ({...current, ...partial}))
 
-    // Add a one-hour event at noon today and jump to it - a minimal stand-in for
-    // a real "create event" dialog.
-    const addEvent = () => {
-        const api = apiRef.current
-        if (!api) return
-        const start = setHours(startOfDay(new Date()), 12)
-        const end = addMinutes(start, 60)
-        api.addEvent({
-            id: `new-event-${newEventCount.current++}`,
-            title: "New event",
-            start,
-            end,
-            resourceId: "alex",
-            color: "var(--color-blue-500)",
-        })
-        api.goTo(start)
+    const handleViewChange = (next: CalendarView) => {
+        setView(next)
+        setHasChangedView(true)
     }
 
     return (
@@ -478,14 +460,16 @@ export function ReusableEventsCalendar() {
             <Card className="w-full py-0">
                 <CardContent className="p-0">
                     <EventCalendar
-                        defaultEvents={events}
-                        defaultView="month"
-                        onViewChange={setView}
-                        resources={TEAM}
+                        events={events}
+                        views={views}
+                        defaultView={defaultView}
+                        onViewChange={handleViewChange}
+                        resources={resources}
                         apiRef={apiRef}
-                        renderEvent={renderEventContent}
+                        renderEvent={renderEvent}
+                        renderEventTooltip={renderEventTooltip}
                         locale={activeLocale.locale}
-                        i18n={activeLocale.i18n}
+                        i18n={mergedI18n}
                         timeZone={activeTimeZone.value}
                         viewSettings={settings.viewSettings}
                         onViewSettingsChange={(viewSettings) => patch({viewSettings})}
@@ -499,11 +483,43 @@ export function ReusableEventsCalendar() {
                         eventTooltip={settings.eventTooltip}
                         showDayAddButton={settings.showDayAddButton}
                         offDays
-                        className="h-[640px] w-full"
+                        className={cn("h-[640px] w-full", className)}
                     >
                         <div className="flex flex-wrap items-center gap-2 pe-2">
-                            <EventCalendarNav className="min-w-0 flex-1"/>
+                            <EventCalendarNav/>
+                            <div className="flex min-w-0 flex-1 items-center justify-center">
+                                {headerCenter && (
+                                    <HeaderCenterSlot
+                                        headerCenter={headerCenter}
+                                        hasChangedView={hasChangedView}
+                                    />
+                                )}
+                            </div>
                             <EventCalendarToolbar>
+                                {search && (
+                                    <InputGroup className="w-56">
+                                        <InputGroupAddon align="inline-start">
+                                            <SearchIcon/>
+                                        </InputGroupAddon>
+                                        <InputGroupInput
+                                            placeholder={search.placeholder ?? "Search..."}
+                                            value={search.value}
+                                            onChange={(e) => search.onChange(e.target.value)}
+                                        />
+                                        {search.value.length > 0 && (
+                                            <InputGroupAddon align="inline-end">
+                                                <InputGroupButton
+                                                    aria-label="Clear"
+                                                    title="Clear"
+                                                    size="icon-xs"
+                                                    onClick={() => search.onChange("")}
+                                                >
+                                                    <XIcon/>
+                                                </InputGroupButton>
+                                            </InputGroupAddon>
+                                        )}
+                                    </InputGroup>
+                                )}
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="outline" size="sm">
@@ -746,10 +762,12 @@ export function ReusableEventsCalendar() {
                                         </Button>
                                     </PopoverContent>
                                 </Popover>
-                                <Button size="sm" onClick={addEvent}>
-                                    <PlusIcon className="size-4" aria-hidden="true"/>
-                                    New event
-                                </Button>
+                                {onAddEvent && (
+                                    <Button size="sm" onClick={onAddEvent}>
+                                        <PlusIcon className="size-4" aria-hidden="true"/>
+                                        {addEventLabel}
+                                    </Button>
+                                )}
                             </EventCalendarToolbar>
                         </div>
                         <EventCalendarContent/>

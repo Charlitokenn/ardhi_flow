@@ -1,12 +1,14 @@
 import {createFileRoute} from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
 import {BellRingIcon, RadioIcon} from "lucide-react";
-import {InstallmentsReminderDataGrid} from "@/components/data-grids/installments-reminder-datagrid.tsx";
+import {
+    InstallmentsRecoveryCalendar,
+    InstallmentsReminderDataGrid,
+} from "@/components/data-grids/installments-reminder-datagrid.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 import MessagingPortal from "@/components/messaging/messaging-portal.tsx";
 import {CalendarSearchIcon} from "@/assets/icons";
-import {ReusableEventsCalendar} from "@/components-reusable/reusable-event-calendar.tsx"
 
 export const Route = createFileRoute('/_authed/_org/finance/reminder')({
     staticData: {
@@ -34,7 +36,7 @@ function RouteComponent() {
                             </Button>
                         }
                         widthClassName="sm:max-w-full"
-                        children={<ReusableEventsCalendar/>}
+                        children={<InstallmentsRecoveryCalendar/>}
                     />
                     <ReusableSheet
                         title="Message Broadcasting"
