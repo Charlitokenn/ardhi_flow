@@ -10,7 +10,7 @@ import 'dotenv/config'
 import {Command} from 'commander'
 import {Pool} from 'pg'
 import {drizzle} from 'drizzle-orm/node-postgres'
-import {eq} from 'drizzle-orm'
+import {eq, inArray} from 'drizzle-orm'
 import {decryptConnectionString} from '../src/worker/lib/crypto'
 import {tenantProjects} from '../drizzle/catalog/schema'
 import * as schema from '../drizzle/tenant/schema'
@@ -64,6 +64,7 @@ async function main() {
         await db.delete(schema.contractPayments)
         await db.delete(schema.contractInstallments)
         await db.delete(schema.contractEvents)
+        await db.delete(schema.contractPlots)
         // We need to clear plots.activeContractId before deleting plotSaleContracts
         await db.update(schema.plots).set({activeContractId: null})
         await db.delete(schema.plotSaleContracts)
@@ -84,11 +85,55 @@ async function main() {
     const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
     const randomElement = <T>(arr: T[] | readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
     const randomPhone = () => `+255${randomInt(6, 7)}${randomInt(10000000, 99999999)}`
+    const toDateStr = (d: Date) => d.toISOString().split('T')[0]
     const addMonths = (dateStr: string, months: number) => {
         const d = new Date(dateStr)
         d.setMonth(d.getMonth() + months)
-        return d.toISOString().split('T')[0]
+        return toDateStr(d)
     }
+    const addDays = (dateStr: string, days: number) => {
+        const d = new Date(dateStr)
+        d.setDate(d.getDate() + days)
+        return toDateStr(d)
+    }
+    // Random date between two Dates (inclusive) — this is what spreads sales
+    // contracts across various days of various months instead of every
+    // contract landing on the exact same date.
+    const randomDateBetween = (start: Date, end: Date) => {
+        const startMs = start.getTime()
+        const endMs = Math.max(end.getTime(), startMs)
+        return toDateStr(new Date(startMs + Math.random() * (endMs - startMs)))
+    }
+
+    // Sales contracts are seeded to look like they were signed over the course
+    // of 2026, starting 1 Jan 2026, spread across different days/months rather
+    // than all on the 1st. `today` is the real "now" — installments/payments
+    // are only marked paid if their due date has actually passed by then, so
+    // the seeded data stays internally consistent no matter when this script
+    // is run.
+    const SALES_WINDOW_START = new Date('2026-01-01T00:00:00Z')
+    const today = new Date()
+    const SALES_WINDOW_END = today.getTime() > SALES_WINDOW_START.getTime()
+        ? today
+        : new Date(SALES_WINDOW_START.getTime() + 30 * 24 * 60 * 60 * 1000)
+    // Start-date window for contracts that need to have already run their full
+    // (short, 6-month) term and be COMPLETED by today — early in the year, and
+    // never later than 6 months before today.
+    const sixMonthsBeforeToday = new Date(today)
+    sixMonthsBeforeToday.setMonth(sixMonthsBeforeToday.getMonth() - 6)
+    const EARLY_WINDOW_END = new Date(Math.min(
+        new Date('2026-03-15T00:00:00Z').getTime(),
+        Math.max(sixMonthsBeforeToday.getTime(), SALES_WINDOW_START.getTime()),
+    ))
+    // Start-date window for ongoing (ACTIVE/DELINQUENT) contracts — capped so
+    // every contract has at least ~45 days of payment history behind it by
+    // today, instead of some being signed "today" with nothing due yet.
+    const fortyFiveDaysBeforeToday = new Date(today)
+    fortyFiveDaysBeforeToday.setDate(fortyFiveDaysBeforeToday.getDate() - 45)
+    const ONGOING_WINDOW_END = new Date(Math.min(
+        SALES_WINDOW_END.getTime(),
+        Math.max(fortyFiveDaysBeforeToday.getTime(), SALES_WINDOW_START.getTime()),
+    ))
 
     // --- Accounts ---
     console.log('  → Seeding accounts...')
@@ -219,177 +264,270 @@ async function main() {
     })
 
     // --- Contracts ---
-    console.log('  → Seeding contracts...')
+    console.log('  → Seeding sales contracts...')
     // Explicit plot → client assignments (rather than a flat positional slice)
-    // so ownership patterns are intentional and easy to read:
-    //  - clients[0] buys two plots within the same project (Kigamboni Greens)
-    //  - clients[1] buys one plot in each project (cross-project ownership)
-    //  - clients[2] buys three plots split across both projects
+    // so ownership patterns are intentional and easy to read. Each entry is
+    // one contract "bucket" — the plot(s) it covers (a contract may only ever
+    // hold plots from a single project, per contractPlots), the client, and a
+    // target end-state:
+    //  - clients[0] buys two Kigamboni plots on ONE contract (a real
+    //    multi-plot bucket, split evenly across the two plots)
+    //  - clients[1] buys one plot in each project — a bucket can't span
+    //    projects, so this is necessarily two separate contracts
+    //  - clients[2] buys two more Kigamboni plots as another bucket, plus a
+    //    third plot in Mbweni on its own contract
     //  - the rest each buy a single plot, split across both projects, to keep
-    //    the common case represented too
+    //    the common single-plot case well represented too
+    // Target statuses are realistic proportions: mostly ACTIVE, a couple
+    // DELINQUENT (missed their most recent installment), a few COMPLETED
+    // (short terms that started early enough in the year to have already run
+    // out by today).
     const [kigamboni, mbweni] = projectRows
     const kigamboniPlots = plotRows.filter((p) => p.projectId === kigamboni.id)
     const mbweniPlots = plotRows.filter((p) => p.projectId === mbweni.id)
 
-    const saleAssignments: { plot: (typeof plotRows)[number]; client: (typeof clients)[number] }[] = [
-        // Same-project multi-plot buyer
-        {plot: kigamboniPlots[0], client: clients[0]},
-        {plot: kigamboniPlots[1], client: clients[0]},
-        // Cross-project, two-plot buyer
-        {plot: kigamboniPlots[2], client: clients[1]},
-        {plot: mbweniPlots[0], client: clients[1]},
-        // Cross-project, three-plot buyer
-        {plot: kigamboniPlots[3], client: clients[2]},
-        {plot: kigamboniPlots[4], client: clients[2]},
-        {plot: mbweniPlots[1], client: clients[2]},
-        // Single-plot buyers, spread across both projects
-        {plot: kigamboniPlots[5], client: clients[3]},
-        {plot: kigamboniPlots[6], client: clients[4]},
-        {plot: mbweniPlots[2], client: clients[5]},
-        {plot: mbweniPlots[3], client: clients[6]},
-        {plot: mbweniPlots[4], client: clients[7]},
+    const contractPlans: {
+        plots: (typeof plotRows)[number][]
+        client: (typeof clients)[number]
+        targetStatus: 'ACTIVE' | 'DELINQUENT' | 'COMPLETED'
+    }[] = [
+        {plots: [kigamboniPlots[0], kigamboniPlots[1]], client: clients[0], targetStatus: 'COMPLETED'},
+        {plots: [kigamboniPlots[2]], client: clients[1], targetStatus: 'ACTIVE'},
+        {plots: [mbweniPlots[0]], client: clients[1], targetStatus: 'COMPLETED'},
+        {plots: [kigamboniPlots[3], kigamboniPlots[4]], client: clients[2], targetStatus: 'ACTIVE'},
+        {plots: [mbweniPlots[1]], client: clients[2], targetStatus: 'ACTIVE'},
+        {plots: [kigamboniPlots[5]], client: clients[3], targetStatus: 'DELINQUENT'},
+        {plots: [kigamboniPlots[6]], client: clients[4], targetStatus: 'ACTIVE'},
+        {plots: [mbweniPlots[2]], client: clients[5], targetStatus: 'ACTIVE'},
+        {plots: [mbweniPlots[3]], client: clients[6], targetStatus: 'DELINQUENT'},
+        {plots: [mbweniPlots[4]], client: clients[7], targetStatus: 'COMPLETED'},
     ]
-    const contracts: schema.PlotSaleContract[] = []
 
-    for (let i = 0; i < saleAssignments.length; i++) {
-        const {plot, client} = saleAssignments[i]
+    // Round, realistic monthly installment amounts (TZS). The schedule is
+    // built top-down from one of these instead of picking a random total and
+    // dividing it — that's what guarantees every contract tallies exactly:
+    //   downpaymentAmount + (monthlyAmt * termMonths) === totalContractValue
+    // for every single contract, with no floor()/rounding remainder.
+    const MONTHLY_AMOUNT_OPTIONS = [500_000, 750_000, 1_000_000, 1_250_000, 1_500_000, 2_000_000, 2_500_000] as const
+
+    const contracts: schema.PlotSaleContract[] = []
+    const contractPlotsByContract = new Map<string, (typeof plotRows)[number][]>()
+
+    for (let i = 0; i < contractPlans.length; i++) {
+        const {plots: dealPlots, client, targetStatus} = contractPlans[i]
         const agent = agents[i % agents.length]
-        const totalVal = randomInt(15000000, 30000000)
-        const downpayment = Math.floor(totalVal * 0.2)
-        const financed = totalVal - downpayment
-        const status = i < 5 ? 'ACTIVE' : (i === 5 ? 'DELINQUENT' : 'COMPLETED')
+        const project = dealPlots[0].projectId === kigamboni.id ? kigamboni : mbweni
+
+        // --- Term, start date & purchase plan ---
+        const termMonths = targetStatus === 'COMPLETED' ? 6 : randomElement([12, 18, 24])
+        const startDate = targetStatus === 'COMPLETED'
+            ? randomDateBetween(SALES_WINDOW_START, EARLY_WINDOW_END)
+            : randomDateBetween(SALES_WINDOW_START, ONGOING_WINDOW_END)
+        // Alternate purchase plans so both enum values get realistic coverage.
+        const purchasePlan: 'FLAT_RATE' | 'DOWNPAYMENT' = i % 2 === 0 ? 'DOWNPAYMENT' : 'FLAT_RATE'
+
+        // --- Build the schedule top-down so it always tallies exactly ---
+        const monthlyAmt = randomElement(MONTHLY_AMOUNT_OPTIONS)
+        const financedAmount = monthlyAmt * termMonths
+        const downpaymentMonths = purchasePlan === 'DOWNPAYMENT' ? randomInt(2, 6) : 0
+        const downpaymentAmount = monthlyAmt * downpaymentMonths
+        const totalContractValue = downpaymentAmount + financedAmount
+        const downpaymentPercent = purchasePlan === 'DOWNPAYMENT'
+            ? ((downpaymentAmount / totalContractValue) * 100).toFixed(2)
+            : null
+        const commissionAmount = totalContractValue * parseFloat(commSettings.defaultCommissionPercent) / 100
 
         const [contract] = await db.insert(schema.plotSaleContracts).values({
-            plotId: plot.id,
+            projectId: project.id,
             clientContactId: client.id,
             salesAgentContactId: agent.id,
-            status: status,
-            startDate: '2025-05-01',
-            termMonths: 12,
-            totalContractValue: totalVal.toString(),
-            purchasePlan: 'DOWNPAYMENT',
-            downpaymentPercent: '20',
-            downpaymentAmount: downpayment.toString(),
-            financedAmount: financed.toString(),
+            status: targetStatus,
+            startDate,
+            termMonths,
+            totalContractValue: totalContractValue.toString(),
+            purchasePlan,
+            downpaymentPercent,
+            downpaymentAmount: downpaymentAmount.toString(),
+            financedAmount: financedAmount.toString(),
             cancellationFeePercent: '10',
             commissionPercent: commSettings.defaultCommissionPercent,
-            commissionAmount: (totalVal * parseFloat(commSettings.defaultCommissionPercent) / 100).toString(),
+            commissionAmount: commissionAmount.toString(),
             commissionPayoutMonths: commSettings.defaultPayoutMonths,
         }).returning()
 
         contracts.push(contract)
+        contractPlotsByContract.set(contract.id, dealPlots)
 
-        // Update plot status and contact
+        // --- contractPlots (bucket membership) ---
+        // Split the contract's totals evenly across the plots in the bucket.
+        // MONTHLY_AMOUNT_OPTIONS are all even, so a 2-plot bucket always
+        // divides cleanly — no remainder to lose.
+        const perPlotMonthlyAmt = monthlyAmt / dealPlots.length
+        const perPlotDownpayment = downpaymentAmount / dealPlots.length
+        const perPlotTotalValue = totalContractValue / dealPlots.length
+
+        const contractPlotRows = await db.insert(schema.contractPlots).values(
+            dealPlots.map((plot) => ({
+                contractId: contract.id,
+                plotId: plot.id,
+                allocatedValue: perPlotTotalValue.toString(),
+            })),
+        ).returning()
+
         await db.update(schema.plots)
             .set({
                 availability: 'SOLD',
                 contactId: client.id,
-                activeContractId: status === 'COMPLETED' ? null : contract.id
+                activeContractId: targetStatus === 'COMPLETED' ? null : contract.id,
             })
-            .where(eq(schema.plots.id, plot.id))
+            .where(inArray(schema.plots.id, dealPlots.map((p) => p.id)))
 
-        // --- Installments ---
-        const installments: schema.NewContractInstallment[] = []
-
-        // Downpayment installment (No 0)
-        installments.push({
-            contractId: contract.id,
-            installmentNo: 0,
-            originalDueDate: '2025-05-01',
-            dueDate: '2025-05-01',
-            amountDue: downpayment.toString(),
-            status: 'PAID',
-            paidAt: new Date('2025-05-01T10:00:00Z'),
-            amountPaid: downpayment.toString(),
+        // --- Installments (one full schedule per plot in the bucket) ---
+        // Only the most recent past-due month is ever left unpaid/partial
+        // (the "missed" installment for a DELINQUENT contract) — everything
+        // before it is paid, everything after it isn't due yet.
+        const installmentMonths = Array.from({length: termMonths}, (_, idx) => idx + 1).map((m) => {
+            const dueDate = addMonths(startDate, m)
+            return {m, dueDate, isPastDue: new Date(dueDate) <= today}
         })
+        const pastDueMonths = installmentMonths.filter((x) => x.isPastDue).map((x) => x.m)
+        const missedMonth = targetStatus === 'DELINQUENT' && pastDueMonths.length > 0
+            ? pastDueMonths[pastDueMonths.length - 1]
+            : null
+        const missedIsPartial = missedMonth !== null && Math.random() < 0.5
 
-        const monthlyAmt = Math.floor(financed / 12)
-        for (let m = 1; m <= 12; m++) {
-            const dueDate = addMonths('2025-05-01', m)
-            let instStatus: 'PAID' | 'PARTIAL' | 'DUE' = 'DUE'
-            let amtPaid = '0'
-            let paidAt = null
+        let firstPaymentId: string | null = null
+        let lastPaidAt: Date | null = null
+        let missedInstallmentId: string | null = null
+        let missedDueDate: string | null = null
 
-            if (status === 'COMPLETED') {
-                instStatus = 'PAID'
-                amtPaid = monthlyAmt.toString()
-                paidAt = new Date(`${dueDate}T10:00:00Z`)
-            } else if (m <= 2) {
-                instStatus = 'PAID'
-                amtPaid = monthlyAmt.toString()
-                paidAt = new Date(`${dueDate}T10:00:00Z`)
-            } else if (m === 3 && status === 'ACTIVE') {
-                instStatus = 'PARTIAL'
-                amtPaid = Math.floor(monthlyAmt / 2).toString()
+        for (const contractPlot of contractPlotRows) {
+            const installmentsForPlot: schema.NewContractInstallment[] = []
+
+            // Downpayment installment (No 0) — only for DOWNPAYMENT-plan
+            // contracts. Paid on signing regardless of the contract's later
+            // status, same as in real life.
+            if (purchasePlan === 'DOWNPAYMENT') {
+                installmentsForPlot.push({
+                    contractId: contract.id,
+                    contractPlotId: contractPlot.id,
+                    plotId: contractPlot.plotId,
+                    installmentNo: 0,
+                    originalDueDate: startDate,
+                    dueDate: startDate,
+                    amountDue: perPlotDownpayment.toString(),
+                    amountPaid: perPlotDownpayment.toString(),
+                    status: 'PAID',
+                    paidAt: new Date(`${startDate}T10:00:00Z`),
+                })
             }
 
-            installments.push({
-                contractId: contract.id,
-                installmentNo: m,
-                originalDueDate: dueDate,
-                dueDate: dueDate,
-                amountDue: monthlyAmt.toString(),
-                status: instStatus,
-                amountPaid: amtPaid,
-                paidAt: paidAt,
-            })
-        }
+            for (const {m, dueDate, isPastDue} of installmentMonths) {
+                let status: 'PAID' | 'PARTIAL' | 'DUE' = 'DUE'
+                let amountPaid = 0
+                let paidAt: Date | null = null
 
-        const insertedInsts = await db.insert(schema.contractInstallments).values(installments).returning()
+                if (m === missedMonth) {
+                    status = missedIsPartial ? 'PARTIAL' : 'DUE'
+                    amountPaid = missedIsPartial ? Math.floor(perPlotMonthlyAmt / 2) : 0
+                } else if (isPastDue) {
+                    status = 'PAID'
+                    amountPaid = perPlotMonthlyAmt
+                    // Paid a few days after the due date, not always exactly on it.
+                    paidAt = new Date(`${addDays(dueDate, randomInt(0, 4))}T10:00:00Z`)
+                }
 
-        // --- Payments ---
-        // Only seed payments for what was actually paid
-        for (const inst of insertedInsts) {
-            if (parseFloat(inst.amountPaid) > 0) {
-                const [payment] = await db.insert(schema.contractPayments).values({
+                installmentsForPlot.push({
                     contractId: contract.id,
-                    clientContactId: client.id,
-                    accountId: randomElement(accountRows).id,
-                    direction: 'IN',
-                    amount: inst.amountPaid,
-                    receivedAt: inst.paidAt || new Date(inst.dueDate),
-                    method: 'Bank Transfer',
-                }).returning()
-
-                await db.insert(schema.contractPaymentAllocations).values({
-                    paymentId: payment.id,
-                    installmentId: inst.id,
-                    amount: inst.amountPaid,
+                    contractPlotId: contractPlot.id,
+                    plotId: contractPlot.plotId,
+                    installmentNo: m,
+                    originalDueDate: dueDate,
+                    dueDate,
+                    amountDue: perPlotMonthlyAmt.toString(),
+                    amountPaid: amountPaid.toString(),
+                    status,
+                    paidAt,
                 })
+            }
 
-                // --- Commission Payouts (simplified: release tranche if payment is made)
-                // Just seed the 3 tranches for the contract
-                if (inst.installmentNo === 1) { // Just do it once per contract
-                    const trancheAmt = (parseFloat(contract.commissionAmount) / contract.commissionPayoutMonths).toString();
-                    for (let t = 1; t <= contract.commissionPayoutMonths; t++) {
-                        const targetMonth = addMonths(contract.startDate, t - 1);
-                        const isPaid = (status === 'COMPLETED' || t === 1);
+            const insertedInsts = await db.insert(schema.contractInstallments).values(installmentsForPlot).returning()
 
-                        const [payout] = await db.insert(schema.commissionPayouts).values({
-                            contractId: contract.id,
-                            salesAgentContactId: agent.id,
-                            trancheNumber: t,
-                            amount: trancheAmt,
-                            targetMonth: targetMonth,
-                            status: isPaid ? 'PAID' : 'PENDING',
-                            triggeringPaymentId: isPaid ? payment.id : null,
-                            paidAt: isPaid ? new Date() : null,
-                            paidMonth: isPaid ? new Date().toISOString().split('T')[0] : null,
-                        }).returning();
+            // --- Payments (only for what was actually paid) ---
+            for (const inst of insertedInsts) {
+                if (inst.installmentNo === missedMonth && missedInstallmentId === null) {
+                    missedInstallmentId = inst.id
+                    missedDueDate = inst.dueDate
+                }
 
-                        if (isPaid) {
-                            await db.insert(schema.expenses).values({
-                                category: 'SALES_COMMISSION',
-                                amount: trancheAmt,
-                                accountId: randomElement(accountRows).id,
-                                payeeContactId: agent.id,
-                                commissionPayoutId: payout.id,
-                                description: `Commission for ${client.fullName} - Plot ${plot.plotNumber} (Tranche ${t})`,
-                                paidAt: new Date(),
-                            });
-                        }
+                if (parseFloat(inst.amountPaid) > 0) {
+                    const [payment] = await db.insert(schema.contractPayments).values({
+                        contractId: contract.id,
+                        clientContactId: client.id,
+                        accountId: randomElement(accountRows).id,
+                        direction: 'IN',
+                        amount: inst.amountPaid,
+                        receivedAt: inst.paidAt || new Date(`${inst.dueDate}T10:00:00Z`),
+                        method: randomElement(['Bank Transfer', 'Mobile Money', 'Cash']),
+                    }).returning()
+
+                    await db.insert(schema.contractPaymentAllocations).values({
+                        paymentId: payment.id,
+                        installmentId: inst.id,
+                        amount: inst.amountPaid,
+                    })
+
+                    firstPaymentId = firstPaymentId ?? payment.id
+                    if (inst.paidAt && (!lastPaidAt || inst.paidAt > lastPaidAt)) {
+                        lastPaidAt = inst.paidAt
                     }
                 }
+            }
+        }
+
+        if (targetStatus === 'COMPLETED' && lastPaidAt) {
+            await db.update(schema.plotSaleContracts)
+                .set({completedAt: lastPaidAt})
+                .where(eq(schema.plotSaleContracts.id, contract.id))
+        }
+        if (targetStatus === 'DELINQUENT' && missedDueDate) {
+            await db.update(schema.plotSaleContracts)
+                .set({delinquentSince: new Date(`${missedDueDate}T00:00:00Z`)})
+                .where(eq(schema.plotSaleContracts.id, contract.id))
+        }
+
+        // --- Commission Payouts ---
+        // Split the contract's commission into commissionPayoutMonths
+        // tranches, each released once its target month has actually arrived
+        // (rather than hard-coding "tranche 1 is always paid" regardless of
+        // the contract's real dates).
+        const trancheAmt = (parseFloat(contract.commissionAmount) / contract.commissionPayoutMonths).toString()
+        for (let t = 1; t <= contract.commissionPayoutMonths; t++) {
+            const targetMonth = addMonths(startDate, t - 1)
+            const isPaid = firstPaymentId !== null && new Date(targetMonth) <= today
+
+            const [payout] = await db.insert(schema.commissionPayouts).values({
+                contractId: contract.id,
+                salesAgentContactId: agent.id,
+                trancheNumber: t,
+                amount: trancheAmt,
+                targetMonth,
+                status: isPaid ? 'PAID' : 'PENDING',
+                triggeringPaymentId: isPaid ? firstPaymentId : null,
+                paidAt: isPaid ? new Date(`${targetMonth}T10:00:00Z`) : null,
+                paidMonth: isPaid ? targetMonth : null,
+            }).returning()
+
+            if (isPaid) {
+                await db.insert(schema.expenses).values({
+                    category: 'SALES_COMMISSION',
+                    amount: trancheAmt,
+                    accountId: randomElement(accountRows).id,
+                    payeeContactId: agent.id,
+                    commissionPayoutId: payout.id,
+                    description: `Commission for ${client.fullName} - ${project.projectName} (Tranche ${t})`,
+                    paidAt: new Date(`${targetMonth}T10:00:00Z`),
+                })
             }
         }
 
@@ -403,13 +541,12 @@ async function main() {
             createdBy: agent.fullName,
         })
 
-        if (status === 'DELINQUENT') {
-            const overdueInst = insertedInsts.find((inst) => inst.status === 'PARTIAL')
+        if (targetStatus === 'DELINQUENT' && missedInstallmentId) {
             await db.insert(schema.contractEvents).values({
                 contractId: contract.id,
-                installmentId: overdueInst?.id,
+                installmentId: missedInstallmentId,
                 eventType: 'DELINQUENT_MARKED',
-                message: 'Contract marked delinquent after a missed installment.',
+                message: `Contract marked delinquent after the installment due ${missedDueDate} was missed.`,
                 isInternal: true,
             })
         }
@@ -431,16 +568,16 @@ async function main() {
             category: 'RENT',
             amount: '1200000',
             accountId: accountRows[0].id,
-            description: 'Office rent - May 2025',
-            paidAt: new Date('2025-05-05'),
+            description: 'Office rent',
+            paidAt: new Date(`${addDays(toDateStr(today), -5)}T00:00:00Z`),
         },
         {
             category: 'MARKETING',
             amount: '500000',
             accountId: accountRows[2].id,
-            description: 'Facebook ads for Kigamboni plots',
-            paidAt: new Date('2025-05-10'),
-        }
+            description: 'Facebook ads for Kigamboni & Mbweni plots',
+            paidAt: new Date(`${randomDateBetween(SALES_WINDOW_START, SALES_WINDOW_END)}T00:00:00Z`),
+        },
     ])
 
     // --- Vendor Jobs ---
@@ -586,14 +723,18 @@ async function main() {
 
     // --- SMS Campaigns & Messages ---
     console.log('  → Seeding SMS campaigns...')
+    const smsSentAt = new Date(`${addDays(toDateStr(today), -3)}T09:00:00Z`)
+    const smsDeliveredAt = new Date(smsSentAt.getTime() + 5000)
+
     const [reminderCampaign] = await db.insert(schema.smsCampaigns).values({
-        name: 'May Payment Reminder',
+        name: 'Installment Payment Reminder',
         type: 'PAYMENT_REMINDER',
         templateBody: 'Hello {clientName}, your installment of TZS {amountDue} for plot {plotNumber} is due on {dueDate}. Please pay promptly. - Ardhi Flow',
         senderId: 'ARDHIFLOW',
         status: 'SENT',
         recipientCount: 3,
         createdBy: 'System',
+        scheduledAt: smsSentAt,
     }).returning()
 
     console.log('  → Seeding SMS messages...')
@@ -603,18 +744,19 @@ async function main() {
     for (let i = 0; i < Math.min(3, activeContracts.length); i++) {
         const contract = activeContracts[i]
         const client = clients.find(c => c.id === contract.clientContactId)
-        if (!client) continue
+        const plot = contractPlotsByContract.get(contract.id)?.[0]
+        if (!client || !plot) continue
 
         messageData.push({
             campaignId: reminderCampaign.id,
             contactId: client.id,
             contractId: contract.id,
             phoneNumber: client.mobileNumber || randomPhone(),
-            body: `Hello ${client.fullName}, your installment for plot ${saleAssignments[i].plot.plotNumber} is due soon. Please pay promptly. - Ardhi Flow`,
+            body: `Hello ${client.fullName}, your installment for plot ${plot.plotNumber} is due soon. Please pay promptly. - Ardhi Flow`,
             status: 'DELIVERED',
             providerMessageId: `NEXTSMS-${randomInt(100000, 999999)}`,
-            sentAt: new Date('2025-05-10T09:00:00Z'),
-            deliveredAt: new Date('2025-05-10T09:00:05Z'),
+            sentAt: smsSentAt,
+            deliveredAt: smsDeliveredAt,
         })
     }
 

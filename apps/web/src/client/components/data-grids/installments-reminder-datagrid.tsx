@@ -1498,18 +1498,20 @@ function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
                         {initials(clientName)}
                     </AvatarFallback>
                 </Avatar>
+                <div>
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold">
                     {clientName}
                 </span>
+                <div className="text-muted-foreground flex items-center gap-1.5 ps-8 text-xs">
+                    <BanknoteIcon className="size-3.5"/>
+                    {formatTzs(computeOutstanding(installment))}
+                </div>
+                </div>
                 <Badge size="sm" variant="secondary" className="shrink-0">
                     {projectName}
                 </Badge>
             </div>
-            <div className="text-muted-foreground flex items-center gap-1.5 ps-8 text-xs">
-                <BanknoteIcon className="size-3.5"/>
-                {formatTzs(computeOutstanding(installment))}
             </div>
-        </div>
     );
 }
 
