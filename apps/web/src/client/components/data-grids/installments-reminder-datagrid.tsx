@@ -25,7 +25,6 @@ import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,} from "@
 import {Label} from "@/components/ui/label.tsx";
 import {Popover, PopoverContent, PopoverTrigger,} from "@/components/ui/popover.tsx";
 import {
-    BanknoteIcon,
     FunnelIcon,
     MessageSquareTextIcon,
     MoreHorizontalIcon,
@@ -334,8 +333,8 @@ function CommentCard({
                     </AvatarFallback>
                 </Avatar>
                 <span className="text-muted-foreground flex-1 text-xs font-medium">
-                    {author}
-                </span>
+          {author}
+        </span>
                 {isUserComment && !isEditing && (
                     <CommentActionsPopover
                         onEdit={() => {
@@ -380,9 +379,7 @@ function CommentCard({
                         </div>
                     </div>
                 ) : (
-                    <p className="text-sm leading-relaxed">
-                        {comment.message ?? "—"}
-                    </p>
+                    <p className="text-sm leading-relaxed">{comment.message ?? "—"}</p>
                 )}
             </FramePanel>
 
@@ -635,9 +632,7 @@ export function InstallmentsReminderDataGrid() {
             queryClient.invalidateQueries({queryKey: ["installments"]});
         },
         onError: (err) => {
-            toast.error(
-                err instanceof Error ? err.message : "Failed to add comment",
-            );
+            toast.error(err instanceof Error ? err.message : "Failed to add comment");
         },
     });
 
@@ -1377,15 +1372,16 @@ export function InstallmentsReminderDataGrid() {
                             }
                             emptyState={
                                 <div className="flex h-full flex-col gap-4">
-
                                     <ReusableEmpty
                                         title="No Comments here!"
                                         description="No comments to display here"
                                         media={<ChatLineIcon className="size-16"/>}
-                                        children={<AddCommentTrigger
-                                            onSubmit={handleAddComment}
-                                            isPending={addCommentMutation.isPending}
-                                        />}
+                                        children={
+                                            <AddCommentTrigger
+                                                onSubmit={handleAddComment}
+                                                isPending={addCommentMutation.isPending}
+                                            />
+                                        }
                                     />
                                 </div>
                             }
@@ -1490,28 +1486,35 @@ function buildInstallmentCalendarEvents(
 function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
     const clientName = installment.contract?.client?.fullName ?? "Unknown client";
     const projectName = installment.plot?.project?.projectName ?? "—";
+    const installmentNumber = installment.installmentNo ?? "-";
     return (
         <div className="flex flex-col gap-1.5 border-b py-2.5 last:border-b-0">
             <div className="flex items-center gap-2">
-                <Avatar className="size-6 shrink-0">
-                    <AvatarFallback className="text-[10px]">
-                        {initials(clientName)}
-                    </AvatarFallback>
-                </Avatar>
-                <div>
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold">
-                    {clientName}
-                </span>
-                <div className="text-muted-foreground flex items-center gap-1.5 ps-8 text-xs">
-                    <BanknoteIcon className="size-3.5"/>
+                <div className="flex flex-1 min-w-0 items-center gap-2">
+                    <Avatar className="size-6 shrink-0">
+                        <AvatarFallback className="text-2xs">
+                            {initials(clientName)}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="flex min-w-0 flex-col space-y-0">
+            <span className="min-w-0 truncate text-xs font-semibold">
+              {clientName}
+            </span>
+                        <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                            {installmentNumber > 0
+                                ? `Installment No. ${installmentNumber}`
+                                : "Downpayment"}
+                        </div>
+                    </div>
+                </div>
+                <div className="flex flex-col space-y-1 text-xs">
+                    <Badge size="sm" variant="secondary" className="shrink-0">
+                        {projectName}
+                    </Badge>
                     {formatTzs(computeOutstanding(installment))}
                 </div>
-                </div>
-                <Badge size="sm" variant="secondary" className="shrink-0">
-                    {projectName}
-                </Badge>
             </div>
-            </div>
+        </div>
     );
 }
 
@@ -1636,18 +1639,18 @@ export function InstallmentsRecoveryCalendar() {
                     .reduce((sum, item) => sum + computeOutstanding(item), 0);
                 return (
                     <div className="text-muted-foreground flex items-center gap-4 text-xs font-medium">
+            <span>
+              Outstanding:{" "}
+                <span className="text-foreground font-semibold">
+                Tshs. {formatCompactAmount(outstanding)}
+              </span>
+            </span>
                         <span>
-                            Outstanding:{" "}
-                            <span className="text-foreground font-semibold">
-                                Tshs. {formatCompactAmount(outstanding)}
-                            </span>
-                        </span>
-                        <span>
-                            Overdue:{" "}
+              Overdue:{" "}
                             <span className="text-destructive font-semibold">
-                                Tshs. {formatCompactAmount(overdue)}
-                            </span>
-                        </span>
+                Tshs. {formatCompactAmount(overdue)}
+              </span>
+            </span>
                     </div>
                 );
             }}
