@@ -1444,12 +1444,16 @@ interface InstallmentCalendarEventData {
 }
 
 /** Groups installments by due date (local calendar day) into one all-day
- *  event per day, titled with that day's total outstanding amount. */
+ *  event per day, titled with that day's total outstanding amount.
+ *  Installments that are already fully paid off (outstanding = 0) are
+ *  excluded — only installments still owing something show up on the
+ *  calendar. */
 function buildInstallmentCalendarEvents(
     installments: IInstallment[],
 ): CalendarEvent<InstallmentCalendarEventData>[] {
     const buckets = new Map<number, IInstallment[]>();
     for (const installment of installments) {
+        if (computeOutstanding(installment) <= 0) continue;
         const due = new Date(installment.dueDate);
         if (Number.isNaN(due.getTime())) continue;
         const key = startOfDay(due).getTime();
@@ -1469,7 +1473,7 @@ function buildInstallmentCalendarEvents(
         );
         return {
             id: `installments-${key}`,
-            title: `Tsh. ${formatCompactAmount(totalOutstanding)} Outstanding`,
+            title: formatTzs(totalOutstanding),
             start: dayStart,
             end: addDays(dayStart, 1),
             allDay: true,
@@ -1487,6 +1491,7 @@ function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
     const clientName = installment.contract?.client?.fullName ?? "Unknown client";
     const projectName = installment.plot?.project?.projectName ?? "—";
     const installmentNumber = installment.installmentNo ?? "-";
+    const plotNumber = installment.plot?.plotNumber ?? "-"
     return (
         <div className="flex flex-col gap-1.5 border-b py-2.5 last:border-b-0">
             <div className="flex items-center gap-2">
@@ -1502,14 +1507,14 @@ function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
             </span>
                         <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
                             {installmentNumber > 0
-                                ? `Installment No. ${installmentNumber}`
+                                ? `Installment ${installmentNumber}`
                                 : "Downpayment"}
                         </div>
                     </div>
                 </div>
                 <div className="flex flex-col space-y-1 text-xs">
                     <Badge size="sm" variant="secondary" className="shrink-0">
-                        {projectName}
+                        {projectName} - Plot No. {plotNumber}
                     </Badge>
                     {formatTzs(computeOutstanding(installment))}
                 </div>
