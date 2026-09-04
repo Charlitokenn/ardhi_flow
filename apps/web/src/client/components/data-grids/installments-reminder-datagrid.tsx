@@ -220,6 +220,136 @@ function computeOutstanding(installment: IInstallment): number {
     return Math.max(0, due + penalty - paid - waived);
 }
 
+// ---------------------------------------------------------------------------
+// Contract-level grouping — a multi-plot contract has one full installment
+// schedule per plot (see IInstallment.plot above), so "installment 1" on a
+// 3-plot contract is really 3 separate rows that all fall due the same day.
+// Both the datagrid and the recovery calendar collapse those into a single
+// row/event per (contract, installment number), summing the money columns
+// and listing the plot numbers together (e.g. "Plot No. 4, 5, 9").
+// ---------------------------------------------------------------------------
+
+/** A single follow-up comment tagged with which installment (i.e. which
+ *  plot) it was actually logged against — needed once comments from several
+ *  installments get merged into one group's timeline, since editing or
+ *  deleting a comment has to hit the same installment id it was created
+ *  under (the API 404s otherwise). */
+interface IInstallmentGroupComment extends IInstallmentComment {
+    installmentId: string;
+    plotNumber: string;
+}
+
+interface IInstallmentGroup {
+    /** `${contractId}-${installmentNo}` — unique per contract per
+     *  installment position. */
+    id: string;
+    contractId: string;
+    installmentNo: number;
+    /** Assumed identical across every plot in the group (same installment
+     *  position on the same contract shares a due date); the first
+     *  installment's due date is used as the representative value. */
+    dueDate: string;
+    client: IInstallmentClient | null;
+    /** Usually one project, but kept as a list in case a contract's plots
+     *  span more than one. */
+    projectNames: string[];
+    plotNumbers: string[];
+    amountDue: number;
+    amountPaid: number;
+    penaltyAmount: number;
+    waivedAmount: number;
+    outstanding: number;
+    status: ReminderStatus;
+    /** Only set once every plot in the group is PAID — otherwise there's no
+     *  single meaningful payment date for the group. */
+    paidAt: string | null;
+    comments: IInstallmentGroupComment[];
+    /** Underlying per-plot rows, sorted by plot number — the first one is
+     *  treated as the group's "primary" installment for actions (adding a
+     *  new comment) that need a single installment id to post against. */
+    installments: IInstallment[];
+}
+
+function groupInstallmentsByContract(
+    installments: IInstallment[],
+): IInstallmentGroup[] {
+    const buckets = new Map<string, IInstallment[]>();
+    for (const installment of installments) {
+        const key = `${installment.contractId}-${installment.installmentNo}`;
+        const bucket = buckets.get(key);
+        if (bucket) bucket.push(installment);
+        else buckets.set(key, [installment]);
+    }
+
+    return Array.from(buckets.entries()).map(([key, items]) => {
+        const sorted = [...items].sort((a, b) =>
+            (a.plot?.plotNumber ?? "").localeCompare(b.plot?.plotNumber ?? "", undefined, {
+                numeric: true,
+            }),
+        );
+        const first = sorted[0];
+
+        const amountDue = sorted.reduce((sum, i) => sum + (parseFloat(i.amountDue) || 0), 0);
+        const amountPaid = sorted.reduce((sum, i) => sum + (parseFloat(i.amountPaid) || 0), 0);
+        const penaltyAmount = sorted.reduce(
+            (sum, i) => sum + (parseFloat(i.penaltyAmount) || 0),
+            0,
+        );
+        const waivedAmount = sorted.reduce(
+            (sum, i) => sum + (parseFloat(i.waivedAmount) || 0),
+            0,
+        );
+        const outstanding = sorted.reduce((sum, i) => sum + computeOutstanding(i), 0);
+
+        const status = dominantReminderStatus(sorted.map((i) => computeReminderStatus(i)));
+
+        const allPaid = sorted.every((i) => i.status === "PAID");
+        const paidAt = allPaid
+            ? sorted.reduce<string | null>((latest, i) => {
+                if (!i.paidAt) return latest;
+                if (!latest) return i.paidAt;
+                return new Date(i.paidAt) > new Date(latest) ? i.paidAt : latest;
+            }, null)
+            : null;
+
+        const projectNames = Array.from(
+            new Set(
+                sorted
+                    .map((i) => i.plot?.project?.projectName)
+                    .filter((n): n is string => Boolean(n)),
+            ),
+        );
+        const plotNumbers = sorted.map((i) => i.plot?.plotNumber ?? "—");
+
+        const comments: IInstallmentGroupComment[] = sorted.flatMap((i) =>
+            i.comments.map((c) => ({
+                ...c,
+                installmentId: i.id,
+                plotNumber: i.plot?.plotNumber ?? "—",
+            })),
+        );
+
+        return {
+            id: key,
+            contractId: first.contractId,
+            installmentNo: first.installmentNo,
+            dueDate: first.dueDate,
+            client: first.contract?.client ?? null,
+            projectNames,
+            plotNumbers,
+            amountDue,
+            amountPaid,
+            penaltyAmount,
+            waivedAmount,
+            outstanding,
+            status,
+            paidAt,
+            comments,
+            installments: sorted,
+        };
+    });
+}
+
 function latestComment(
     comments: IInstallmentComment[],
 ): IInstallmentComment | null {
@@ -303,18 +433,27 @@ function CommentActionsPopover({
  *  Save/Cancel; "Delete Comment" opens a confirm dialog before removing it. */
 function CommentCard({
                          comment,
+                         showPlotBadge,
                          onEdit,
                          onDelete,
                          isEditPending,
                          isDeletePending,
                      }: {
-    comment: IInstallmentComment;
+    comment: IInstallmentGroupComment;
+    /** True once the parent group spans more than one plot — disambiguates
+     *  which plot's schedule this particular comment was logged against. */
+    showPlotBadge: boolean;
     onEdit: (
+        installmentId: string,
         commentId: string,
         message: string,
         callbacks: { onSuccess: () => void },
     ) => void;
-    onDelete: (commentId: string, callbacks: { onSuccess: () => void }) => void;
+    onDelete: (
+        installmentId: string,
+        commentId: string,
+        callbacks: { onSuccess: () => void },
+    ) => void;
     isEditPending: boolean;
     isDeletePending: boolean;
 }) {
@@ -335,6 +474,11 @@ function CommentCard({
                 <span className="text-muted-foreground flex-1 text-xs font-medium">
           {author}
         </span>
+                {showPlotBadge && (
+                    <Badge size="sm" variant="secondary" className="shrink-0">
+                        Plot No. {comment.plotNumber}
+                    </Badge>
+                )}
                 {isUserComment && !isEditing && (
                     <CommentActionsPopover
                         onEdit={() => {
@@ -369,7 +513,7 @@ function CommentCard({
                                 size="sm"
                                 disabled={!draft.trim() || isEditPending}
                                 onClick={() =>
-                                    onEdit(comment.id, draft.trim(), {
+                                    onEdit(comment.installmentId, comment.id, draft.trim(), {
                                         onSuccess: () => setIsEditing(false),
                                     })
                                 }
@@ -392,7 +536,7 @@ function CommentCard({
                     icon={<Trash2Icon className="size-5"/>}
                     isDeleting={isDeletePending}
                     onDelete={() =>
-                        onDelete(comment.id, {
+                        onDelete(comment.installmentId, comment.id, {
                             onSuccess: () => setConfirmingDelete(false),
                         })
                     }
@@ -407,16 +551,24 @@ function CommentCard({
  *  step title = timestamp, content = a CommentCard rendered inside the same
  *  Frame primitive used for the "add comment" trigger above it. */
 function commentsToTimelineItems(
-    comments: IInstallmentComment[],
+    comments: IInstallmentGroupComment[],
     handlers: {
         onEdit: (
+            installmentId: string,
             commentId: string,
             message: string,
             callbacks: { onSuccess: () => void },
         ) => void;
-        onDelete: (commentId: string, callbacks: { onSuccess: () => void }) => void;
+        onDelete: (
+            installmentId: string,
+            commentId: string,
+            callbacks: { onSuccess: () => void },
+        ) => void;
         isEditPending: (commentId: string) => boolean;
         isDeletePending: (commentId: string) => boolean;
+        /** Show which plot each comment belongs to — pass true once the
+         *  group spans more than one plot. */
+        showPlotBadge: boolean;
     },
 ): ReusableTimelineItem[] {
     return [...comments]
@@ -431,6 +583,7 @@ function commentsToTimelineItems(
             content: (
                 <CommentCard
                     comment={comment}
+                    showPlotBadge={handlers.showPlotBadge}
                     onEdit={handlers.onEdit}
                     onDelete={handlers.onDelete}
                     isEditPending={handlers.isEditPending(comment.id)}
@@ -449,9 +602,14 @@ function commentsToTimelineItems(
 function AddCommentTrigger({
                                onSubmit,
                                isPending,
+                               targetPlotLabel,
                            }: {
     onSubmit: (message: string, callbacks: { onSuccess: () => void }) => void;
     isPending: boolean;
+    /** When the comments sheet is open for a multi-plot group, shown next to
+     *  the trigger/form so it's clear which plot's schedule the new comment
+     *  will actually be logged against. */
+    targetPlotLabel?: string;
 }) {
     const [open, setOpen] = useState(false);
     const [message, setMessage] = useState("");
@@ -485,6 +643,12 @@ function AddCommentTrigger({
                         className="text-xs font-medium"
                     >
                         New comment
+                        {targetPlotLabel && (
+                            <span className="text-muted-foreground font-normal">
+                {" "}
+                                — Plot No. {targetPlotLabel}
+              </span>
+                        )}
                     </Label>
                     <Textarea
                         id="new-installment-comment"
@@ -528,22 +692,22 @@ function AddCommentTrigger({
     );
 }
 
-const exportColumns: ExportColumn<IInstallment>[] = [
+const exportColumns: ExportColumn<IInstallmentGroup>[] = [
     {header: "Due Date", accessor: (d) => d.dueDate},
-    {header: "Client", accessor: (d) => d.contract?.client?.fullName ?? null},
-    {header: "Project", accessor: (d) => d.plot?.project?.projectName ?? null},
-    {header: "Plot", accessor: (d) => d.plot?.plotNumber ?? null},
-    {header: "Installment Amount", accessor: (d) => d.amountDue},
+    {header: "Client", accessor: (d) => d.client?.fullName ?? null},
+    {header: "Project", accessor: (d) => d.projectNames.join(", ") || null},
+    {header: "Plot", accessor: (d) => d.plotNumbers.join(", ") || null},
+    {header: "Installment Amount", accessor: (d) => d.amountDue.toString()},
     {
         header: "Installment No.",
         accessor: (d) => formatInstallmentLabel(d.installmentNo),
     },
-    {header: "Penalty", accessor: (d) => d.penaltyAmount},
+    {header: "Penalty", accessor: (d) => d.penaltyAmount.toString()},
     {header: "Payment Date", accessor: (d) => d.paidAt},
-    {header: "Paid Amount", accessor: (d) => d.amountPaid},
+    {header: "Paid Amount", accessor: (d) => d.amountPaid.toString()},
     {
         header: "Outstanding Amount",
-        accessor: (d) => computeOutstanding(d).toString(),
+        accessor: (d) => d.outstanding.toString(),
     },
     {
         header: "Comments",
@@ -551,7 +715,7 @@ const exportColumns: ExportColumn<IInstallment>[] = [
     },
     {
         header: "Status",
-        accessor: (d) => reminderStatusLabel(computeReminderStatus(d)),
+        accessor: (d) => reminderStatusLabel(d.status),
     },
 ];
 
@@ -583,16 +747,17 @@ export function InstallmentsReminderDataGrid() {
         [],
     );
 
-    const [viewingRow, setViewingRow] = useState<IInstallment | null>(null);
+    const [viewingRow, setViewingRow] = useState<IInstallmentGroup | null>(null);
     const isViewSheetOpen = viewingRow !== null;
 
-    // Logs a follow-up comment against whichever installment is open in the
-    // sheet (see the AddCommentTrigger inside ReusableTimeline below).
-    // `viewingRow` is a snapshot of the row, not a live subscription to the
-    // installments query, so success also appends the new comment onto it
-    // directly — that's what makes the sheet reflect it immediately, on top
-    // of invalidating ["installments"] so the grid's own comment count
-    // catches up next time it renders.
+    // Logs a follow-up comment against the group's "primary" installment
+    // (first plot, alphanumerically) — the API needs a single installment id
+    // to hang the comment off of, and a contract-level comment doesn't
+    // belong more to one plot than another. `viewingRow` is a snapshot of
+    // the row, not a live subscription to the installments query, so success
+    // also appends the new comment onto it directly — that's what makes the
+    // sheet reflect it immediately, on top of invalidating ["installments"]
+    // so the grid's own comment count catches up next time it renders.
     const addCommentMutation = useMutation({
         mutationFn: async ({
                                installmentId,
@@ -617,14 +782,21 @@ export function InstallmentsReminderDataGrid() {
             }
             return res.json();
         },
-        onSuccess: (created) => {
+        onSuccess: (created, variables) => {
             setViewingRow((prev) =>
                 prev
                     ? {
                         ...prev,
                         comments: [
                             ...prev.comments,
-                            created as unknown as IInstallmentComment,
+                            {
+                                ...(created as unknown as IInstallmentComment),
+                                installmentId: variables.installmentId,
+                                plotNumber:
+                                    prev.installments.find(
+                                        (i) => i.id === variables.installmentId,
+                                    )?.plot?.plotNumber ?? "—",
+                            },
                         ],
                     }
                     : prev,
@@ -641,9 +813,11 @@ export function InstallmentsReminderDataGrid() {
         callbacks: { onSuccess: () => void },
     ) {
         if (!viewingRow) return;
+        const primaryInstallmentId = viewingRow.installments[0]?.id;
+        if (!primaryInstallmentId) return;
         addCommentMutation.mutate(
             {
-                installmentId: viewingRow.id,
+                installmentId: primaryInstallmentId,
                 message,
                 createdBy: user?.fullName?.trim() || user?.username || null,
             },
@@ -652,9 +826,11 @@ export function InstallmentsReminderDataGrid() {
     }
 
     // Edits a comment's message in place (see CommentCard's inline
-    // textarea). Same local-state-append pattern as addCommentMutation
-    // above: viewingRow is a snapshot, so success also patches it directly
-    // rather than waiting on the invalidated query to refetch.
+    // textarea). `installmentId` comes from the comment itself (see
+    // IInstallmentGroupComment) rather than viewingRow, since a group's
+    // comments can be spread across several plots' installments and the API
+    // scopes edits to the installment the comment was actually logged
+    // against. Same local-state-append pattern as addCommentMutation above.
     const editCommentMutation = useMutation({
         mutationFn: async ({
                                installmentId,
@@ -688,7 +864,11 @@ export function InstallmentsReminderDataGrid() {
                         ...prev,
                         comments: prev.comments.map((c) =>
                             c.id === variables.commentId
-                                ? (updated as unknown as IInstallmentComment)
+                                ? {
+                                    ...(updated as unknown as IInstallmentComment),
+                                    installmentId: c.installmentId,
+                                    plotNumber: c.plotNumber,
+                                }
                                 : c,
                         ),
                     }
@@ -704,18 +884,19 @@ export function InstallmentsReminderDataGrid() {
     });
 
     function handleEditComment(
+        installmentId: string,
         commentId: string,
         message: string,
         callbacks: { onSuccess: () => void },
     ) {
-        if (!viewingRow) return;
         editCommentMutation.mutate(
-            {installmentId: viewingRow.id, commentId, message},
+            {installmentId, commentId, message},
             {onSuccess: callbacks.onSuccess},
         );
     }
 
-    // Deletes a comment. Same local-state removal + invalidation pattern.
+    // Deletes a comment. Same per-comment installmentId sourcing as edit
+    // above, and the same local-state removal + invalidation pattern.
     const deleteCommentMutation = useMutation({
         mutationFn: async ({
                                installmentId,
@@ -760,12 +941,12 @@ export function InstallmentsReminderDataGrid() {
     });
 
     function handleDeleteComment(
+        installmentId: string,
         commentId: string,
         callbacks: { onSuccess: () => void },
     ) {
-        if (!viewingRow) return;
         deleteCommentMutation.mutate(
-            {installmentId: viewingRow.id, commentId},
+            {installmentId, commentId},
             {onSuccess: callbacks.onSuccess},
         );
     }
@@ -800,24 +981,32 @@ export function InstallmentsReminderDataGrid() {
         }
     }, [installmentsQuery.isError, installmentsQuery.error]);
 
-    const data = useMemo<IInstallment[]>(
+    const rawData = useMemo<IInstallment[]>(
         () => (installmentsQuery.data as unknown as IInstallment[]) ?? [],
         [installmentsQuery.data],
     );
 
+    // Contract-level rows: a multi-plot contract's installment 1 across all
+    // its plots collapses into one row here (see groupInstallmentsByContract
+    // above), so downstream filtering/sorting/columns all operate on groups
+    // rather than raw per-plot installments.
+    const data = useMemo<IInstallmentGroup[]>(
+        () => groupInstallmentsByContract(rawData),
+        [rawData],
+    );
+
     const filteredData = useMemo(() => {
         return data.filter((item) => {
-            const reminderStatus = computeReminderStatus(item);
             const matchesStatus =
-                !selectedStatuses.length || selectedStatuses.includes(reminderStatus);
+                !selectedStatuses.length || selectedStatuses.includes(item.status);
 
             const searchLower = searchQuery.toLowerCase();
             const matchesSearch =
                 !searchQuery ||
                 [
-                    item.contract?.client?.fullName,
-                    item.plot?.project?.projectName,
-                    item.plot?.plotNumber,
+                    item.client?.fullName,
+                    ...item.projectNames,
+                    ...item.plotNumbers,
                 ]
                     .filter(Boolean)
                     .join(" ")
@@ -831,8 +1020,7 @@ export function InstallmentsReminderDataGrid() {
     const statusCounts = useMemo(() => {
         return data.reduce(
             (acc, item) => {
-                const key = computeReminderStatus(item);
-                acc[key] = (acc[key] || 0) + 1;
+                acc[item.status] = (acc[item.status] || 0) + 1;
                 return acc;
             },
             {} as Record<ReminderStatus, number>,
@@ -853,7 +1041,7 @@ export function InstallmentsReminderDataGrid() {
         setSelectedStatuses([]);
     };
 
-    const columns = useMemo<ColumnDef<DataGridFeatures, IInstallment>[]>(
+    const columns = useMemo<ColumnDef<DataGridFeatures, IInstallmentGroup>[]>(
         () => [
             {
                 accessorKey: "id",
@@ -888,7 +1076,7 @@ export function InstallmentsReminderDataGrid() {
             },
             {
                 id: "clientName",
-                accessorFn: (row) => row.contract?.client?.fullName ?? "",
+                accessorFn: (row) => row.client?.fullName ?? "",
                 header: ({column}) => (
                     <DataGridColumnHeader
                         title="Client"
@@ -897,7 +1085,7 @@ export function InstallmentsReminderDataGrid() {
                     />
                 ),
                 cell: ({row}) => {
-                    const client = row.original.contract?.client;
+                    const client = row.original.client;
                     return (
                         <div className="flex items-center gap-2.5">
                             <Avatar className="size-7">
@@ -919,7 +1107,7 @@ export function InstallmentsReminderDataGrid() {
             },
             {
                 id: "projectName",
-                accessorFn: (row) => row.plot?.project?.projectName ?? "",
+                accessorFn: (row) => row.projectNames.join(", "),
                 header: ({column}) => (
                     <DataGridColumnHeader
                         title="Project"
@@ -929,7 +1117,7 @@ export function InstallmentsReminderDataGrid() {
                 ),
                 cell: ({row}) => (
                     <div className="text-foreground font-medium">
-                        {row.original.plot?.project?.projectName ?? "—"}
+                        {row.original.projectNames.join(", ") || "—"}
                     </div>
                 ),
                 size: 170,
@@ -940,12 +1128,11 @@ export function InstallmentsReminderDataGrid() {
             },
             {
                 id: "plotNumber",
-                // A client can hold several plots — same project or
-                // different ones — so this is its own sortable column
-                // rather than folded into the project cell, both for
-                // readability and so it can anchor the default sort's
-                // per-contract grouping (see the `sorting` state above).
-                accessorFn: (row) => row.plot?.plotNumber ?? "",
+                // A contract can span several plots — same project or
+                // different ones — sharing one installment schedule between
+                // them, so this column lists every plot number the row's
+                // group covers (e.g. "4, 5, 9") rather than just one.
+                accessorFn: (row) => row.plotNumbers.join(", "),
                 header: ({column}) => (
                     <DataGridColumnHeader
                         title="Plot"
@@ -955,10 +1142,10 @@ export function InstallmentsReminderDataGrid() {
                 ),
                 cell: ({row}) => (
                     <div className="text-foreground font-medium">
-                        Plot No. {row.original.plot?.plotNumber ?? "—"}
+                        Plot No. {row.original.plotNumbers.join(", ") || "—"}
                     </div>
                 ),
-                size: 110,
+                size: 150,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
                 enableHiding: true,
@@ -993,7 +1180,7 @@ export function InstallmentsReminderDataGrid() {
                 ),
                 cell: (info) => (
                     <div className="text-foreground font-medium">
-                        {formatTzs(info.getValue() as string)}
+                        {formatTzs(info.getValue() as number)}
                     </div>
                 ),
                 size: 170,
@@ -1012,7 +1199,7 @@ export function InstallmentsReminderDataGrid() {
                         column={column}
                     />
                 ),
-                cell: (info) => formatTzs(info.getValue() as string),
+                cell: (info) => formatTzs(info.getValue() as number),
                 size: 140,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
@@ -1049,7 +1236,7 @@ export function InstallmentsReminderDataGrid() {
                         column={column}
                     />
                 ),
-                cell: (info) => formatTzs(info.getValue() as string),
+                cell: (info) => formatTzs(info.getValue() as number),
                 size: 150,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
@@ -1058,7 +1245,7 @@ export function InstallmentsReminderDataGrid() {
             },
             {
                 id: "outstandingAmount",
-                accessorFn: (row) => computeOutstanding(row),
+                accessorFn: (row) => row.outstanding,
                 header: ({column}) => (
                     <DataGridColumnHeader
                         title="Outstanding"
@@ -1068,7 +1255,7 @@ export function InstallmentsReminderDataGrid() {
                 ),
                 cell: ({row}) => (
                     <div className="text-foreground font-medium">
-                        {formatTzs(computeOutstanding(row.original))}
+                        {formatTzs(row.original.outstanding)}
                     </div>
                 ),
                 size: 160,
@@ -1079,7 +1266,7 @@ export function InstallmentsReminderDataGrid() {
             },
             {
                 id: "reminderStatus",
-                accessorFn: (row) => computeReminderStatus(row),
+                accessorFn: (row) => row.status,
                 header: ({column}) => (
                     <DataGridColumnHeader
                         title="Status"
@@ -1087,8 +1274,7 @@ export function InstallmentsReminderDataGrid() {
                         column={column}
                     />
                 ),
-                cell: ({row}) =>
-                    reminderStatusBadge(computeReminderStatus(row.original)),
+                cell: ({row}) => reminderStatusBadge(row.original.status),
                 size: 120,
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
@@ -1174,7 +1360,7 @@ export function InstallmentsReminderDataGrid() {
         columns,
         data: filteredData,
 
-        getRowId: (row: IInstallment) => row.id,
+        getRowId: (row: IInstallmentGroup) => row.id,
 
         enableRowSelection: true,
 
@@ -1206,7 +1392,7 @@ export function InstallmentsReminderDataGrid() {
                 table={table}
                 recordCount={filteredData.length || 0}
                 getRowClassName={(row) =>
-                    reminderRowClassName(computeReminderStatus(row))
+                    reminderRowClassName(row.status)
                 }
                 tableLayout={{
                     columnsPinnable: true,
@@ -1346,6 +1532,11 @@ export function InstallmentsReminderDataGrid() {
 
             <ReusableSheet
                 title="Comments History"
+                description={
+                    viewingRow
+                        ? `${viewingRow.client?.fullName ?? "Unknown client"} · Plot No. ${viewingRow.plotNumbers.join(", ")}`
+                        : undefined
+                }
                 open={isViewSheetOpen}
                 onOpenChange={(open) => {
                     if (!open) setViewingRow(null);
@@ -1363,11 +1554,17 @@ export function InstallmentsReminderDataGrid() {
                                 isDeletePending: (commentId) =>
                                     deleteCommentMutation.isPending &&
                                     deleteCommentMutation.variables?.commentId === commentId,
+                                showPlotBadge: viewingRow.plotNumbers.length > 1,
                             })}
                             topSlot={
                                 <AddCommentTrigger
                                     onSubmit={handleAddComment}
                                     isPending={addCommentMutation.isPending}
+                                    targetPlotLabel={
+                                        viewingRow.plotNumbers.length > 1
+                                            ? viewingRow.plotNumbers[0]
+                                            : undefined
+                                    }
                                 />
                             }
                             emptyState={
@@ -1380,6 +1577,11 @@ export function InstallmentsReminderDataGrid() {
                                             <AddCommentTrigger
                                                 onSubmit={handleAddComment}
                                                 isPending={addCommentMutation.isPending}
+                                                targetPlotLabel={
+                                                    viewingRow.plotNumbers.length > 1
+                                                        ? viewingRow.plotNumbers[0]
+                                                        : undefined
+                                                }
                                             />
                                         }
                                     />
@@ -1438,39 +1640,42 @@ function formatCompactAmount(value: number): string {
 }
 
 interface InstallmentCalendarEventData {
-    installments: IInstallment[];
+    groups: IInstallmentGroup[];
     totalOutstanding: number;
     status: ReminderStatus;
 }
 
-/** Groups installments by due date (local calendar day) into one all-day
- *  event per day, titled with that day's total outstanding amount.
- *  Installments that are already fully paid off (outstanding = 0) are
- *  excluded — only installments still owing something show up on the
- *  calendar. */
+/** Groups installments contract-level first (see groupInstallmentsByContract
+ *  above — a multi-plot contract's installment 1 across every plot is one
+ *  group, since they all share a due date), then buckets those groups by due
+ *  date (local calendar day) into one all-day event per day, titled with
+ *  that day's total outstanding amount. Groups that are already fully paid
+ *  off (outstanding = 0) are excluded — only installments still owing
+ *  something show up on the calendar. */
 function buildInstallmentCalendarEvents(
     installments: IInstallment[],
 ): CalendarEvent<InstallmentCalendarEventData>[] {
-    const buckets = new Map<number, IInstallment[]>();
-    for (const installment of installments) {
-        if (computeOutstanding(installment) <= 0) continue;
-        const due = new Date(installment.dueDate);
+    const groups = groupInstallmentsByContract(installments).filter(
+        (group) => group.outstanding > 0,
+    );
+
+    const buckets = new Map<number, IInstallmentGroup[]>();
+    for (const group of groups) {
+        const due = new Date(group.dueDate);
         if (Number.isNaN(due.getTime())) continue;
         const key = startOfDay(due).getTime();
         const bucket = buckets.get(key);
-        if (bucket) bucket.push(installment);
-        else buckets.set(key, [installment]);
+        if (bucket) bucket.push(group);
+        else buckets.set(key, [group]);
     }
 
-    return Array.from(buckets.entries()).map(([key, dayInstallments]) => {
+    return Array.from(buckets.entries()).map(([key, dayGroups]) => {
         const dayStart = new Date(key);
-        const totalOutstanding = dayInstallments.reduce(
-            (sum, item) => sum + computeOutstanding(item),
+        const totalOutstanding = dayGroups.reduce(
+            (sum, item) => sum + item.outstanding,
             0,
         );
-        const status = dominantReminderStatus(
-            dayInstallments.map((item) => computeReminderStatus(item)),
-        );
+        const status = dominantReminderStatus(dayGroups.map((item) => item.status));
         return {
             id: `installments-${key}`,
             title: formatTzs(totalOutstanding),
@@ -1478,20 +1683,20 @@ function buildInstallmentCalendarEvents(
             end: addDays(dayStart, 1),
             allDay: true,
             color: REMINDER_STATUS_COLOR_VAR[status],
-            data: {installments: dayInstallments, totalOutstanding, status},
+            data: {groups: dayGroups, totalOutstanding, status},
         };
     });
 }
 
-/** One installment row inside an event's hover tooltip — avatar, bold client
- *  name with a project-name badge on the header row, outstanding amount on
- *  the row below. Same avatar + bold-name-with-badge / detail-row-beneath
- *  shape used for contact cards elsewhere in the app. */
-function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
-    const clientName = installment.contract?.client?.fullName ?? "Unknown client";
-    const projectName = installment.plot?.project?.projectName ?? "—";
-    const installmentNumber = installment.installmentNo ?? "-";
-    const plotNumber = installment.plot?.plotNumber ?? "-"
+/** One contract-level group row inside an event's hover tooltip — avatar,
+ *  bold client name with a project/plot-numbers badge on the header row,
+ *  outstanding amount on the row below. Same avatar + bold-name-with-badge /
+ *  detail-row-beneath shape used for contact cards elsewhere in the app. */
+function InstallmentTooltipRow({group}: { group: IInstallmentGroup }) {
+    const clientName = group.client?.fullName ?? "Unknown client";
+    const projectName = group.projectNames.join(", ") || "—";
+    const installmentNumber = group.installmentNo;
+    const plotNumbers = group.plotNumbers.join(", ") || "-";
     return (
         <div className="flex flex-col gap-1.5 border-b py-2.5 last:border-b-0">
             <div className="flex items-center gap-2">
@@ -1514,9 +1719,9 @@ function InstallmentTooltipRow({installment}: { installment: IInstallment }) {
                 </div>
                 <div className="flex flex-col space-y-1 text-xs">
                     <Badge size="sm" variant="secondary" className="shrink-0">
-                        {projectName} - Plot No. {plotNumber}
+                        {projectName} - Plot No. {plotNumbers}
                     </Badge>
-                    {formatTzs(computeOutstanding(installment))}
+                    {formatTzs(group.outstanding)}
                 </div>
             </div>
         </div>
@@ -1538,8 +1743,8 @@ function InstallmentCalendarEventTooltip({
     return (
         <>
             <p className="pb-2 text-xs font-semibold">
-                {data.installments.length}{" "}
-                {data.installments.length === 1 ? "installment" : "installments"} due
+                {data.groups.length}{" "}
+                {data.groups.length === 1 ? "installment" : "installments"} due
             </p>
             {/* type="always": the default "hover" type only turns on real
                 overflow/wheel-scrolling after the pointer lingers on the
@@ -1549,11 +1754,8 @@ function InstallmentCalendarEventTooltip({
                 silently does nothing. "always" mounts the scrollbar (and its
                 wheel handling) immediately instead of waiting on that. */}
             <ScrollArea type="always" className="-mx-3 -mb-3 h-64 px-3 pb-3">
-                {data.installments.map((installment) => (
-                    <InstallmentTooltipRow
-                        key={installment.id}
-                        installment={installment}
-                    />
+                {data.groups.map((group) => (
+                    <InstallmentTooltipRow key={group.id} group={group}/>
                 ))}
             </ScrollArea>
         </>
