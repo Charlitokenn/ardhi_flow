@@ -31,11 +31,12 @@ import {
     PlusIcon,
     SearchIcon,
     Settings2Icon,
+    SmartphoneIcon,
     SquarePenIcon,
     Trash2Icon,
     XIcon,
 } from "lucide-react";
-import {useTableCSVExport} from "../../../../../../packages/api-client/src/index.ts";
+import {useTableCSVExport} from "../../../../../../packages/api-client";
 import {TableActionBar} from "@/components-reusable/reusable-table-action-bar.tsx";
 import {type ExportColumn} from "@/lib/export-csv.ts";
 import ReusableSheet from "@/components-reusable/reusable-sheet.tsx";
@@ -44,7 +45,7 @@ import ReusableTimeline, {type ReusableTimelineItem,} from "@/components-reusabl
 import {Skeleton} from "@/components/ui/skeleton.tsx";
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx";
 import {ArchiveIcon, ChatLineIcon} from "@/assets/icons";
-import {cn, formatDate, formatDateTimeShort, thousandSeparator,} from "@/lib/utils.ts";
+import {cn, formatDate, formatDateTimeShort, formatInternationalWithSpaces, thousandSeparator,} from "@/lib/utils.ts";
 import {DataGridTableVirtual} from "@/components/reui/data-grid/data-grid-table-virtual";
 import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 import {ReusableEventsCalendar} from "@/components-reusable/reusable-event-calendar.tsx";
@@ -770,7 +771,7 @@ export function InstallmentsReminderDataGrid() {
         }) => {
             const res = await api.api.installments[":id"].comments.$post({
                 param: {id: installmentId},
-                json: {message, createdBy},
+                json: {message},
             });
             if (!res.ok) {
                 const body = await res.json().catch(() => null);
@@ -1086,6 +1087,7 @@ export function InstallmentsReminderDataGrid() {
                 ),
                 cell: ({row}) => {
                     const client = row.original.client;
+                    const mobile = row.original.client?.mobileNumber ?? ""
                     return (
                         <div className="flex items-center gap-2.5">
                             <Avatar className="size-7">
@@ -1093,11 +1095,21 @@ export function InstallmentsReminderDataGrid() {
                                     {initials(client?.fullName ?? "—")}
                                 </AvatarFallback>
                             </Avatar>
-                            <span className="text-foreground font-medium">
-                {client?.fullName ?? "—"}
-              </span>
+                            <ReusableTooltip
+                                trigger={
+                                    <span
+                                        className="text-foreground cursor-pointer font-medium underline decoration-dashed decoration-1 underline-offset-4">
+                                        {client?.fullName ?? "—"}
+                                    </span>
+                                }
+                                orientation="right"
+                                tooltip={<span
+                                    className="font-medium flex gap-2"><SmartphoneIcon
+                                    className="size-4"/> {formatInternationalWithSpaces(mobile)}</span>}
+                            />
+
                         </div>
-                    );
+                    )
                 },
                 size: 210,
                 meta: {autoSize: true, skeleton: <Skeleton className="h-7 w-auto"/>},
