@@ -1,6 +1,6 @@
 import {createFileRoute} from '@tanstack/react-router'
 import {PageHero} from "@/components/pageHero.tsx";
-import {BellRingIcon, RadioIcon} from "lucide-react";
+import {RadioIcon} from "lucide-react";
 import {
     InstallmentsRecoveryCalendar,
     InstallmentsReminderDataGrid,
@@ -24,15 +24,14 @@ function RouteComponent() {
                 <PageHero
                     type="hero"
                     title="Reminder"
-                    subtitle="Followup on outstanding payments"
-                    buttonIcon={<BellRingIcon/>}
+                    subtitle="Followup on installments payments"
                 />
                 <div className="flex gap-2">
                     <ReusableSheet
-                        title="Recovery Calendar"
+                        title="Receivables Calendar"
                         trigger={
                             <Button variant="outline">
-                                <CalendarSearchIcon className="size-4"/> Recovery Calendar
+                                <CalendarSearchIcon className="size-4"/> Receivables Calendar
                             </Button>
                         }
                         widthClassName="sm:max-w-full"

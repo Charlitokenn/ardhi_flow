@@ -70,12 +70,12 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background -my-3.5 -mx-5.5">
             {/* Header */}
-            <header className="border-b border-border px-8 py-6">
+            <header className="border-b border-border px-4 py-1.5">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">New Campaign</h1>
+                        <h1 className="text-2xl font-medium text-foreground">New Campaign</h1>
                     </div>
                     <button
                         onClick={onBack}
@@ -87,7 +87,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
             </header>
 
             {/* Step Indicator */}
-            <div className="border-b border-border px-8 py-4">
+            <div className="border-b border-border px-1 py-0">
                 <div className="flex items-center gap-2">
                     {steps.map((step, idx) => (
                         <div key={step.id} className="flex items-center gap-2">
@@ -113,7 +113,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
 
             {/* Content */}
             <div className="flex flex-1">
-                <div className="flex-1 px-8 py-8">
+                <div className="flex-1 px-4 py-4">
                     {currentStep === "content" && (
                         <ContentStep campaign={campaign} setCampaign={setCampaign}/>
                     )}
@@ -126,7 +126,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                 </div>
 
                 {/* Right Panel */}
-                <div className="w-96 border-l border-border bg-card/50 px-6 py-8">
+                <div className="w-96 border-l border-border bg-card/50 px-6 py-6">
                     {currentStep === "content" && (
                         <div className="space-y-6">
                             <div>
@@ -142,7 +142,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                                             type: event.target.value as "sms" | "whatsapp",
                                         })
                                     }
-                                    className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-primary"
+                                    className="mt-2 w-full rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-primary"
                                 >
                                     <option value="sms">SMS preview</option>
                                     <option value="whatsapp">WhatsApp preview</option>
