@@ -304,26 +304,28 @@ interface EventCalendarInstance<TData = unknown> {
 function resolveSettings<TData>(
   options: UseEventCalendarStateOptions<TData>
 ): EventCalendarSettings<TData> {
-  const rest = { ...options }
-  for (const key of [
-    "events",
-    "defaultEvents",
-    "view",
-    "defaultView",
-    "date",
-    "defaultDate",
-    "dayCount",
-    "defaultDayCount",
-    "selection",
-    "defaultSelection",
-    "interactions",
-    "defaultInteractions",
-    "viewSettings",
-    "defaultViewSettings",
-    "loading",
-  ] as const) {
-    delete rest[key]
-  }
+  /* eslint-disable @typescript-eslint/no-unused-vars -- destructured only
+     to omit these keys from `rest`; the values themselves aren't used. */
+  const {
+    // strip state pairs; the rest flows into settings
+    events: _e,
+    defaultEvents: _de,
+    view: _v,
+    defaultView: _dv,
+    date: _d,
+    defaultDate: _dd,
+    dayCount: _dc,
+    defaultDayCount: _ddc,
+    selection: _s,
+    defaultSelection: _ds,
+    interactions: _i,
+    defaultInteractions: _di,
+    viewSettings: _vs,
+    defaultViewSettings: _dvs,
+    loading: _l,
+    ...rest
+  } = options
+  /* eslint-enable @typescript-eslint/no-unused-vars */
   const getEventPriority =
     options.getEventPriority ??
     (DEFAULT_EVENT_PRIORITY as (event: CalendarEvent<TData>) => number)
@@ -936,15 +938,19 @@ function useEventCalendarState<TData = unknown>(
   options: UseEventCalendarStateOptions<TData> = {}
 ): EventCalendarInstance<TData> {
   const [store] = useState(() => createEventCalendarStore<TData>(options))
+  // Tracks the options object the store was last synced to. Only mutated
+  // inside the layout effect (post-commit) so a discarded/throwaway render
+  // never mutates the shared store — comparing here, during render, would
+  // read this on every pass but must never write it.
   const lastAppliedOptionsRef = useRef(options)
   useLayoutEffect(() => {
     if (lastAppliedOptionsRef.current !== options) {
-      const changed = store.setOptions(options)
       lastAppliedOptionsRef.current = options
-      if (!changed) return
-      store.notify()
+      if (store.setOptions(options)) {
+        store.notify()
+      }
     }
-  }, [options, store])
+  })
   useEffect(() => {
     store.emitRangeIfChanged()
     // mount-only: onRangeChange fires once for the initial range

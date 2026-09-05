@@ -318,6 +318,9 @@ function beginBlockedGesture<TData>(
   window.addEventListener("pointermove", onMove)
   window.addEventListener("pointerup", onRelease)
   window.addEventListener("pointercancel", onRelease)
+  // armed from setup, not from activation: even a press that never crosses
+  // the move threshold has live window listeners to strand if focus is lost
+  // before then (alt-tab, OS dialogs) — blur must be able to reach them too
   window.addEventListener("blur", cleanup)
   activeGestureCancels.add(cleanup)
 }

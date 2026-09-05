@@ -33,6 +33,10 @@ const frameVariants = cva(
     // 1px border term and `dense` pins it back to the frame radius (its panels
     // are pulled flush to the edge).
     "[--frame-panel-radius:calc(var(--frame-radius)_-_var(--frame-px)_-_1px)]",
+    // FramePanel's ::before overlay sits 1px further in again (inside the
+    // panel's own border) — derived from --frame-panel-radius so it tracks
+    // the ghost/dense overrides above automatically.
+    "[--frame-panel-inner-radius:calc(var(--frame-panel-radius)_-_1px)]",
   ],
   {
     variants: {
@@ -123,7 +127,7 @@ function FramePanel({
         "relative overflow-hidden rounded-(--frame-panel-radius) border border-(--frame-panel-border-color) bg-(--frame-panel-bg) bg-clip-padding shadow-xs",
         // `fit` sizes the panel to its content; otherwise it grows to fill the frame.
         !fit && "grow",
-        "before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--frame-panel-radius)_-_1px)] before:shadow-black/5",
+        "before:pointer-events-none before:absolute before:inset-0 before:rounded-(--frame-panel-inner-radius) before:shadow-black/5",
         "dark:bg-clip-border dark:before:shadow-white/5",
         "px-(--frame-panel-px) py-(--frame-panel-py)",
         className

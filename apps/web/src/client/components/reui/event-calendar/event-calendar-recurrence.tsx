@@ -108,6 +108,9 @@ function parseRRuleString(
       case "BYMONTH":
         rule.byMonth = value.split(",").map((v) => {
           const month = parseInt(v, 10)
+          // same failure mode as BYMONTHDAY above: an unchecked NaN would
+          // match no month in any year and leave the event permanently
+          // invisible with no error anywhere
           if (Number.isNaN(month)) {
             throw new EventCalendarRecurrenceError(`BYMONTH=${v}`)
           }
@@ -475,14 +478,10 @@ function expandRecurrence<TData>(
   let startPeriod =
     aheadMs > 0 ? Math.max(0, Math.floor(aheadMs / stepMs) - 2) : 0
   // mean-length drift is bounded well under one period - refine forward
-  while (true) {
-    const periodEnd = periodEdge(startPeriod, "last").getTime() + durationMs
-    if (
-      periodEnd > range.start.getTime() ||
-      (durationMs === 0 && periodEnd === range.start.getTime())
-    ) {
-      break
-    }
+  while (
+    periodEdge(startPeriod, "last").getTime() + durationMs <=
+    range.start.getTime()
+  ) {
     startPeriod++
   }
 
@@ -510,13 +509,17 @@ function expandRecurrence<TData>(
 
   const occurrences: EventCalendarOccurrence<TData>[] = []
 
+  // Same zero-length-milestone case as the non-recurring branch above: the
+  // exclusive `end > start` test drops a point occurrence pinned to the
+  // first visible instant of its period, which reads as an occurrence that
+  // randomly disappears until you page one period back.
+  const isPoint = durationMs === 0
   const pushIfVisible = (rawStart: Date) => {
     // normalize to a plain instant so consumers never receive zone-carrying
     // TZDate instances (mixed-zone formatting bugs)
     const start = new Date(rawStart.getTime())
     if (exTimes.has(start.getTime())) return
     const end = endFor(start)
-    const isPoint = end.getTime() === start.getTime()
     if (
       start < range.end &&
       (end > range.start || (isPoint && start >= range.start))
@@ -575,7 +578,6 @@ function expandRecurrence<TData>(
       const start = new Date(rDate.getTime())
       if (seen.has(start.getTime()) || exTimes.has(start.getTime())) continue
       const end = endFor(start)
-      const isPoint = end.getTime() === start.getTime()
       if (
         start >= range.end ||
         (end <= range.start && !(isPoint && start >= range.start))

@@ -1,5 +1,13 @@
 import {useState} from "react";
-import {ArchiveIcon, CreditCardIcon, RadioIcon, ShoppingCartIcon, UserPlusIcon, ZapIcon,} from "lucide-react";
+import {
+    ArchiveIcon,
+    CalendarClockIcon,
+    CreditCardIcon,
+    RadioIcon,
+    ShoppingCartIcon,
+    UserPlusIcon,
+    ZapIcon
+} from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,6 +22,7 @@ import {ReusableSheet} from "@/components-reusable/reusable-sheet";
 import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
 import {AddEditProjectsForm} from "@/components/forms/projects/add-edit-projects-form.tsx";
 import MessagingPortal from "@/components/messaging/messaging-portal.tsx";
+import {ReusableEventsCalendar} from "@/components-reusable/reusable-event-calendar.tsx"
 
 interface QuickActionsMenuProps {
     side?: "top" | "right" | "bottom" | "left";
@@ -64,6 +73,12 @@ const actionGroups = [
                 icon: CreditCardIcon,
                 sheetTitle: "Add Transaction",
                 sheetDescription: "Record a new financial transaction.",
+            },
+            {
+                label: "Reminder Calendar",
+                icon: CalendarClockIcon,
+                sheetTitle: "Reminder Calendar",
+                sheetDescription: "Calendar Schedule for Receivables ",
             },
             {
                 label: "Message Broadcast",
@@ -172,6 +187,17 @@ export function QuickActionsMenu({
                     description={activeItem?.sheetDescription}
                     widthClassName="sm:max-w-full"
                     children={<MessagingPortal/>}
+                />
+            ) : activeItem?.label === "Reminder Calendar" ? (
+                <ReusableSheet
+                    open={activeItem !== undefined}
+                    onOpenChange={(open) => {
+                        if (!open) setActiveLabel(null);
+                    }}
+                    title={activeItem?.sheetTitle ?? ""}
+                    description={activeItem?.sheetDescription}
+                    widthClassName="sm:max-w-full"
+                    children={<ReusableEventsCalendar/>}
                 />
             ) : (
                 <ReusableSheet

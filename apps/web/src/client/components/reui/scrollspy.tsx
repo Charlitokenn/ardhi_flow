@@ -17,6 +17,29 @@ type ScrollspyProps = {
   throttleTime?: number
 }
 
+/**
+ * Section top relative to the SCROLL POSITION of `scrollElement` (not the
+ * section's offsetParent, which is often some unrelated positioned ancestor
+ * a few levels up — e.g. the shadcn ScrollArea viewport this component
+ * special-cases isn't itself positioned, so `section.offsetTop` silently
+ * measures against whatever ancestor further up happens to be). Bounding
+ * rects, being relative to the viewport, are immune to that and work
+ * regardless of what sits between the two elements in the DOM.
+ */
+function getSectionScrollTop(
+  sectionElement: HTMLElement,
+  scrollElement: HTMLElement
+): number {
+  if (scrollElement === document.documentElement) {
+    return sectionElement.getBoundingClientRect().top + window.scrollY
+  }
+  return (
+    sectionElement.getBoundingClientRect().top -
+    scrollElement.getBoundingClientRect().top +
+    scrollElement.scrollTop
+  )
+}
+
 export function Scrollspy({
   children,
   targetRef,
@@ -56,22 +79,19 @@ export function Scrollspy({
     if (!anchorElementsRef.current || anchorElementsRef.current.length === 0)
       return
 
-    const isDocumentTarget = targetRef?.current === document
     let scrollElement =
-      isDocumentTarget
+      targetRef?.current === document
         ? document.documentElement
         : (targetRef?.current as HTMLElement)
 
     if (!scrollElement) return
 
     // If the scrollElement has a data-slot="scroll-area-viewport" inside, use that
-    if (!isDocumentTarget) {
-      const viewport = scrollElement.querySelector(
-        '[data-slot="scroll-area-viewport"]'
-      )
-      if (viewport instanceof HTMLElement) {
-        scrollElement = viewport
-      }
+    const viewport = scrollElement.querySelector(
+      '[data-slot="scroll-area-viewport"]'
+    )
+    if (viewport instanceof HTMLElement) {
+      scrollElement = viewport
     }
 
     const scrollTop =
@@ -92,14 +112,15 @@ export function Scrollspy({
       const dataOffset = anchor.getAttribute(`data-${dataAttribute}-offset`)
       if (dataOffset) customOffset = parseInt(dataOffset, 10)
 
-      const sectionRect = sectionElement.getBoundingClientRect()
-      const sectionTop = isDocumentTarget
-        ? sectionRect.top + window.scrollY
-        : sectionRect.top - scrollElement.getBoundingClientRect().top + scrollTop
-      const delta = Math.abs(sectionTop - customOffset - scrollTop)
+      const delta = Math.abs(
+        getSectionScrollTop(sectionElement, scrollElement) -
+          customOffset -
+          scrollTop
+      )
 
       if (
-        sectionTop - customOffset <= scrollTop &&
+        getSectionScrollTop(sectionElement, scrollElement) - customOffset <=
+          scrollTop &&
         delta < minDelta
       ) {
         minDelta = delta
@@ -134,9 +155,8 @@ export function Scrollspy({
       const sectionElement = document.getElementById(sectionId)
       if (!sectionElement) return
 
-      const isDocumentTarget = targetRef?.current === document
       let scrollToElement: HTMLElement | Window | null =
-        isDocumentTarget
+        targetRef?.current === document
           ? window
           : (targetRef?.current as HTMLElement)
 
@@ -157,13 +177,19 @@ export function Scrollspy({
         customOffset = parseInt(dataOffset, 10)
       }
 
-      const sectionRect = sectionElement.getBoundingClientRect()
-      const scrollTop =
-        (scrollToElement instanceof HTMLElement
-          ? sectionRect.top -
-            scrollToElement.getBoundingClientRect().top +
-            scrollToElement.scrollTop
-          : sectionRect.top + window.scrollY) - customOffset
+      // getSectionScrollTop's document-case branch keys off
+      // document.documentElement, not `window` itself.
+      const scrollTargetEl: HTMLElement | null =
+        scrollToElement instanceof HTMLElement
+          ? scrollToElement
+          : scrollToElement === window
+            ? document.documentElement
+            : null
+      const scrollTop = scrollTargetEl
+        ? getSectionScrollTop(sectionElement, scrollTargetEl) - customOffset
+        : sectionElement.getBoundingClientRect().top +
+          window.scrollY -
+          customOffset
 
       if (scrollToElement && "scrollTo" in scrollToElement) {
         scrollToElement.scrollTo({
@@ -200,10 +226,8 @@ export function Scrollspy({
     }
 
     const currentAnchors = anchorElementsRef.current
-    const clickHandlers = currentAnchors?.map((item) => {
-      const handler = scrollTo(item as HTMLElement)
-      item.addEventListener("click", handler)
-      return { item, handler }
+    currentAnchors?.forEach((item) => {
+      item.addEventListener("click", scrollTo(item as HTMLElement))
     })
 
     const onScroll = (event: Event) => {
@@ -233,11 +257,16 @@ export function Scrollspy({
 
     return () => {
       window.removeEventListener("scroll", onScroll, true)
-      clickHandlers?.forEach(({ item, handler }) => {
-        item.removeEventListener("click", handler)
+      currentAnchors?.forEach((item) => {
+        item.removeEventListener("click", scrollTo(item as HTMLElement))
       })
       clearTimeout(initialTimeout)
     }
+    // `children` isn't read directly here, but the anchors this effect
+    // queries for and attaches listeners to are rendered FROM it — when the
+    // nav item set changes (items added/removed), the DOM query and click
+    // listeners must be redone or new anchors stay unclickable and removed
+    // ones leave anchorElementsRef pointing at stale nodes.
   }, [
     children,
     targetRef,
