@@ -1088,6 +1088,7 @@ export function InstallmentsReminderDataGrid() {
                 cell: ({row}) => {
                     const client = row.original.client;
                     const mobile = row.original.client?.mobileNumber ?? ""
+                    const formattedMobile = formatInternationalWithSpaces(mobile)
                     return (
                         <div className="flex items-center gap-2.5">
                             <Avatar className="size-7">
@@ -1098,14 +1099,15 @@ export function InstallmentsReminderDataGrid() {
                             <ReusableTooltip
                                 trigger={
                                     <span
-                                        className="text-foreground cursor-pointer font-medium underline decoration-dashed decoration-1 underline-offset-4">
+                                        tabIndex={0}
+                                        className="text-foreground cursor-pointer rounded-sm font-medium underline decoration-dashed decoration-1 underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                                         {client?.fullName ?? "—"}
                                     </span>
                                 }
                                 orientation="right"
                                 tooltip={<span
                                     className="font-medium flex gap-2"><SmartphoneIcon
-                                    className="size-4"/> {formatInternationalWithSpaces(mobile)}</span>}
+                                    className="size-4"/> {formattedMobile ?? "No mobile number"}</span>}
                             />
 
                         </div>
