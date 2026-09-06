@@ -456,7 +456,7 @@ export function ReusableEventsCalendar<TData = unknown>({
     }
 
     return (
-        <div className="w-full p-4" dir={activeLocale.dir}>
+        <div className="-w-full -my-3.5 -mx-5.5" dir={activeLocale.dir}>
             <Card className="w-full py-0">
                 <CardContent className="p-0">
                     <EventCalendar
