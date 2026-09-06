@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
-import {useAuth, useUser} from "@clerk/react";
+import {useAuth} from "@clerk/react";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {apiClient} from "@/lib/api.ts";
 import {Badge} from "@/components/reui/badge.tsx";
@@ -722,7 +722,6 @@ const exportColumns: ExportColumn<IInstallmentGroup>[] = [
 
 export function InstallmentsReminderDataGrid() {
     const {getToken} = useAuth();
-    const {user} = useUser();
     const api = apiClient(getToken);
     const queryClient = useQueryClient();
 
@@ -763,11 +762,9 @@ export function InstallmentsReminderDataGrid() {
         mutationFn: async ({
                                installmentId,
                                message,
-                               createdBy,
                            }: {
             installmentId: string;
             message: string;
-            createdBy: string | null;
         }) => {
             const res = await api.api.installments[":id"].comments.$post({
                 param: {id: installmentId},
@@ -820,7 +817,6 @@ export function InstallmentsReminderDataGrid() {
             {
                 installmentId: primaryInstallmentId,
                 message,
-                createdBy: user?.fullName?.trim() || user?.username || null,
             },
             {onSuccess: callbacks.onSuccess},
         );

@@ -3,8 +3,31 @@ import {zValidator} from '@hono/zod-validator'
 import {createInsertSchema} from 'drizzle-zod'
 import {and, desc, eq} from 'drizzle-orm'
 import {z} from 'zod'
+import {createClerkClient} from '@clerk/backend'
 import type {Env, Variables} from '../types'
 import {contractEvents, contractInstallments} from '../../../drizzle/tenant/schema'
+
+// Resolves the signed-in user's display name for attribution on
+// human-authored rows (follow-up comments). `c.get('userId')` is only the
+// Clerk subject id (`claims.sub`) verified locally off the JWT — Clerk
+// doesn't put a name in the token by default, so getting a name back means
+// one Backend API round trip per comment. Same lookup/fallback shape as
+// tenant-presence.ts's presence-name resolution; failures fall back to the
+// raw id rather than failing the write, since attribution is display-only
+// here (comments aren't gated by createdBy anywhere).
+async function resolveCommentAuthorName(c: {
+    env: Pick<Env, 'CLERK_SECRET_KEY'>
+    get: (key: 'userId') => string
+}): Promise<string> {
+    const userId = c.get('userId')
+    try {
+        const user = await createClerkClient({secretKey: c.env.CLERK_SECRET_KEY}).users.getUser(userId)
+        return user.fullName?.trim() || user.username || userId
+    } catch (error) {
+        console.error('Failed to resolve comment author name from Clerk:', error)
+        return userId
+    }
+}
 
 // Follow-up comments are logged as contractEvents rows (eventType:
 // 'FOLLOWUP_COMMENT') scoped to one installment — see
@@ -79,6 +102,8 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
         })
         if (!installment) return c.json({error: 'Installment not found'}, 404)
 
+        const authorName = await resolveCommentAuthorName(c)
+
         const [created] = await db
             .insert(contractEvents)
             .values({
@@ -86,7 +111,7 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 installmentId: installment.id,
                 eventType: 'FOLLOWUP_COMMENT',
                 message: input.message,
-                createdBy: c.get('userId'),
+                createdBy: authorName,
             })
             .returning()
 
