@@ -264,8 +264,8 @@ export function Scrollspy({
 
         return () => {
             window.removeEventListener("scroll", onScroll, true)
-            currentAnchors?.forEach((item) => {
-                item.removeEventListener("click", scrollTo(item as HTMLElement))
+            clickHandlers.forEach((handler, item) => {
+                item.removeEventListener("click", handler)
             })
             clearTimeout(initialTimeout)
         }
