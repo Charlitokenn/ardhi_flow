@@ -1,12 +1,47 @@
 'use client'
 
+import {useAuth} from '@clerk/react'
+import {useQuery} from '@tanstack/react-query'
+import {useState} from 'react'
+import {apiClient} from '@/lib/api.ts'
+import {ChevronDownIcon} from 'lucide-react'
+
 interface ContentStepProps {
     campaign: any
     setCampaign: (campaign: any) => void
 }
 
+interface MessageTemplateSummary {
+    id: string
+    name: string
+    channel: string
+    isActive: boolean
+    body: string
+}
+
 export default function ContentStep({campaign, setCampaign}: ContentStepProps) {
     const maxLength = campaign.type === 'sms' ? 160 : 4096
+    const {getToken} = useAuth()
+    const api = apiClient(getToken)
+    const [pickerOpen, setPickerOpen] = useState(false)
+
+    // Only templates for the channel currently selected above, and only
+    // ones staff have kept active. Inserts the raw body — tokens like
+    // {firstName}/{dueItems} stay visible as written. No per-recipient
+    // substitution happens here; that's the future NextSMS send-flow spec's
+    // job (see docs/specs/0002-message-templates AC-9).
+    const templatesQuery = useQuery({
+        queryKey: ['message-templates'],
+        queryFn: async () => {
+            const res = await api.api['message-templates'].$get()
+            if (!res.ok) throw new Error(`Failed to load templates (${res.status})`)
+            return res.json() as Promise<MessageTemplateSummary[]>
+        },
+    })
+
+    const availableTemplates = (templatesQuery.data ?? []).filter(
+        (t) => t.isActive && t.channel === campaign.type.toUpperCase(),
+    )
 
     return (
         <div className="max-w-2xl space-y-8">
@@ -55,6 +90,42 @@ export default function ContentStep({campaign, setCampaign}: ContentStepProps) {
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <label className="block text-sm font-medium text-foreground">Message</label>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setPickerOpen((open) => !open)}
+                                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            >
+                                Use a template <ChevronDownIcon className="size-3.5"/>
+                            </button>
+                            {pickerOpen && (
+                                <div className="absolute right-0 z-10 mt-1 w-72 rounded-lg border border-border bg-background shadow-md">
+                                    {templatesQuery.isLoading && (
+                                        <p className="px-3 py-2 text-xs text-muted-foreground">Loading...</p>
+                                    )}
+                                    {!templatesQuery.isLoading && availableTemplates.length === 0 && (
+                                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                                            No active {campaign.type === 'sms' ? 'SMS' : 'WhatsApp'} templates yet.
+                                        </p>
+                                    )}
+                                    {availableTemplates.map((t) => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setCampaign({...campaign, message: t.body.slice(0, maxLength)})
+                                                setPickerOpen(false)
+                                            }}
+                                            className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-muted"
+                                        >
+                                            {t.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-end mb-2">
                         <span className="text-xs text-muted-foreground">
               {campaign.message.length}/{maxLength}
             </span>

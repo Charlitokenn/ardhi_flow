@@ -1,6 +1,6 @@
 # 0002. Reusable message templates for the messaging flow
 
-**Date**: 2026-09-06 **Status**: Proposed
+**Date**: 2026-09-06 **Status**: In Progress
 
 ## Summary
 
@@ -58,7 +58,7 @@ message per client per timing group.
 
 ## Rationale
 
-See [rationale.md](rationale.md).
+See [rationale.md](../../../../../Downloads/files/rationale.md).
 
 ## Feature design
 

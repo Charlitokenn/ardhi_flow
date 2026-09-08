@@ -23,6 +23,7 @@ import { Route as AuthedOrgFinanceReconciliationRouteImport } from './routes/_au
 import { Route as AuthedOrgFinanceReminderRouteImport } from './routes/_authed/_org/finance/reminder'
 import { Route as AuthedOrgFinanceTransactionsRouteImport } from './routes/_authed/_org/finance/transactions'
 import { Route as AuthedOrgMessagingIndexRouteImport } from './routes/_authed/_org/messaging/index'
+import { Route as AuthedOrgMessagingTemplatesRouteImport } from './routes/_authed/_org/messaging/templates'
 import { Route as AuthedOrgProjectsIndexRouteImport } from './routes/_authed/_org/projects/index'
 import { Route as AuthedOrgProjectsPlotsRouteImport } from './routes/_authed/_org/projects/plots'
 import { Route as AuthedOrgReportsIndexRouteImport } from './routes/_authed/_org/reports/index'
@@ -100,6 +101,12 @@ const AuthedOrgMessagingIndexRoute = AuthedOrgMessagingIndexRouteImport.update({
   path: '/messaging/',
   getParentRoute: () => AuthedOrgRouteRoute,
 } as any)
+const AuthedOrgMessagingTemplatesRoute =
+  AuthedOrgMessagingTemplatesRouteImport.update({
+    id: '/messaging/templates',
+    path: '/messaging/templates',
+    getParentRoute: () => AuthedOrgRouteRoute,
+  } as any)
 const AuthedOrgProjectsIndexRoute = AuthedOrgProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/finance/reminder': typeof AuthedOrgFinanceReminderRoute
   '/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
+  '/messaging/templates': typeof AuthedOrgMessagingTemplatesRoute
   '/projects/plots': typeof AuthedOrgProjectsPlotsRoute
   '/contacts/': typeof AuthedOrgContactsIndexRoute
   '/dashboard/': typeof AuthedOrgDashboardIndexRoute
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
   '/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/finance/reminder': typeof AuthedOrgFinanceReminderRoute
   '/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
+  '/messaging/templates': typeof AuthedOrgMessagingTemplatesRoute
   '/projects/plots': typeof AuthedOrgProjectsPlotsRoute
   '/contacts': typeof AuthedOrgContactsIndexRoute
   '/dashboard': typeof AuthedOrgDashboardIndexRoute
@@ -170,6 +179,7 @@ export interface FileRoutesById {
   '/_authed/_org/finance/reconciliation': typeof AuthedOrgFinanceReconciliationRoute
   '/_authed/_org/finance/reminder': typeof AuthedOrgFinanceReminderRoute
   '/_authed/_org/finance/transactions': typeof AuthedOrgFinanceTransactionsRoute
+  '/_authed/_org/messaging/templates': typeof AuthedOrgMessagingTemplatesRoute
   '/_authed/_org/projects/plots': typeof AuthedOrgProjectsPlotsRoute
   '/_authed/_org/contacts/': typeof AuthedOrgContactsIndexRoute
   '/_authed/_org/dashboard/': typeof AuthedOrgDashboardIndexRoute
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/finance/reconciliation'
     | '/finance/reminder'
     | '/finance/transactions'
+    | '/messaging/templates'
     | '/projects/plots'
     | '/contacts/'
     | '/dashboard/'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/finance/reconciliation'
     | '/finance/reminder'
     | '/finance/transactions'
+    | '/messaging/templates'
     | '/projects/plots'
     | '/contacts'
     | '/dashboard'
@@ -228,6 +240,7 @@ export interface FileRouteTypes {
     | '/_authed/_org/finance/reconciliation'
     | '/_authed/_org/finance/reminder'
     | '/_authed/_org/finance/transactions'
+    | '/_authed/_org/messaging/templates'
     | '/_authed/_org/projects/plots'
     | '/_authed/_org/contacts/'
     | '/_authed/_org/dashboard/'
@@ -344,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgMessagingIndexRouteImport
       parentRoute: typeof AuthedOrgRouteRoute
     }
+    '/_authed/_org/messaging/templates': {
+      id: '/_authed/_org/messaging/templates'
+      path: '/messaging/templates'
+      fullPath: '/messaging/templates'
+      preLoaderRoute: typeof AuthedOrgMessagingTemplatesRouteImport
+      parentRoute: typeof AuthedOrgRouteRoute
+    }
     '/_authed/_org/projects/': {
       id: '/_authed/_org/projects/'
       path: '/projects'
@@ -396,6 +416,7 @@ const AuthedOrgFinanceRouteRouteWithChildren =
 
 interface AuthedOrgRouteRouteChildren {
   AuthedOrgFinanceRouteRoute: typeof AuthedOrgFinanceRouteRouteWithChildren
+  AuthedOrgMessagingTemplatesRoute: typeof AuthedOrgMessagingTemplatesRoute
   AuthedOrgProjectsPlotsRoute: typeof AuthedOrgProjectsPlotsRoute
   AuthedOrgContactsIndexRoute: typeof AuthedOrgContactsIndexRoute
   AuthedOrgDashboardIndexRoute: typeof AuthedOrgDashboardIndexRoute
@@ -407,6 +428,7 @@ interface AuthedOrgRouteRouteChildren {
 
 const AuthedOrgRouteRouteChildren: AuthedOrgRouteRouteChildren = {
   AuthedOrgFinanceRouteRoute: AuthedOrgFinanceRouteRouteWithChildren,
+  AuthedOrgMessagingTemplatesRoute: AuthedOrgMessagingTemplatesRoute,
   AuthedOrgProjectsPlotsRoute: AuthedOrgProjectsPlotsRoute,
   AuthedOrgContactsIndexRoute: AuthedOrgContactsIndexRoute,
   AuthedOrgDashboardIndexRoute: AuthedOrgDashboardIndexRoute,

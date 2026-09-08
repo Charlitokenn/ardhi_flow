@@ -152,7 +152,7 @@ the nav.
 
 Templated payment reminder, overdue notice, and marketing campaigns with per message delivery tracking. Schema
 (`sms_campaigns`, `sms_messages`, `sms_delivery_events`) is fully modeled. Reusable message templates (create, store,
-and preview reminder text) are speced. The dedicated `/messaging` route is still a bare page header, but a full compose
+and preview reminder text) are built — schema, API, and UI (spec 0002) — but not yet verified or tested. The dedicated `/messaging` route is still a bare page header, but a full compose
 flow UI already exists (`broadcast-dashboard.tsx`/`broadcast-flow.tsx`), reachable through the "Message Broadcast" sheet
 on the Reminder page (feature 18). It holds its own state and reads company settings for a sender preview, but nothing
 about it calls a real send endpoint; "Send Campaign" is a plain button. No NextSMS API integration exists. **Done
@@ -160,11 +160,11 @@ when:** a campaign can be created from a template, sent to a selected contact li
 status tracked per message.
 
 - [x] Design message templates (spec): [0002](../specs/0002-message-templates/index.md)
-    - [ ] Build it: `/develop message-templates`
-        - [ ] Schema, seeded defaults, and the render/grouping engine (AC-1, AC-2, AC-5, AC-6, AC-8, AC-11)
-        - [ ] CRUD + preview API, admin gated (AC-1, AC-3, AC-4, AC-10)
-        - [ ] Template management screen with live preview (AC-1, AC-3, AC-4, AC-7)
-        - [ ] "Use a template" picker in the compose flow (AC-9)
+    - [x] Build it: `/develop message-templates`
+        - [x] Schema, seeded defaults, and the render/grouping engine (AC-1, AC-2, AC-5, AC-6, AC-8, AC-11)
+        - [x] CRUD + preview API, admin gated (AC-1, AC-3, AC-4, AC-10)
+        - [x] Template management screen with live preview (AC-1, AC-3, AC-4, AC-7)
+        - [x] "Use a template" picker in the compose flow (AC-9)
     - [ ] Verify it: `/check verify message-templates`
     - [ ] Test it: `/test message-templates`
 - [ ] Design the send flow and NextSMS integration (spec): `/architect sms messaging`
