@@ -170,15 +170,32 @@ export interface RenderResult {
     dueItemsFound: number
 }
 
-// GSM-7 SMS segmentation: 160 chars for a single segment, 153 per segment
-// once a message needs to be concatenated across more than one. Every
-// default template's characters are plain Latin script, so this doesn't
-// need a UCS-2 (70/67 char) fallback for now — see spec Follow-up.
+const GSM_7_BASIC_CHARACTERS = new Set(Array.from(
+    `@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ !"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà`,
+))
+const GSM_7_EXTENDED_CHARACTERS = new Set(['\f', '^', '{', '}', '\\', '[', '~', ']', '|', '€'])
+
+// GSM-7 messages use 160 septets for one segment and 153 per concatenated
+// segment. Characters from the extension table consume two septets. Any
+// other character switches the whole message to UCS-2, whose limits are 70
+// UTF-16 code units for one segment and 67 per concatenated segment.
 export function computeSmsSegments(text: string): {charCount: number; segmentCount: number} {
-    const charCount = text.length
+    const characters = Array.from(text)
+    const isGsm7 = characters.every(
+        (character) => GSM_7_BASIC_CHARACTERS.has(character) || GSM_7_EXTENDED_CHARACTERS.has(character),
+    )
+    const charCount = isGsm7
+        ? characters.reduce(
+            (count, character) => count + (GSM_7_EXTENDED_CHARACTERS.has(character) ? 2 : 1),
+            0,
+        )
+        : text.length
     if (charCount === 0) return {charCount, segmentCount: 0}
-    if (charCount <= 160) return {charCount, segmentCount: 1}
-    return {charCount, segmentCount: Math.ceil(charCount / 153)}
+
+    const singleSegmentLimit = isGsm7 ? 160 : 70
+    const concatenatedSegmentLimit = isGsm7 ? 153 : 67
+    if (charCount <= singleSegmentLimit) return {charCount, segmentCount: 1}
+    return {charCount, segmentCount: Math.ceil(charCount / concatenatedSegmentLimit)}
 }
 
 // Fills in a template's tokens: {firstName}, {dueItems}, {totalAmount}.
@@ -192,9 +209,11 @@ export function renderMessageTemplate(
     let text = template.body
 
     if (text.includes('{dueItems}')) {
-        const lines = params.dueItems
-            .map((item) => renderDueItemLine(item, template.reminderTiming as 'UPCOMING' | 'DUE_TODAY' | 'PAST_DUE'))
-            .join(' ')
+        const lines = params.dueItems.length === 0
+            ? 'Nothing due for this reminder timing.'
+            : params.dueItems
+                .map((item) => renderDueItemLine(item, template.reminderTiming as 'UPCOMING' | 'DUE_TODAY' | 'PAST_DUE'))
+                .join(' ')
         text = text.replaceAll('{dueItems}', lines)
     }
     if (text.includes('{totalAmount}')) {

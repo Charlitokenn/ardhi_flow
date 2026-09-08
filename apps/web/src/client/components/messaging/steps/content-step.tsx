@@ -113,7 +113,7 @@ export default function ContentStep({campaign, setCampaign}: ContentStepProps) {
                                             key={t.id}
                                             type="button"
                                             onClick={() => {
-                                                setCampaign({...campaign, message: t.body.slice(0, maxLength)})
+                                                setCampaign({...campaign, message: t.body})
                                                 setPickerOpen(false)
                                             }}
                                             className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-muted"
