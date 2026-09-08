@@ -2,9 +2,10 @@ import {
     ArchiveIcon,
     FileChartColumnIcon,
     LayoutPanelLeftIcon,
+    MessageSquareShareIcon,
     ShoppingCartIcon,
     UsersIcon,
-    WalletIcon
+    WalletIcon,
 } from "lucide-react";
 
 export const appConfig = {
@@ -55,6 +56,21 @@ export const appConfig = {
             title: "Projects",
             url: "/projects",
             icon: <ArchiveIcon/>,
+        },
+        {
+            title: "Messaging",
+            url: "",
+            icon: <MessageSquareShareIcon/>,
+            items: [
+                {
+                    title: "Broadcasts",
+                    url: "/messaging/broadcasts",
+                },
+                {
+                    title: "Templates",
+                    url: "/messaging/templates",
+                }
+            ]
         },
         {
             title: "Reports",

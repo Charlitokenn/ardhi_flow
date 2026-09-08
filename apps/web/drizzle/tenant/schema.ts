@@ -100,6 +100,14 @@ export const SMS_MESSAGE_STATUS = pgEnum('sms_message_status', [
     'UNDELIVERED',
     'EXPIRED',
 ]);
+// A template whose body uses {dueItems} is tied to one of these — it is the only
+// signal the preview/render step has for which installments to look up. Not
+// meaningful for non-reminder categories (MARKETING, GENERAL, CUSTOM, ...), where
+// it stays null. See docs/specs/0002-message-templates.
+export const REMINDER_TIMING = pgEnum('reminder_timing', ['UPCOMING', 'DUE_TODAY', 'PAST_DUE']);
+// WHATSAPP has no send integration yet — this is forward looking only, see
+// docs/specs/0002-message-templates Consequences.
+export const MESSAGE_TEMPLATE_CHANNEL = pgEnum('message_template_channel', ['SMS', 'WHATSAPP']);
 
 export const contacts = pgTable('contacts', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -867,6 +875,41 @@ export const smsDeliveryEvents = pgTable(
     (table) => [index('sms_delivery_events_message_idx').on(table.messageId)],
 );
 
+// --- Message templates ---
+// A reusable library of SMS text, separate from smsCampaigns.templateBody
+// (which stays a one-off free text field typed per campaign). See
+// docs/specs/0002-message-templates for the full design: the {dueItems} token
+// expands into one system-formatted line per (contractId, installmentNo,
+// dueDate) group at render time — never authored here, and never stored, since
+// what a client owes changes independently of the template.
+export const messageTemplates = pgTable(
+    'message_templates',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        name: text('name').notNull(),
+        category: SMS_CAMPAIGN_TYPE('category').notNull(),
+        // Required (enforced in the route, not the DB) when body contains {dueItems}.
+        reminderTiming: REMINDER_TIMING('reminder_timing'),
+        channel: MESSAGE_TEMPLATE_CHANNEL('channel').default('SMS').notNull(),
+        // Admin-authored text: zero or more of {firstName}, {dueItems}, {totalAmount}.
+        body: text('body').notNull(),
+        // True for the three seeded templates below — never updated or deleted,
+        // only duplicated (route-enforced).
+        isDefault: boolean('is_default').default(false).notNull(),
+        // Hides a template from the "use a template" picker without deleting it.
+        // Can be toggled even on a default template.
+        isActive: boolean('is_active').default(true).notNull(),
+        isDeleted: boolean('is_deleted').default(false).notNull(),
+        createdBy: text('created_by'), // Clerk user id; null for the seeded rows
+        createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+        updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
+    },
+    (table) => [
+        index('message_templates_category_idx').on(table.category),
+        index('message_templates_is_deleted_idx').on(table.isDeleted),
+    ],
+);
+
 // Type exports
 export type Contact = typeof contacts.$inferSelect;
 export type NewContact = typeof contacts.$inferInsert;
@@ -908,6 +951,8 @@ export type SmsMessage = typeof smsMessages.$inferSelect;
 export type NewSmsMessage = typeof smsMessages.$inferInsert;
 export type SmsDeliveryEvent = typeof smsDeliveryEvents.$inferSelect;
 export type NewSmsDeliveryEvent = typeof smsDeliveryEvents.$inferInsert;
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
+export type NewMessageTemplate = typeof messageTemplates.$inferInsert;
 export type CompanySetting = typeof companySettings.$inferSelect;
 export type NewCompanySetting = typeof companySettings.$inferInsert;
 export type ProjectWithPlots = Project & {

@@ -86,6 +86,8 @@ const installmentsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
                 installmentId: installment.id,
                 eventType: 'FOLLOWUP_COMMENT',
                 message: input.message,
+                // Display-name enrichment belongs off the write path; the
+                // verified Clerk subject remains the reliable fallback.
                 createdBy: c.get('userId'),
             })
             .returning()

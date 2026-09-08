@@ -2,7 +2,16 @@
 
 import {motion} from "motion/react";
 import {useEffect, useState} from "react";
-import {CheckCheckIcon, ChevronLeft, ChevronRight, LockKeyholeIcon,} from "lucide-react";
+import {
+    CheckCheckIcon,
+    ChevronLeft,
+    ChevronRight,
+    FileTextIcon,
+    LockKeyholeIcon,
+    type LucideIcon,
+    SendIcon,
+    UsersIcon
+} from "lucide-react";
 import {MobileMockup} from "./mobile-mockup";
 import ContentStep from "./steps/content-step";
 import AudienceStep from "./steps/audience-step";
@@ -49,10 +58,10 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
         sendOption: "immediate" as "immediate" | "scheduled" | "recurring",
     });
 
-    const steps: { id: Step; label: string }[] = [
-        {id: "content", label: "Content"},
-        {id: "audience", label: "Audience"},
-        {id: "send", label: "Send / Schedule"},
+    const steps: { id: Step; label: string, icon: LucideIcon }[] = [
+        {id: "content", label: "Content", icon: FileTextIcon},
+        {id: "audience", label: "Audience", icon: UsersIcon},
+        {id: "send", label: "Send / Schedule", icon: SendIcon},
     ];
 
     const stepIndex = steps.findIndex((s) => s.id === currentStep);

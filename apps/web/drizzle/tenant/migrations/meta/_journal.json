@@ -50,6 +50,13 @@
       "when": 1787877256930,
       "tag": "0006_contract_plots_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788806960302,
+      "tag": "0007_message_templates",
+      "breakpoints": true
     }
   ]
 }
