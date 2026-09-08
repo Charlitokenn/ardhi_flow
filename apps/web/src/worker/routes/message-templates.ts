@@ -29,6 +29,8 @@ const previewBodySchema = z.object({
     reminderTiming: z.enum(['UPCOMING', 'DUE_TODAY', 'PAST_DUE']).nullable(),
 })
 
+const idParamSchema = z.object({id: z.string().uuid()})
+
 // A template whose body uses {dueItems} must have reminderTiming set — it is
 // the only signal the preview/render step has for which date window to
 // query. See spec Key invariants.
@@ -79,6 +81,9 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
     // been saved.
     .post('/preview', zValidator('json', previewBodySchema), async (c) => {
         const {contactId, body, reminderTiming} = c.req.valid('json')
+        const invariantError = reminderTimingInvariantError(body, reminderTiming)
+        if (invariantError) return c.json({error: invariantError}, 422)
+
         const db = c.get('tenantDb')
 
         const contact = await db.query.contacts.findFirst({
@@ -95,11 +100,11 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
         const result = renderMessageTemplate({body, reminderTiming}, {firstName, dueItems})
         return c.json(result)
     })
-    .patch('/:id', zValidator('json', insertMessageTemplateSchema.partial()), async (c) => {
+    .patch('/:id', zValidator('param', idParamSchema), zValidator('json', insertMessageTemplateSchema.partial()), async (c) => {
         const forbidden = requireAdmin(c)
         if (forbidden) return c.json(forbidden, 403)
 
-        const id = c.req.param('id')
+        const id = c.req.valid('param').id
         const input = c.req.valid('json')
         const db = c.get('tenantDb')
 
@@ -123,11 +128,11 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
             .returning()
         return c.json(updated)
     })
-    .delete('/:id', async (c) => {
+    .delete('/:id', zValidator('param', idParamSchema), async (c) => {
         const forbidden = requireAdmin(c)
         if (forbidden) return c.json(forbidden, 403)
 
-        const id = c.req.param('id')
+        const id = c.req.valid('param').id
         const db = c.get('tenantDb')
 
         const existing = await db.query.messageTemplates.findFirst({
@@ -146,16 +151,16 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
         if (!deleted) return c.json({error: 'Not found'}, 404)
         return c.json({success: true})
     })
-    .post('/:id/duplicate', zValidator('json', z.object({name: z.string().trim().min(1).optional()})), async (c) => {
+    .post('/:id/duplicate', zValidator('param', idParamSchema), zValidator('json', z.object({name: z.string().trim().min(1).optional()})), async (c) => {
         const forbidden = requireAdmin(c)
         if (forbidden) return c.json(forbidden, 403)
 
-        const id = c.req.param('id')
+        const id = c.req.valid('param').id
         const {name} = c.req.valid('json')
         const db = c.get('tenantDb')
 
         const original = await db.query.messageTemplates.findFirst({
-            where: eq(messageTemplates.id, id),
+            where: and(eq(messageTemplates.id, id), eq(messageTemplates.isDeleted, false)),
         })
         if (!original) return c.json({error: 'Not found'}, 404)
 

@@ -58,7 +58,7 @@ message per client per timing group.
 
 ## Rationale
 
-See [rationale.md](../../../../../Downloads/files/rationale.md).
+See [rationale.md](./rationale.md).
 
 ## Feature design
 
