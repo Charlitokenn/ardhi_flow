@@ -1,8 +1,10 @@
 import {createFileRoute} from '@tanstack/react-router'
-import {PlusIcon} from 'lucide-react'
+import {FilePlusCornerIcon} from 'lucide-react'
 import {PageHero} from "@/components/pageHero.tsx"
 import {MessageTemplatesDataGrid} from "@/components/data-grids/message-templates-datagrid.tsx"
 import {MessageTemplateForm} from "@/components/forms/messaging/message-template-form.tsx"
+import {Button} from "@/components/ui/button.tsx";
+import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 
 export const Route = createFileRoute('/_authed/_org/messaging/templates')({
     staticData: {
@@ -14,17 +16,23 @@ export const Route = createFileRoute('/_authed/_org/messaging/templates')({
 function RouteComponent() {
     return (
         <section className="-mt-4 -ml-1">
-            <PageHero
-                type="hero"
-                title="Message Templates"
-                subtitle="Reusable SMS text for the messaging flow"
-                showButton
-                buttonText="New Template"
-                buttonIcon={<PlusIcon className="size-4"/>}
-                sheetTitle="New template"
-                sheetSizeClass="sm:max-w-xl"
-                sheetContent={<MessageTemplateForm mode="create"/>}
-            />
+            <div className="flex justify-between items-center">
+                <PageHero
+                    type="hero"
+                    title="Messaging Templates"
+                    subtitle="Create and manage messaging templates"
+                />
+                <ReusableSheet
+                    title="New Template"
+                    trigger={
+                        <Button variant="outline">
+                            <FilePlusCornerIcon className="size-4"/> New Template
+                        </Button>
+                    }
+                    widthClassName="sm:max-w-full"
+                    children={<MessageTemplateForm mode="create"/>}
+                />
+            </div>
             <MessageTemplatesDataGrid/>
         </section>
     )

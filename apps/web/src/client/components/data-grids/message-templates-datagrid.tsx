@@ -42,9 +42,13 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog.tsx"
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
-import {MessageTemplateForm, type MessageTemplateFormValues} from "@/components/forms/messaging/message-template-form.tsx"
+import {
+    MessageTemplateForm,
+    type MessageTemplateFormValues
+} from "@/components/forms/messaging/message-template-form.tsx"
 import {apiClient} from "@/lib/api.ts"
 import {CopyIcon, MoreHorizontalIcon, SquarePenIcon, Trash2Icon} from "lucide-react"
+import {Skeleton} from "@/components/ui/skeleton.tsx";
 
 type MessageTemplateRow = MessageTemplateFormValues & {
     id: string
@@ -75,7 +79,7 @@ export function MessageTemplatesDataGrid() {
     const queryClient = useQueryClient()
 
     const [sorting, setSorting] = useState<SortingState>([{id: "createdAt", desc: true}])
-    const [pagination, setPagination] = useState<PaginationState>({pageIndex: 0, pageSize: 10})
+    const [pagination, setPagination] = useState<PaginationState>({pageIndex: 0, pageSize: 8})
     const [editingTemplate, setEditingTemplate] = useState<MessageTemplateRow | null>(null)
     const [deletingTemplate, setDeletingTemplate] = useState<MessageTemplateRow | null>(null)
 
@@ -89,7 +93,7 @@ export function MessageTemplatesDataGrid() {
     })
 
     const toggleActiveMutation = useMutation({
-        mutationFn: async ({id, isActive}: {id: string; isActive: boolean}) => {
+        mutationFn: async ({id, isActive}: { id: string; isActive: boolean }) => {
             const res = await api.api["message-templates"][":id"].$patch({param: {id}, json: {isActive}})
             if (!res.ok) throw new Error("Failed to update template")
             return res.json()
@@ -139,6 +143,7 @@ export function MessageTemplatesDataGrid() {
                         {info.row.original.isDefault && <Badge variant="secondary">Default</Badge>}
                     </div>
                 ),
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
                 size: 260,
             },
@@ -147,6 +152,7 @@ export function MessageTemplatesDataGrid() {
                 id: "category",
                 header: ({column}) => <DataGridColumnHeader title="Category" visibility column={column}/>,
                 cell: (info) => CATEGORY_LABELS[info.getValue() as string] ?? (info.getValue() as string),
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,
                 size: 170,
             },
@@ -158,6 +164,7 @@ export function MessageTemplatesDataGrid() {
                     const value = info.getValue() as string | null
                     return value ? TIMING_LABELS[value] ?? value : <span className="text-muted-foreground">—</span>
                 },
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: false,
                 size: 130,
             },
@@ -166,6 +173,7 @@ export function MessageTemplatesDataGrid() {
                 id: "channel",
                 header: ({column}) => <DataGridColumnHeader title="Channel" visibility column={column}/>,
                 cell: (info) => info.getValue() as string,
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: false,
                 size: 110,
             },
@@ -182,6 +190,7 @@ export function MessageTemplatesDataGrid() {
                         }
                     />
                 ),
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: false,
                 size: 90,
             },
@@ -222,6 +231,7 @@ export function MessageTemplatesDataGrid() {
                         </DropdownMenu>
                     )
                 },
+                meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: false,
                 size: 60,
             },
