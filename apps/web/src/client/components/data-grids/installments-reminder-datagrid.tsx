@@ -1749,12 +1749,20 @@ function InstallmentCalendarEventTooltip({
     occurrence: EventCalendarOccurrence<InstallmentCalendarEventData>;
 }) {
     const data = occurrence.event.data;
+    const qty = data?.groups.length ?? 0
+    const status = data?.status
+    const installmentLabel =
+        status === "OPEN"
+            ? `Upcoming ${qty === 1 ? "installment" : "installments"}`
+            : status === "OVERDUE"
+                ? `Past due ${qty === 1 ? "installment" : "installments"}`
+                : `${qty === 1 ? "Installment" : "Installments"} due in next 7 days`;
+
     if (!data) return null;
     return (
         <>
             <p className="pb-2 text-xs font-semibold">
-                {data.groups.length}{" "}
-                {data.groups.length === 1 ? "installment" : "installments"} due
+                {qty} {installmentLabel}
             </p>
             {/* type="always": the default "hover" type only turns on real
                 overflow/wheel-scrolling after the pointer lingers on the

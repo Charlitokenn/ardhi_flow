@@ -483,7 +483,7 @@ export function ReusableEventsCalendar<TData = unknown>({
                         eventTooltip={settings.eventTooltip}
                         showDayAddButton={settings.showDayAddButton}
                         offDays
-                        className={cn("h-[640px] w-full", className)}
+                        className={cn("h-160 w-full", className)}
                     >
                         <div className="flex flex-wrap items-center gap-2 pe-2">
                             <EventCalendarNav/>

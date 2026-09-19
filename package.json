@@ -7,7 +7,7 @@
     "lint": "turbo lint",
     "dev:web": "turbo dev --filter=@ardhiflow/web",
     "dev:mobile": "turbo dev --filter=@ardhiflow/mobile",
-    "dev:marketing": "turbo dev --filter=@ardhiflow/marketing"
+    "dev:marketing": "turbo dev --filter=ardhi-flow-marketing"
   },
   "devDependencies": {
     "turbo": "^2.5.0"

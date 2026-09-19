@@ -18,6 +18,7 @@ import companySettingsRoute from "./routes/company-settings";
 import installmentsRoute from "./routes/installments";
 import commissionsRoute from "./routes/commissions";
 import messageTemplatesRoute from "./routes/message-templates";
+import campaignsRoute from "./routes/campaigns";
 import {handleTenantProvisionQueue, type ProvisionTenantMessage,} from "./queue/provision-tenant";
 import {TenantPresence, verifyPresenceConnection} from "./durable-objects/tenant-presence";
 
@@ -66,7 +67,8 @@ const authed = new Hono<{ Bindings: Env; Variables: Variables }>()
     .route("/company-settings", companySettingsRoute)
     .route("/installments", installmentsRoute)
     .route("/commissions", commissionsRoute)
-    .route("/message-templates", messageTemplatesRoute);
+    .route("/message-templates", messageTemplatesRoute)
+    .route("/campaigns", campaignsRoute);
 
 const routes = app.route("/api", authed);
 

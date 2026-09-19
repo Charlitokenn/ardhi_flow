@@ -49,6 +49,7 @@ import {
 import {apiClient} from "@/lib/api.ts"
 import {CopyIcon, MoreHorizontalIcon, SquarePenIcon, Trash2Icon} from "lucide-react"
 import {Skeleton} from "@/components/ui/skeleton.tsx";
+import ReusableTooltip from "@/components-reusable/reusable-tooltip.tsx";
 
 type MessageTemplateRow = MessageTemplateFormValues & {
     id: string
@@ -138,10 +139,17 @@ export function MessageTemplatesDataGrid() {
                 id: "name",
                 header: ({column}) => <DataGridColumnHeader title="Name" visibility column={column}/>,
                 cell: (info) => (
-                    <div className="flex items-center gap-2">
-                        <span className="font-medium">{info.getValue() as string}</span>
-                        {info.row.original.isDefault && <Badge variant="secondary">Default</Badge>}
-                    </div>
+                    <ReusableTooltip
+                        trigger={
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="text-foreground cursor-pointer rounded-sm font-medium underline decoration-dashed decoration-1 underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50">{info.getValue() as string}</span>
+                                {info.row.original.isDefault && <Badge variant="secondary">Default</Badge>}
+                            </div>
+                        }
+                        orientation="right"
+                        tooltip={<span className="font-medium flex gap-2">{info.row.original.body}</span>}
+                    />
                 ),
                 meta: {skeleton: <Skeleton className="h-7 w-auto"/>},
                 enableSorting: true,

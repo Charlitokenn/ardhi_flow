@@ -3,6 +3,7 @@
 import {Plus} from 'lucide-react'
 import {PageHero} from "@/components/pageHero.tsx"
 import {Button} from "@/components/ui/button.tsx"
+import {CampaignsDataGrid} from "@/components/data-grids/campaigns-datagrid.tsx"
 
 interface BroadcastDashboardProps {
     onCreateNew: () => void
@@ -10,12 +11,12 @@ interface BroadcastDashboardProps {
 
 export default function BroadcastDashboard({onCreateNew}: BroadcastDashboardProps) {
     return (
-        <div className="min-h-screen -my-3.5 -mx-5.5">
-            <header className="border-b border-border px-3 py-2">
+        <div className="-my-3.5 -mx-5">
+            <header className="px-5">
                 <div className="flex items-center justify-between">
                     <PageHero
                         type="hero"
-                        title="Bulk Messaging"
+                        title="Message Broadcasts"
                         subtitle="Create and manage SMS and WhatsApp campaigns"
                     />
                     <Button
@@ -28,20 +29,8 @@ export default function BroadcastDashboard({onCreateNew}: BroadcastDashboardProp
                 </div>
             </header>
 
-            <div className="flex flex-col items-center justify-center px-3 py-24">
-                <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-foreground">Welcome to your campaigns</h2>
-                    <p className="mt-2 text-muted-foreground">You haven&apos;t created any campaigns yet.</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Create campaigns to send bulk messages and track their performance.
-                    </p>
-                    <button
-                        onClick={onCreateNew}
-                        className="mt-6 inline-flex rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-                    >
-                        Create Your First Campaign
-                    </button>
-                </div>
+            <div className="px-5">
+                <CampaignsDataGrid onCreateNew={onCreateNew}/>
             </div>
         </div>
     )
