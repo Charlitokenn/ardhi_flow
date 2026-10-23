@@ -33,8 +33,10 @@ know how to build a feature, use `/develop` and skip `/architect`. You decide wh
 | 14 | Provisioning lifecycle completeness   | Hardening  | planned     |
 | 15 | R2 wiring for tenant files            | Hardening  | planned     |
 | 16 | Real health checks and observability  | Hardening  | planned     |
-| 17 | Encryption key rotation strategy      | Hardening  | planned     |
+| 17 | Encryption key rotation strategy      | Hardening  | in-progress |
 | 18 | Installment reminders and collections | Slice 1    | existing    |
+| 19 | Cached connection string protection   | Hardening  | planned     |
+| 20 | Rotation for other Worker secrets     | Hardening  | planned     |
 
 ## Foundations
 
@@ -226,17 +228,47 @@ table.
 
 - [ ] Design what to check and how to log it (spec): `/architect real health checks and observability`
 
-### 17. Encryption key rotation strategy · needs a decision
+### 17. Encryption key rotation strategy · in-progress
 
 `TENANT_CONN_ENCRYPTION_KEY` has no documented rotation or backup procedure. Losing it loses access to every tenant's
-connection string. **Done when:** a rotation procedure exists and has been exercised at least once without breaking any
+connection string. Designed in spec 0003: a versioned keyring, an operator script for scheduled and emergency rotation,
+and a runbook. **Done when:** a rotation procedure exists and has been exercised at least once without breaking any
 tenant connection.
 
-- [ ] Design the rotation and backup procedure (spec): `/architect encryption key rotation strategy`
+- [x] Design the rotation and backup procedure (spec): [0003](../specs/0003-encryption-key-rotation/index.md)
+- [ ] Build it: `/develop encryption key rotation`
+    - [ ] Keyring crypto module, versioned format, and call site switch (AC-1, AC-2, AC-3, AC-12)
+    - [ ] Catalog run table, rotation script, and first run on dev data (AC-5, AC-6, AC-7, AC-8, AC-15)
+    - [ ] Scheduled rotation drill with a request loop (AC-4, AC-14)
+    - [ ] Emergency mode, Neon helpers, resolver retry, and their drills (AC-9, AC-10, AC-11, AC-14)
+    - [ ] Runbook, drill log, and leftover cleanup (AC-13, AC-14, AC-15)
+- [ ] Verify it: `/check verify encryption key rotation`
+- [ ] Test it: `/test encryption key rotation`
+
+### 19. Cached connection string protection · needs a decision · from spec 0003
+
+The tenant resolver keeps each tenant's decrypted connection string in KV for 5 minutes, outside the protection that the
+key rotation in spec 0003 adds. **Done when:** a decision is recorded on whether to encrypt cache values, shorten the
+time to live, or accept the exposure, and any chosen change is built.
+
+- [ ] Design the cache protection (spec): `/architect tenant cache connection string protection`
+
+### 20. Rotation for other Worker secrets · needs a decision · from spec 0003
+
+`CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`, `NEON_API_KEY`, and `CATALOG_DATABASE_URL` have no rotation procedure. Spec
+0003 covers only the tenant connection encryption key. **Done when:** each secret has a documented rotation procedure
+that has been exercised once without breaking sign in, provisioning, or tenant access.
+
+- [ ] Design the rotation procedures (spec): `/architect other secrets rotation`
 
 ## Deferred
 
 Out of scope for v1, kept so the plan stays honest.
+
+- **Client config cleanup**: remove the unused server secret entries (`catalogDbUrl`, `neonApiKey`, `clerkSecretKey`,
+  `clerkJwtKey`) from the two client `env` objects. Vite does not expose them today (raised by spec 0003).
+- **Staging catalog for drills**: decide whether to keep a separate staging catalog and Worker before the first live
+  tenant, since later emergency drills would reset real passwords (raised by spec 0003).
 
 - **Client facing self service portal**: contacts already carry an optional `clerkUserId` for this, but no portal UI
   exists yet.
