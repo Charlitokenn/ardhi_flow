@@ -34,7 +34,9 @@ export interface Env {
   CLERK_JWT_KEY: string
   CLERK_WEBHOOK_SECRET: string
   NEON_API_KEY: string
-  TENANT_CONN_ENCRYPTION_KEY: string
+  // JSON keyring: { current, keys: { <keyId>: { key, createdAt } } }. See
+  // src/worker/lib/crypto.ts. Replaces the single key secret used before rotation.
+  TENANT_CONN_KEYRING: string
 }
 
 export interface Variables {

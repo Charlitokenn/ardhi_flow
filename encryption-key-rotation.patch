@@ -1,0 +1,2504 @@
+diff --git a/apps/web/drizzle/catalog/migrations/0001_key_rotation_runs.sql b/apps/web/drizzle/catalog/migrations/0001_key_rotation_runs.sql
+new file mode 100644
+index 0000000..e4a4d47
+--- /dev/null
++++ b/apps/web/drizzle/catalog/migrations/0001_key_rotation_runs.sql
+@@ -0,0 +1,17 @@
++CREATE TYPE "public"."rotation_kind" AS ENUM('scheduled', 'emergency');--> statement-breakpoint
++CREATE TYPE "public"."rotation_status" AS ENUM('running', 'completed', 'failed');--> statement-breakpoint
++CREATE TABLE "key_rotation_runs" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
++	"kind" "rotation_kind" NOT NULL,
++	"from_key_id" text NOT NULL,
++	"to_key_id" text NOT NULL,
++	"status" "rotation_status" DEFAULT 'running' NOT NULL,
++	"tenants_total" integer NOT NULL,
++	"tenants_done" integer DEFAULT 0 NOT NULL,
++	"tenants_failed" integer DEFAULT 0 NOT NULL,
++	"note" text,
++	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
++	"finished_at" timestamp with time zone
++);
++--> statement-breakpoint
++CREATE UNIQUE INDEX "key_rotation_runs_one_running_idx" ON "key_rotation_runs" USING btree ("status") WHERE "key_rotation_runs"."status" = 'running';
+\ No newline at end of file
+diff --git a/apps/web/drizzle/catalog/migrations/meta/0001_snapshot.json b/apps/web/drizzle/catalog/migrations/meta/0001_snapshot.json
+new file mode 100644
+index 0000000..0e04606
+--- /dev/null
++++ b/apps/web/drizzle/catalog/migrations/meta/0001_snapshot.json
+@@ -0,0 +1,344 @@
++{
++  "id": "275a4d8e-4994-4225-aca9-6f2991a24511",
++  "prevId": "d212db6c-f458-48e7-beb4-1ea687bee5b0",
++  "version": "7",
++  "dialect": "postgresql",
++  "tables": {
++    "public.key_rotation_runs": {
++      "name": "key_rotation_runs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "kind": {
++          "name": "kind",
++          "type": "rotation_kind",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "from_key_id": {
++          "name": "from_key_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "to_key_id": {
++          "name": "to_key_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "rotation_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'running'"
++        },
++        "tenants_total": {
++          "name": "tenants_total",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "tenants_done": {
++          "name": "tenants_done",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "tenants_failed": {
++          "name": "tenants_failed",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "note": {
++          "name": "note",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "started_at": {
++          "name": "started_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "finished_at": {
++          "name": "finished_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "key_rotation_runs_one_running_idx": {
++          "name": "key_rotation_runs_one_running_idx",
++          "columns": [
++            {
++              "expression": "status",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "where": "\"key_rotation_runs\".\"status\" = 'running'",
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.orgs": {
++      "name": "orgs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "clerk_org_id": {
++          "name": "clerk_org_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {
++        "orgs_clerk_org_id_unique": {
++          "name": "orgs_clerk_org_id_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "clerk_org_id"
++          ]
++        }
++      },
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.provisioning_events": {
++      "name": "provisioning_events",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "org_id": {
++          "name": "org_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "event": {
++          "name": "event",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "detail": {
++          "name": "detail",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.tenant_projects": {
++      "name": "tenant_projects",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "org_id": {
++          "name": "org_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "neon_project_id": {
++          "name": "neon_project_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "neon_project_name": {
++          "name": "neon_project_name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "region": {
++          "name": "region",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'aws-eu-central-1'"
++        },
++        "encrypted_connection_string": {
++          "name": "encrypted_connection_string",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "schema_version": {
++          "name": "schema_version",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "status": {
++          "name": "status",
++          "type": "provisioning_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "r2_prefix": {
++          "name": "r2_prefix",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {
++        "tenant_projects_org_id_unique": {
++          "name": "tenant_projects_org_id_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "org_id"
++          ]
++        },
++        "tenant_projects_neon_project_id_unique": {
++          "name": "tenant_projects_neon_project_id_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "neon_project_id"
++          ]
++        }
++      },
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    }
++  },
++  "enums": {
++    "public.provisioning_status": {
++      "name": "provisioning_status",
++      "schema": "public",
++      "values": [
++        "pending",
++        "provisioning",
++        "active",
++        "failed",
++        "suspended"
++      ]
++    },
++    "public.rotation_kind": {
++      "name": "rotation_kind",
++      "schema": "public",
++      "values": [
++        "scheduled",
++        "emergency"
++      ]
++    },
++    "public.rotation_status": {
++      "name": "rotation_status",
++      "schema": "public",
++      "values": [
++        "running",
++        "completed",
++        "failed"
++      ]
++    }
++  },
++  "schemas": {},
++  "sequences": {},
++  "roles": {},
++  "policies": {},
++  "views": {},
++  "_meta": {
++    "columns": {},
++    "schemas": {},
++    "tables": {}
++  }
++}
+\ No newline at end of file
+diff --git a/apps/web/drizzle/catalog/migrations/meta/_journal.json b/apps/web/drizzle/catalog/migrations/meta/_journal.json
+index 6518c48..ef0c05e 100644
+--- a/apps/web/drizzle/catalog/migrations/meta/_journal.json
++++ b/apps/web/drizzle/catalog/migrations/meta/_journal.json
+@@ -8,6 +8,13 @@
+       "when": 1786285433824,
+       "tag": "0000_init",
+       "breakpoints": true
++    },
++    {
++      "idx": 1,
++      "version": "7",
++      "when": 1792790615613,
++      "tag": "0001_key_rotation_runs",
++      "breakpoints": true
+     }
+   ]
+ }
+\ No newline at end of file
+diff --git a/apps/web/drizzle/catalog/schema.ts b/apps/web/drizzle/catalog/schema.ts
+index 7899016..7d9dc65 100644
+--- a/apps/web/drizzle/catalog/schema.ts
++++ b/apps/web/drizzle/catalog/schema.ts
+@@ -1,4 +1,5 @@
+-import { pgTable, text, timestamp, uuid, pgEnum, integer } from 'drizzle-orm/pg-core'
++import { pgTable, text, timestamp, uuid, pgEnum, integer, uniqueIndex } from 'drizzle-orm/pg-core'
++import { sql } from 'drizzle-orm'
+ 
+ // Lives in a single dedicated Neon project — the "control plane" — separate
+ // from every tenant project it tracks. See chat notes: this is the thing
+@@ -32,7 +33,11 @@ export const tenantProjects = pgTable('tenant_projects', {
+   neonProjectName: text('neon_project_name').notNull(), // `tenant-{orgId}`, kept human-searchable
+   region: text('region').notNull().default('aws-eu-central-1'),
+ 
+-  // AES-GCM encrypted with TENANT_CONN_ENCRYPTION_KEY — never store plaintext.
++  // AES-GCM encrypted, never plaintext. Stored as `<keyId>:<base64 of IV + ciphertext>`
++  // (for example `k2:...`), where keyId names an entry in the TENANT_CONN_KEYRING
++  // secret and the org id + key id are bound in as additional authenticated data.
++  // A value with no prefix is the pre-rotation format and is read as key `k1`.
++  // See src/worker/lib/crypto.ts and docs/specs/0003-encryption-key-rotation.
+   encryptedConnectionString: text('encrypted_connection_string').notNull(),
+ 
+   // Bumped by the migration fan-out job; lets you tell which tenants are
+@@ -55,3 +60,43 @@ export const provisioningEvents = pgTable('provisioning_events', {
+   detail: text('detail'),
+   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+ })
++
++// One row per `npm run rotate:keys` real run (scripts/rotate-keys.ts). Dry runs
++// write nothing. No foreign keys: a run only counts tenants.
++export const rotationKind = pgEnum('rotation_kind', ['scheduled', 'emergency'])
++
++export const rotationStatus = pgEnum('rotation_status', [
++  'running', // in progress, or the script crashed (clear it with --abandon-run)
++  'completed', // every selected row ended on the current key
++  'failed', // anything else
++])
++
++export const keyRotationRuns = pgTable(
++  'key_rotation_runs',
++  {
++    id: uuid('id').primaryKey().defaultRandom(),
++    kind: rotationKind('kind').notNull(),
++
++    // Distinct old key ids found, comma separated (usually one, like `k1`).
++    fromKeyId: text('from_key_id').notNull(),
++    // The keyring's `current` id when the run started.
++    toKeyId: text('to_key_id').notNull(),
++
++    status: rotationStatus('status').notNull().default('running'),
++    tenantsTotal: integer('tenants_total').notNull(),
++    tenantsDone: integer('tenants_done').notNull().default(0),
++    tenantsFailed: integer('tenants_failed').notNull().default(0),
++
++    // Org ids and a fixed reason code or HTTP status per failure. Never raw
++    // response text, a connection string, or a secret.
++    note: text('note'),
++
++    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
++    finishedAt: timestamp('finished_at', { withTimezone: true }),
++  },
++  (table) => [
++    // Only one run can be `running` at a time: every indexed row has the same
++    // status value, so a second `running` row violates uniqueness.
++    uniqueIndex('key_rotation_runs_one_running_idx').on(table.status).where(sql`${table.status} = 'running'`),
++  ],
++)
+diff --git a/apps/web/package.json b/apps/web/package.json
+index 10a29da..9088eeb 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -19,6 +19,7 @@
+     "db:migrate:catalog": "drizzle-kit migrate --config=drizzle.catalog.config.ts",
+     "db:generate:tenant": "drizzle-kit generate --config=drizzle.tenant.config.ts --name=init",
+     "provision:tenant": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/provision-tenant.ts",
++    "rotate:keys": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/rotate-keys.ts",
+     "migrate:tenants": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/migrate-tenants.ts",
+     "migrate:tenants:pg": "tsx scripts/migrate-tenants-pg.ts",
+     "seed:tenant": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/seed-tenant.ts",
+diff --git a/apps/web/scripts/migrate-tenants-pg.ts b/apps/web/scripts/migrate-tenants-pg.ts
+index c5567ed..69697cd 100644
+--- a/apps/web/scripts/migrate-tenants-pg.ts
++++ b/apps/web/scripts/migrate-tenants-pg.ts
+@@ -8,8 +8,8 @@
+ // fetch/undici stack entirely, using raw sockets instead. See
+ // scripts/seed-tenant-pg.ts for the same pattern applied to seeding.
+ //
+-// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_ENCRYPTION_KEY
+-// set (same values as your Worker secrets).
++// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_KEYRING set (same
++// values as your Worker secrets).
+ //
+ // Usage:
+ //   npm run migrate:tenants:pg
+@@ -22,7 +22,7 @@ import { Pool } from 'pg'
+ import { drizzle } from 'drizzle-orm/node-postgres'
+ import { eq } from 'drizzle-orm'
+ import { applyPendingMigrationsPg, getAppliedMigrationTagsPg } from '../src/worker/lib/run-migration-pg'
+-import { decryptConnectionString } from '../src/worker/lib/crypto'
++import { decryptConnectionString, parseKeyring } from '../src/worker/lib/crypto'
+ import { tenantProjects } from '../drizzle/catalog/schema'
+ import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
+ 
+@@ -35,11 +35,12 @@ program
+ const { orgId, dryRun } = program.opts<{ orgId?: string; dryRun: boolean }>()
+ 
+ async function main() {
+-  const { CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY } = process.env
++  const { CATALOG_DATABASE_URL, TENANT_CONN_KEYRING } = process.env
+ 
+-  if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
+-    throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
++  if (!CATALOG_DATABASE_URL) {
++    throw new Error('Missing required env var: CATALOG_DATABASE_URL')
+   }
++  const keyring = parseKeyring(TENANT_CONN_KEYRING)
+ 
+   const migrations = loadTenantMigrationsFromDisk()
+   console.log(
+@@ -66,9 +67,10 @@ async function main() {
+   for (const tenant of tenants) {
+     const label = `${tenant.orgId} (${tenant.neonProjectName})`
+     try {
+-      const connectionUri = await decryptConnectionString(
++      const { plaintext: connectionUri } = await decryptConnectionString(
+         tenant.encryptedConnectionString,
+-        TENANT_CONN_ENCRYPTION_KEY,
++        keyring,
++        tenant.orgId,
+       )
+ 
+       if (dryRun) {
+diff --git a/apps/web/scripts/migrate-tenants.ts b/apps/web/scripts/migrate-tenants.ts
+index 797983e..78619da 100644
+--- a/apps/web/scripts/migrate-tenants.ts
++++ b/apps/web/scripts/migrate-tenants.ts
+@@ -9,8 +9,8 @@
+ // string, and applies any migration (from drizzle/tenant/migrations/) that
+ // hasn't been recorded as applied yet for that specific tenant.
+ //
+-// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_ENCRYPTION_KEY
+-// set (same values as your Worker secrets).
++// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_KEYRING set (same
++// values as your Worker secrets).
+ //
+ // If this fails with "TypeError: fetch failed" even though the network
+ // otherwise has working TCP/TLS connectivity to Neon (verified via e.g.
+@@ -29,7 +29,7 @@ import { neon } from '@neondatabase/serverless'
+ import { drizzle } from 'drizzle-orm/neon-http'
+ import { eq } from 'drizzle-orm'
+ import { applyPendingMigrations, getAppliedMigrationTags } from '../src/worker/lib/run-migration'
+-import { decryptConnectionString } from '../src/worker/lib/crypto'
++import { decryptConnectionString, parseKeyring } from '../src/worker/lib/crypto'
+ import { tenantProjects } from '../drizzle/catalog/schema'
+ import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
+ import { isFetchNetworkError, printFetchNetworkErrorHint } from './lib/network-error-hint'
+@@ -48,11 +48,12 @@ program
+ const { orgId, dryRun } = program.opts<{ orgId?: string; dryRun: boolean }>()
+ 
+ async function main() {
+-  const { CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY } = process.env
++  const { CATALOG_DATABASE_URL, TENANT_CONN_KEYRING } = process.env
+ 
+-  if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
+-    throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
++  if (!CATALOG_DATABASE_URL) {
++    throw new Error('Missing required env var: CATALOG_DATABASE_URL')
+   }
++  const keyring = parseKeyring(TENANT_CONN_KEYRING)
+ 
+   const migrations = loadTenantMigrationsFromDisk()
+   console.log(
+@@ -78,9 +79,10 @@ async function main() {
+   for (const tenant of tenants) {
+     const label = `${tenant.orgId} (${tenant.neonProjectName})`
+     try {
+-      const connectionUri = await decryptConnectionString(
++      const { plaintext: connectionUri } = await decryptConnectionString(
+         tenant.encryptedConnectionString,
+-        TENANT_CONN_ENCRYPTION_KEY,
++        keyring,
++        tenant.orgId,
+       )
+ 
+       if (dryRun) {
+diff --git a/apps/web/scripts/provision-tenant.ts b/apps/web/scripts/provision-tenant.ts
+index 65509bb..0d916fb 100644
+--- a/apps/web/scripts/provision-tenant.ts
++++ b/apps/web/scripts/provision-tenant.ts
+@@ -4,7 +4,8 @@
+ // without needing a live webhook call.
+ //
+ // Requires a .env with CATALOG_DATABASE_URL, NEON_API_KEY, and
+-// TENANT_CONN_ENCRYPTION_KEY set (same values as your Worker secrets).
++// TENANT_CONN_KEYRING set (same values as your Worker secrets). The keyring is
++// one line of JSON in single quotes, see docs/runbooks/encryption-key-rotation.md.
+ //
+ // Usage:
+ //   npm run provision:tenant -- --org-id=org_2abc123 --name="Acme Plots"
+@@ -16,7 +17,7 @@ import { neon } from '@neondatabase/serverless'
+ import { drizzle } from 'drizzle-orm/neon-http'
+ import { createNeonProject, findProjectByName } from '../src/worker/lib/neon-api'
+ import { applyPendingMigrations } from '../src/worker/lib/run-migration'
+-import { encryptConnectionString } from '../src/worker/lib/crypto'
++import { encryptConnectionString, parseKeyring } from '../src/worker/lib/crypto'
+ import { tenantProjects, orgs, provisioningEvents } from '../drizzle/catalog/schema'
+ import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
+ 
+@@ -35,14 +36,16 @@ program
+ const { orgId, name, region } = program.opts<{ orgId: string; name: string; region: string }>()
+ 
+ async function main() {
+-  const { CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY } = process.env
++  const { CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_KEYRING } = process.env
+ 
+-  if (!CATALOG_DATABASE_URL || !NEON_API_KEY || !TENANT_CONN_ENCRYPTION_KEY) {
+-    throw new Error(
+-      'Missing required env vars: CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY',
+-    )
++  if (!CATALOG_DATABASE_URL || !NEON_API_KEY) {
++    throw new Error('Missing required env vars: CATALOG_DATABASE_URL, NEON_API_KEY')
+   }
+ 
++  // Validated before the Neon project is created, so a bad keyring can never
++  // leave an orphaned project behind.
++  const keyring = parseKeyring(TENANT_CONN_KEYRING)
++
+   const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
+   const projectName = `tenant-${name}`
+ 
+@@ -65,7 +68,7 @@ async function main() {
+   const applied = await applyPendingMigrations(connectionUri, migrations)
+   console.log(`  ✓ Schema applied (${applied.join(', ')})`)
+ 
+-  const encrypted = await encryptConnectionString(connectionUri, TENANT_CONN_ENCRYPTION_KEY)
++  const encrypted = await encryptConnectionString(connectionUri, keyring, orgId)
+ 
+   await catalogDb
+     .insert(tenantProjects)
+diff --git a/apps/web/scripts/rotate-keys.ts b/apps/web/scripts/rotate-keys.ts
+new file mode 100644
+index 0000000..4aecb94
+--- /dev/null
++++ b/apps/web/scripts/rotate-keys.ts
+@@ -0,0 +1,605 @@
++#!/usr/bin/env -S npx tsx
++// Moves every tenant's stored connection string onto the keyring's current key
++// (spec 0003, docs/specs/0003-encryption-key-rotation/index.md). You run this
++// yourself, from your own machine. There is no scheduled Worker and no admin
++// route.
++//
++// Scheduled rotation (the key only, no tenant notices):
++//   1. Add the new key to TENANT_CONN_KEYRING and deploy it, current unchanged.
++//   2. Make it `current` and deploy again.
++//   3. npm run rotate:keys -- --dry-run     (then the real run below)
++//      npm run rotate:keys
++//   The full procedure, with undo steps, is in
++//   docs/runbooks/encryption-key-rotation.md. Read it before a real run.
++//
++// Emergency rotation (the key AND every tenant's database password):
++//   npm run rotate:keys -- --emergency
++//   For each tenant it asks Neon for the default branch and the one database,
++//   resets the role's password, builds a new connection string from Neon,
++//   checks that it connects, and stores it under the current key. It never
++//   decrypts the old stored value, so it also recovers every tenant when the
++//   old key is lost.
++//
++// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_KEYRING (same values
++// as your Worker secrets), plus NEON_API_KEY for --emergency.
++//
++// Flags:
++//   --dry-run            Validate the keyring, read and decrypt every row, report
++//                        rows per key id and the orgs that would change. Writes
++//                        nothing, not even a run row.
++//   --emergency          Also reset passwords through Neon. Asks for a typed
++//                        confirmation first.
++//   --org-id <id>        Only this tenant (for drills, or to repeat one tenant).
++//   --abandon-run <id>   Mark a stuck `running` run as `failed`.
++//
++// Keys, passwords and connection strings are never printed or stored in a run
++// note. Only org ids, key ids, counts and short reason codes are.
++
++import 'dotenv/config'
++import dns from 'node:dns'
++import { createInterface } from 'node:readline/promises'
++import { Command } from 'commander'
++import { neon } from '@neondatabase/serverless'
++import { drizzle } from 'drizzle-orm/neon-http'
++import { and, eq, sql } from 'drizzle-orm'
++import {
++  ConnectionStringDecryptError,
++  KeyringError,
++  decryptConnectionString,
++  encryptConnectionString,
++  parseKeyring,
++  readKeyPrefix,
++  LEGACY_KEY_ID,
++  type Keyring,
++} from '../src/worker/lib/crypto'
++import {
++  NeonApiError,
++  getConnectionUri,
++  getDefaultBranchId,
++  getTenantDatabase,
++  resetRolePassword,
++} from '../src/worker/lib/neon-api'
++import { keyRotationRuns, tenantProjects } from '../drizzle/catalog/schema'
++
++// See scripts/seed-tenant.ts for why this is needed: Node's fetch prefers
++// IPv6, which breaks Neon connectivity on networks where IPv6 doesn't
++// actually route.
++dns.setDefaultResultOrder('ipv4first')
++
++const program = new Command()
++program
++  .option('--dry-run', 'Validate and report only, write nothing', false)
++  .option('--emergency', 'Also reset every tenant database password through Neon', false)
++  .option('--org-id <orgId>', 'Only this one Clerk organization ID (default: all tenants)')
++  .option('--abandon-run <id>', 'Mark a stuck running run as failed, then exit')
++  .parse(process.argv)
++
++const opts = program.opts<{
++  dryRun: boolean
++  emergency: boolean
++  orgId?: string
++  abandonRun?: string
++}>()
++
++const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
++
++// After a password reset Neon applies the change to the compute asynchronously,
++// so the first connection attempts can still be refused. Wait for it.
++const CONNECT_ATTEMPTS = 8
++const CONNECT_DELAY_MS = 1500
++
++type CatalogDb = ReturnType<typeof createCatalogDb>
++type TenantRow = typeof tenantProjects.$inferSelect
++
++function createCatalogDb(url: string) {
++  return drizzle(neon(url))
++}
++
++// A mistake in how the script was run (bad flag, missing env var). The message
++// is written by this script, so it is safe to print.
++class UsageError extends Error {
++  constructor(message: string) {
++    super(message)
++    this.name = 'UsageError'
++  }
++}
++
++// A step failed for a reason worth a fixed code in the run note.
++class RotationStepError extends Error {
++  readonly reason: string
++  constructor(reason: string) {
++    super(`Rotation step failed: ${reason}`)
++    this.name = 'RotationStepError'
++    this.reason = reason
++  }
++}
++
++// ── error text that is safe to print and to store ───────────────────────────
++
++function readCode(err: unknown): string | null {
++  let current: unknown = err
++  for (let depth = 0; depth < 8 && current instanceof Error; depth++) {
++    const code = (current as { code?: unknown }).code
++    if (typeof code === 'string') return code
++    current = (current as { cause?: unknown }).cause ?? (current as { sourceError?: unknown }).sourceError
++  }
++  return null
++}
++
++// A fixed reason code or HTTP status. Never the message of an unknown error,
++// which could quote a connection string.
++function reasonOf(err: unknown): string {
++  if (err instanceof RotationStepError) return err.reason
++  if (err instanceof ConnectionStringDecryptError) return `decrypt_${err.code}`
++  if (err instanceof NeonApiError) return `neon_${err.step}_${err.status ?? 'invalid_response'}`
++  const code = readCode(err)
++  if (code) return `db_${code}`
++  return `error_${err instanceof Error ? err.name : 'unknown'}`
++}
++
++// For the terminal: our own errors say what is wrong. Anything else prints its
++// type and code only.
++function describeError(err: unknown): string {
++  if (
++    err instanceof UsageError ||
++    err instanceof RotationStepError ||
++    err instanceof KeyringError ||
++    err instanceof ConnectionStringDecryptError ||
++    err instanceof NeonApiError
++  ) {
++    return err.message
++  }
++  const code = readCode(err)
++  return `${err instanceof Error ? err.name : 'Error'}${code ? ` (${code})` : ''}`
++}
++
++function isFetchFailure(err: unknown): boolean {
++  let current: unknown = err
++  for (let depth = 0; depth < 8 && current instanceof Error; depth++) {
++    if (current.name === 'TypeError' && current.message === 'fetch failed') return true
++    current = (current as { cause?: unknown }).cause ?? (current as { sourceError?: unknown }).sourceError
++  }
++  return false
++}
++
++const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
++
++// ── reading rows ────────────────────────────────────────────────────────────
++
++// The key id a row is stored under. A value with no prefix is read as k1.
++function storedKeyId(row: TenantRow): { keyId: string; legacy: boolean } {
++  const prefix = readKeyPrefix(row.encryptedConnectionString)
++  if (!prefix) return { keyId: 'unreadable', legacy: false }
++  return prefix.keyId === null ? { keyId: LEGACY_KEY_ID, legacy: true } : { keyId: prefix.keyId, legacy: false }
++}
++
++// Rows to change: the prefix is not `<current>:`, or there is no prefix.
++function needsRotation(row: TenantRow, keyring: Keyring): boolean {
++  const prefix = readKeyPrefix(row.encryptedConnectionString)
++  return prefix === null || prefix.keyId !== keyring.current
++}
++
++async function loadRows(db: CatalogDb): Promise<TenantRow[]> {
++  // Every status, because a suspended or failed tenant still has a stored value
++  // that must move off the old key.
++  const rows = opts.orgId
++    ? await db.select().from(tenantProjects).where(eq(tenantProjects.orgId, opts.orgId))
++    : await db.select().from(tenantProjects)
++  if (opts.orgId && rows.length === 0) {
++    throw new UsageError(`No tenant found for org id "${opts.orgId}".`)
++  }
++  return rows.sort((a, b) => a.orgId.localeCompare(b.orgId))
++}
++
++async function findRunningRun(db: CatalogDb): Promise<string | null> {
++  const [running] = await db
++    .select({ id: keyRotationRuns.id })
++    .from(keyRotationRuns)
++    .where(eq(keyRotationRuns.status, 'running'))
++    .limit(1)
++  return running?.id ?? null
++}
++
++// ── --abandon-run ───────────────────────────────────────────────────────────
++
++async function abandonRun(db: CatalogDb, id: string): Promise<void> {
++  if (!UUID_PATTERN.test(id)) throw new UsageError('--abandon-run needs the run id, a uuid like the one the script printed.')
++
++  const updated = await db
++    .update(keyRotationRuns)
++    .set({
++      status: 'failed',
++      finishedAt: new Date(),
++      note: sql`coalesce(${keyRotationRuns.note} || '; ', '') || 'abandoned by operator'`,
++    })
++    .where(and(eq(keyRotationRuns.id, id), eq(keyRotationRuns.status, 'running')))
++    .returning({ id: keyRotationRuns.id })
++
++  if (updated.length === 1) {
++    console.log(`✓ Run ${id} marked failed. You can start a new run now.`)
++    return
++  }
++
++  const [existing] = await db
++    .select({ status: keyRotationRuns.status })
++    .from(keyRotationRuns)
++    .where(eq(keyRotationRuns.id, id))
++    .limit(1)
++  throw new UsageError(
++    existing
++      ? `Run ${id} is already ${existing.status}, so there is nothing to abandon.`
++      : `No run found with id ${id}.`,
++  )
++}
++
++// ── --dry-run ───────────────────────────────────────────────────────────────
++
++async function dryRun(db: CatalogDb, keyring: Keyring, rows: TenantRow[]): Promise<void> {
++  const currentEntry = keyring.keys.get(keyring.current)
++  console.log(
++    `→ Keyring OK: ${keyring.keys.size} key(s) [${[...keyring.keys.keys()].join(', ')}], ` +
++      `current ${keyring.current}${currentEntry ? ` (created ${currentEntry.createdAt})` : ''}.`,
++  )
++  if (opts.emergency) {
++    const present = Boolean(process.env.NEON_API_KEY)
++    console.log(`→ Emergency mode: NEON_API_KEY is ${present ? 'set' : 'MISSING (a real run needs it)'}.`)
++  }
++
++  const perKey = new Map<string, { rows: number; legacy: number }>()
++  const wouldChange: string[] = []
++  const unreadable: Array<{ orgId: string; reason: string }> = []
++
++  for (const row of rows) {
++    const { keyId, legacy } = storedKeyId(row)
++    const bucket = perKey.get(keyId) ?? { rows: 0, legacy: 0 }
++    bucket.rows++
++    if (legacy) bucket.legacy++
++    perKey.set(keyId, bucket)
++
++    if (needsRotation(row, keyring)) wouldChange.push(row.orgId)
++
++    // Confirms the keyring can read this row.
++    try {
++      await decryptConnectionString(row.encryptedConnectionString, keyring, row.orgId)
++    } catch (err) {
++      unreadable.push({ orgId: row.orgId, reason: reasonOf(err) })
++    }
++  }
++
++  console.log(`\n→ ${rows.length} tenant row(s)${opts.orgId ? ` (org ${opts.orgId} only)` : ''}. Rows per key id:`)
++  if (perKey.size === 0) console.log('    (none)')
++  for (const [keyId, { rows: count, legacy }] of [...perKey.entries()].sort()) {
++    const marker = keyId === keyring.current ? ' (current)' : ''
++    const legacyNote = legacy > 0 ? `, ${legacy} with no prefix (old format)` : ''
++    console.log(`    ${keyId}${marker}: ${count} row(s)${legacyNote}`)
++  }
++
++  if (wouldChange.length === 0) {
++    console.log(`\n→ Every row is already on ${keyring.current}. A real run would finish at once with 0 tenants.`)
++  } else {
++    console.log(
++      `\n→ ${wouldChange.length} row(s) would change${opts.emergency ? ' (and have their database password reset)' : ''}:`,
++    )
++    for (const orgId of wouldChange) console.log(`    ${orgId}`)
++  }
++
++  if (unreadable.length > 0) {
++    console.log(`\n${opts.emergency ? '⚠' : '✗'} ${unreadable.length} row(s) this keyring cannot read:`)
++    for (const { orgId, reason } of unreadable) console.log(`    ${orgId}: ${reason}`)
++    if (opts.emergency) {
++      console.log('  Emergency mode never decrypts old values, so these are rebuilt from Neon in a real run.')
++    } else {
++      console.log('  Fix the keyring (the old key may be missing) before a real run. Do not deploy it as it is.')
++      process.exitCode = 1
++    }
++  } else {
++    console.log('\n✓ Every row decrypts with this keyring.')
++  }
++
++  const running = await findRunningRun(db)
++  if (running) {
++    console.log(`\n⚠ A rotation run is marked running (${running}). A real run will refuse to start until it is cleared.`)
++  }
++
++  console.log('\nDry run complete. Nothing was written.')
++}
++
++// ── one tenant ──────────────────────────────────────────────────────────────
++
++type Outcome = { status: 'done'; detail?: string } | { status: 'failed'; reason: string; stop: boolean }
++
++// Compare and swap: only writes if the row still holds the value we read.
++async function swapValue(db: CatalogDb, row: TenantRow, next: string): Promise<boolean> {
++  const updated = await db
++    .update(tenantProjects)
++    .set({ encryptedConnectionString: next, updatedAt: new Date() })
++    .where(
++      and(
++        eq(tenantProjects.orgId, row.orgId),
++        eq(tenantProjects.encryptedConnectionString, row.encryptedConnectionString),
++      ),
++    )
++    .returning({ id: tenantProjects.id })
++  return updated.length === 1
++}
++
++// The new value must decrypt back to exactly what we meant to store.
++async function verifyRoundTrip(keyring: Keyring, next: string, orgId: string, expected: string): Promise<void> {
++  try {
++    const check = await decryptConnectionString(next, keyring, orgId)
++    if (check.plaintext !== expected || check.keyId !== keyring.current) throw new RotationStepError('verify_failed')
++  } catch (err) {
++    if (err instanceof RotationStepError) throw err
++    throw new RotationStepError('verify_failed')
++  }
++}
++
++async function rotateScheduled(db: CatalogDb, keyring: Keyring, row: TenantRow): Promise<Outcome> {
++  try {
++    const { plaintext } = await decryptConnectionString(row.encryptedConnectionString, keyring, row.orgId)
++    const next = await encryptConnectionString(plaintext, keyring, row.orgId)
++    await verifyRoundTrip(keyring, next, row.orgId, plaintext)
++
++    if (await swapValue(db, row, next)) return { status: 'done' }
++
++    // The row changed after we read it (for example the queue consumer wrote it).
++    // If it now sits on the current key there is nothing left to do.
++    const [latest] = await db
++      .select({ value: tenantProjects.encryptedConnectionString })
++      .from(tenantProjects)
++      .where(eq(tenantProjects.orgId, row.orgId))
++      .limit(1)
++    if (latest && readKeyPrefix(latest.value)?.keyId === keyring.current) {
++      return { status: 'done', detail: `changed during the run, already on ${keyring.current}` }
++    }
++    return { status: 'failed', reason: 'cas_conflict', stop: false }
++  } catch (err) {
++    return { status: 'failed', reason: reasonOf(err), stop: false }
++  }
++}
++
++// Asks Neon for the connection string again on each attempt, because the first
++// few can still carry the old password or be refused while Neon applies the
++// reset to the compute.
++async function connectWithRetry(
++  neonApiKey: string,
++  row: TenantRow,
++  target: { branchId: string; databaseName: string; roleName: string },
++): Promise<string> {
++  for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt++) {
++    try {
++      const uri = await getConnectionUri(neonApiKey, row.neonProjectId, target)
++      await neon(uri).query('select 1')
++      return uri
++    } catch {
++      if (attempt < CONNECT_ATTEMPTS) await sleep(CONNECT_DELAY_MS * attempt)
++    }
++  }
++  throw new RotationStepError('connect_check_failed')
++}
++
++async function rotateEmergency(
++  db: CatalogDb,
++  keyring: Keyring,
++  neonApiKey: string,
++  row: TenantRow,
++): Promise<Outcome> {
++  // Before the reset nothing has changed, so a failure only skips this tenant.
++  // From the reset on, the tenant's password differs from what the catalog
++  // holds, so a failure stops the run.
++  let passwordWasReset = false
++  try {
++    const branchId = await getDefaultBranchId(neonApiKey, row.neonProjectId)
++    const database = await getTenantDatabase(neonApiKey, row.neonProjectId, branchId)
++
++    // From here on assume the password may change. The one exception is a
++    // definite 4xx answer to the reset itself, which means Neon refused and
++    // nothing changed, so that tenant is skipped like any earlier failure.
++    passwordWasReset = true
++    try {
++      // The response holds the new password. It is deliberately not kept: the
++      // connection string below is fetched from Neon, never built from it.
++      await resetRolePassword(neonApiKey, row.neonProjectId, branchId, database.ownerName)
++    } catch (err) {
++      if (err instanceof NeonApiError && err.status !== null && err.status >= 400 && err.status < 500) {
++        passwordWasReset = false
++      }
++      throw err
++    }
++
++    const uri = await connectWithRetry(neonApiKey, row, {
++      branchId,
++      databaseName: database.name,
++      roleName: database.ownerName,
++    })
++
++    const next = await encryptConnectionString(uri, keyring, row.orgId)
++    await verifyRoundTrip(keyring, next, row.orgId, uri)
++
++    if (!(await swapValue(db, row, next))) {
++      return { status: 'failed', reason: 'cas_conflict_after_reset', stop: true }
++    }
++    return { status: 'done' }
++  } catch (err) {
++    return { status: 'failed', reason: reasonOf(err), stop: passwordWasReset }
++  }
++}
++
++// ── a real run ──────────────────────────────────────────────────────────────
++
++async function confirmEmergency(count: number): Promise<void> {
++  if (!process.stdin.isTTY) {
++    throw new UsageError('--emergency asks for a typed confirmation, so it needs an interactive terminal.')
++  }
++  console.log(
++    `\n⚠ EMERGENCY rotation. This resets the database password of ${count} tenant(s) through Neon.\n` +
++      `  Their old passwords stop working. Cached connection strings recover on their own within a few minutes.`,
++  )
++  const expected = `reset ${count}`
++  const rl = createInterface({ input: process.stdin, output: process.stdout })
++  try {
++    const answer = (await rl.question(`  Type "${expected}" to continue: `)).trim().toLowerCase()
++    if (answer !== expected) throw new UsageError('Confirmation did not match. Nothing was changed.')
++  } finally {
++    rl.close()
++  }
++}
++
++async function realRun(db: CatalogDb, keyring: Keyring, rows: TenantRow[]): Promise<void> {
++  const neonApiKey = process.env.NEON_API_KEY
++  if (opts.emergency && !neonApiKey) throw new UsageError('--emergency needs NEON_API_KEY in your .env.')
++
++  const selected = rows.filter((row) => needsRotation(row, keyring))
++  const fromKeyIds = [...new Set(selected.map((row) => storedKeyId(row).keyId))].sort()
++  const kind = opts.emergency ? 'emergency' : 'scheduled'
++
++  console.log(
++    `→ ${kind} rotation to ${keyring.current}: ${selected.length} of ${rows.length} tenant row(s) to change` +
++      `${fromKeyIds.length > 0 ? ` (from ${fromKeyIds.join(', ')})` : ''}.`,
++  )
++
++  const running = await findRunningRun(db)
++  if (running) {
++    throw new UsageError(
++      `A rotation run is still marked running (${running}). If it crashed, clear it with:\n` +
++        `  npm run rotate:keys -- --abandon-run ${running}`,
++    )
++  }
++
++  if (opts.emergency && selected.length > 0) await confirmEmergency(selected.length)
++
++  let runId: string
++  try {
++    const [created] = await db
++      .insert(keyRotationRuns)
++      .values({
++        kind,
++        fromKeyId: fromKeyIds.join(',') || keyring.current,
++        toKeyId: keyring.current,
++        tenantsTotal: selected.length,
++      })
++      .returning({ id: keyRotationRuns.id })
++    runId = created.id
++  } catch (err) {
++    // The partial unique index allows one running run. We lost a race.
++    if (readCode(err) === '23505') throw new UsageError('Another rotation run started at the same moment. Try again later.')
++    throw err
++  }
++  console.log(`→ Run ${runId} started.\n`)
++
++  let done = 0
++  let failed = 0
++  let stoppedAfter: string | null = null
++  const failures: string[] = []
++
++  for (const row of selected) {
++    const outcome =
++      opts.emergency && neonApiKey
++        ? await rotateEmergency(db, keyring, neonApiKey, row)
++        : await rotateScheduled(db, keyring, row)
++
++    if (outcome.status === 'done') {
++      done++
++      console.log(`  ✓ ${row.orgId}${outcome.detail ? ` (${outcome.detail})` : ''}`)
++    } else {
++      failed++
++      failures.push(`${row.orgId}:${outcome.reason}`)
++      console.error(`  ✗ ${row.orgId}: ${outcome.reason}`)
++      if (outcome.stop) stoppedAfter = row.orgId
++    }
++
++    await db
++      .update(keyRotationRuns)
++      .set({ tenantsDone: done, tenantsFailed: failed, note: failures.join('; ').slice(0, 4000) || null })
++      .where(eq(keyRotationRuns.id, runId))
++
++    if (stoppedAfter) break
++  }
++
++  // Completed only when every selected row ended on the current key.
++  const completed = failed === 0 && done === selected.length
++  const note = [...failures, stoppedAfter ? `stopped_after:${stoppedAfter}` : null].filter(Boolean).join('; ')
++  await db
++    .update(keyRotationRuns)
++    .set({
++      status: completed ? 'completed' : 'failed',
++      tenantsDone: done,
++      tenantsFailed: failed,
++      note: note.slice(0, 4000) || null,
++      finishedAt: new Date(),
++    })
++    .where(eq(keyRotationRuns.id, runId))
++
++  console.log(`\n${completed ? '✅' : '❌'} Run ${runId} ${completed ? 'completed' : 'failed'}: ${done} done, ${failed} failed, ${
++    selected.length - done - failed
++  } not attempted.`)
++
++  if (completed) {
++    if (selected.length === 0) {
++      console.log(`\nNothing to rotate: every row is already on ${keyring.current}.`)
++    } else if (opts.emergency) {
++      console.log(
++        '\nNext: run --dry-run and confirm zero rows on old key ids, then remove the old key from the keyring\n' +
++          'at once (it is compromised, there is no soak) and run `npx wrangler secret put TENANT_CONN_KEYRING`.',
++      )
++    } else {
++      console.log(
++        '\nNext: run --dry-run and confirm zero rows on old key ids. Keep the old key in the live keyring for\n' +
++          'about 7 days, then remove it and run `npx wrangler secret put TENANT_CONN_KEYRING`.',
++      )
++    }
++    return
++  }
++
++  process.exitCode = 1
++  if (stoppedAfter) {
++    console.error(
++      `\nThe run stopped at ${stoppedAfter}. Its database password may have been reset without the catalog being updated.\n` +
++        `Repair it with: npm run rotate:keys -- --emergency --org-id ${stoppedAfter}\n` +
++        'Then run again to continue with the remaining tenants.',
++    )
++  } else {
++    console.error('\nSome rows are still on an old key. Fix the cause above and run again: only those rows are touched.')
++  }
++}
++
++// ── main ────────────────────────────────────────────────────────────────────
++
++async function main() {
++  const { CATALOG_DATABASE_URL, TENANT_CONN_KEYRING } = process.env
++  if (!CATALOG_DATABASE_URL) throw new UsageError('Missing required env var: CATALOG_DATABASE_URL')
++
++  if (opts.abandonRun && (opts.dryRun || opts.emergency || opts.orgId)) {
++    throw new UsageError('--abandon-run cannot be combined with other flags.')
++  }
++
++  const db = createCatalogDb(CATALOG_DATABASE_URL)
++
++  if (opts.abandonRun) {
++    await abandonRun(db, opts.abandonRun)
++    return
++  }
++
++  // Fails fast on a bad keyring (AC-1) and prints the key age warning (AC-12).
++  const keyring = parseKeyring(TENANT_CONN_KEYRING)
++
++  const rows = await loadRows(db)
++
++  if (opts.dryRun) {
++    await dryRun(db, keyring, rows)
++    return
++  }
++
++  await realRun(db, keyring, rows)
++}
++
++main().catch((err: unknown) => {
++  console.error(`❌ rotate:keys failed: ${describeError(err)}`)
++  if (isFetchFailure(err)) {
++    console.error(
++      "\n💡 Node's fetch could not reach Neon. See scripts/seed-tenant.ts for the IPv6 background. If this keeps\n" +
++        '   happening on your network, a `pg` variant of this script is the planned fix (spec 0003 follow up).',
++    )
++  }
++  process.exit(1)
++})
+diff --git a/apps/web/scripts/seed-tenant-pg.ts b/apps/web/scripts/seed-tenant-pg.ts
+index 0c1e961..bae9ad3 100644
+--- a/apps/web/scripts/seed-tenant-pg.ts
++++ b/apps/web/scripts/seed-tenant-pg.ts
+@@ -11,7 +11,7 @@ import {Command} from 'commander'
+ import {Pool} from 'pg'
+ import {drizzle} from 'drizzle-orm/node-postgres'
+ import {eq, inArray} from 'drizzle-orm'
+-import {decryptConnectionString} from '../src/worker/lib/crypto'
++import {decryptConnectionString, parseKeyring} from '../src/worker/lib/crypto'
+ import {tenantProjects} from '../drizzle/catalog/schema'
+ import * as schema from '../drizzle/tenant/schema'
+ 
+@@ -24,11 +24,12 @@ program
+ const {orgId, reset} = program.opts<{ orgId: string; reset: boolean }>()
+ 
+ async function main() {
+-    const {CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY} = process.env
++    const {CATALOG_DATABASE_URL, TENANT_CONN_KEYRING} = process.env
+ 
+-    if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
+-        throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
++    if (!CATALOG_DATABASE_URL) {
++        throw new Error('Missing required env var: CATALOG_DATABASE_URL')
+     }
++    const keyring = parseKeyring(TENANT_CONN_KEYRING)
+ 
+     const catalogPool = new Pool({connectionString: CATALOG_DATABASE_URL})
+     const catalogDb = drizzle(catalogPool)
+@@ -42,9 +43,10 @@ async function main() {
+         process.exit(1)
+     }
+ 
+-    const connectionUri = await decryptConnectionString(
++    const {plaintext: connectionUri} = await decryptConnectionString(
+         tenant.encryptedConnectionString,
+-        TENANT_CONN_ENCRYPTION_KEY,
++        keyring,
++        tenant.orgId,
+     )
+ 
+     const tenantPool = new Pool({connectionString: connectionUri})
+diff --git a/apps/web/scripts/seed-tenant.ts b/apps/web/scripts/seed-tenant.ts
+index 8b4a489..2a32913 100644
+--- a/apps/web/scripts/seed-tenant.ts
++++ b/apps/web/scripts/seed-tenant.ts
+@@ -5,7 +5,7 @@ import {Command} from 'commander'
+ import {neon} from '@neondatabase/serverless'
+ import {drizzle} from 'drizzle-orm/neon-http'
+ import {eq, inArray} from 'drizzle-orm'
+-import {decryptConnectionString} from '../src/worker/lib/crypto'
++import {decryptConnectionString, parseKeyring} from '../src/worker/lib/crypto'
+ import {tenantProjects} from '../drizzle/catalog/schema'
+ import * as schema from '../drizzle/tenant/schema'
+ import {isFetchNetworkError, printFetchNetworkErrorHint} from './lib/network-error-hint'
+@@ -27,11 +27,12 @@ program
+ const {orgId, reset} = program.opts<{ orgId: string; reset: boolean }>()
+ 
+ async function main() {
+-    const {CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY} = process.env
++    const {CATALOG_DATABASE_URL, TENANT_CONN_KEYRING} = process.env
+ 
+-    if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
+-        throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
++    if (!CATALOG_DATABASE_URL) {
++        throw new Error('Missing required env var: CATALOG_DATABASE_URL')
+     }
++    const keyring = parseKeyring(TENANT_CONN_KEYRING)
+ 
+     const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
+     const [tenant] = await catalogDb.select().from(tenantProjects).where(eq(tenantProjects.orgId, orgId))
+@@ -44,9 +45,10 @@ async function main() {
+         process.exit(1)
+     }
+ 
+-    const connectionUri = await decryptConnectionString(
++    const {plaintext: connectionUri} = await decryptConnectionString(
+         tenant.encryptedConnectionString,
+-        TENANT_CONN_ENCRYPTION_KEY,
++        keyring,
++        tenant.orgId,
+     )
+ 
+     const db = drizzle(neon(connectionUri), {schema})
+diff --git a/apps/web/src/client/constants/index.tsx b/apps/web/src/client/constants/index.tsx
+index 47e0c78..bd7f225 100644
+--- a/apps/web/src/client/constants/index.tsx
++++ b/apps/web/src/client/constants/index.tsx
+@@ -81,7 +81,6 @@ export const appConfig = {
+     env: {
+         catalogDbUrl: import.meta.env.CATALOG_DATABASE_URL,
+         neonApiKey: import.meta.env.NEON_API_KEY,
+-        tenantConnectionEncryptionKey: import.meta.env.TENANT_CONN_ENCRYPTION_KEY,
+         clerkPublishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+         clerkSecretKey: import.meta.env.CLERK_PUBLISHABLE_KEY,
+         clerkJwtKey: import.meta.env.CLERK_JWT_KEY,
+diff --git a/apps/web/src/worker/lib/crypto.ts b/apps/web/src/worker/lib/crypto.ts
+index da758d7..43f000b 100644
+--- a/apps/web/src/worker/lib/crypto.ts
++++ b/apps/web/src/worker/lib/crypto.ts
+@@ -1,34 +1,303 @@
+ // Tenant Neon connection strings carry a real Postgres password, so they're
+ // encrypted before being written to the catalog DB — never stored plaintext.
+ //
+-// TENANT_CONN_ENCRYPTION_KEY is a base64-encoded 256-bit key, generated once
+-// with e.g. `openssl rand -base64 32` and stored as a Workers secret. Losing
+-// this key means losing access to every tenant connection string, so back it
+-// up somewhere durable outside Cloudflare too.
++// Keys live in one JSON Worker secret, TENANT_CONN_KEYRING:
++//
++//   { "current": "k2",
++//     "keys": { "k1": { "key": "<base64, 32 bytes>", "createdAt": "2026-01-15" },
++//               "k2": { "key": "<base64, 32 bytes>", "createdAt": "2027-01-10" } } }
++//
++// Generate a key with `openssl rand -base64 32`. New key ids are the next
++// integer (`k3` follows `k2`). Every stored value is tagged with the id of the
++// key that made it, `<keyId>:<base64 of IV + ciphertext + tag>`, so the Worker
++// can read old and new values side by side while `rotate:keys` moves rows over.
++// Losing every copy of a key means losing the values it protects, so back each
++// key up outside Cloudflare (see docs/runbooks/encryption-key-rotation.md).
++//
++// Spec: docs/specs/0003-encryption-key-rotation/index.md
++//
++// Errors thrown here name the problem, the org id and the key id. They never
++// contain key material, a stored value, or a connection string.
++
++export const KEY_ID_PATTERN = /^k[0-9]+$/
++
++// Legacy values (written before key rotation existed) have no prefix and no
++// bound data. They are read as this key id.
++export const LEGACY_KEY_ID = 'k1'
++
++const KEY_BYTES = 32
++const IV_BYTES = 12
++
++// 365 days between rotations, warn once the current key is within 30 days of it.
++const KEY_AGE_WARNING_DAYS = 335
++const MS_PER_DAY = 86_400_000
++
++export interface KeyringEntry {
++  readonly createdAt: string
++  readonly bytes: Uint8Array<ArrayBuffer>
++}
++
++export interface Keyring {
++  readonly current: string
++  readonly keys: ReadonlyMap<string, KeyringEntry>
++}
++
++export interface DecryptResult {
++  plaintext: string
++  keyId: string
++  legacy: boolean
++}
++
++export class KeyringError extends Error {
++  constructor(problem: string) {
++    super(`TENANT_CONN_KEYRING is invalid: ${problem}`)
++    this.name = 'KeyringError'
++  }
++}
++
++export type DecryptFailureCode = 'malformed' | 'unknown_key' | 'auth_failed'
++
++export class ConnectionStringDecryptError extends Error {
++  readonly code: DecryptFailureCode
++  readonly orgId: string
++  readonly keyId: string
++
++  constructor(code: DecryptFailureCode, orgId: string, keyId: string) {
++    const reason: Record<DecryptFailureCode, string> = {
++      malformed: 'stored value is not in a readable format',
++      unknown_key: 'that key id is not in the keyring',
++      auth_failed: 'authentication failed (wrong key, a value copied from another tenant, or an altered value)',
++    }
++    super(`Cannot decrypt connection string for org ${orgId} with key ${keyId}: ${reason[code]}`)
++    this.name = 'ConnectionStringDecryptError'
++    this.code = code
++    this.orgId = orgId
++    this.keyId = keyId
++  }
++}
++
++// ── base64 helpers ──────────────────────────────────────────────────────────
++
++const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
++
++function bytesToBase64(bytes: Uint8Array): string {
++  let binary = ''
++  const chunk = 0x8000
++  for (let i = 0; i < bytes.length; i += chunk) {
++    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
++  }
++  return btoa(binary)
++}
++
++// Returns null instead of throwing, so callers choose their own safe error.
++function base64ToBytes(value: string): Uint8Array<ArrayBuffer> | null {
++  if (!BASE64_PATTERN.test(value)) return null
++  try {
++    return Uint8Array.from(atob(value), (c) => c.charCodeAt(0))
++  } catch {
++    return null
++  }
++}
++
++// ── keyring parsing (AC-1, AC-12) ───────────────────────────────────────────
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === 'object' && value !== null && !Array.isArray(value)
++}
++
++// Only echo a key id when it has the expected shape, so a pasted secret in the
++// wrong field is never repeated back in an error.
++function safeId(id: string): string {
++  return KEY_ID_PATTERN.test(id) ? `"${id}"` : '(invalid id)'
++}
++
++function parseCreatedAt(keyId: string, value: unknown): string {
++  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
++    throw new KeyringError(`key ${safeId(keyId)} needs a createdAt date written as YYYY-MM-DD`)
++  }
++  const parsed = new Date(`${value}T00:00:00Z`)
++  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
++    throw new KeyringError(`key ${safeId(keyId)} has a createdAt that is not a real date`)
++  }
++  return value
++}
++
++// One warning per isolate: parseKeyring memoizes by the raw secret, so the
++// warning below runs the first time an isolate (or script process) sees it.
++let memo: { raw: string; keyring: Keyring } | null = null
++
++export interface ParseKeyringOptions {
++  // Injected by tests and the dry run; defaults to the real clock.
++  now?: Date
++}
++
++export function parseKeyring(raw: string | undefined, options: ParseKeyringOptions = {}): Keyring {
++  if (raw === undefined || raw.trim() === '') {
++    throw new KeyringError('the secret is missing or empty')
++  }
++
++  if (memo && memo.raw === raw && !options.now) return memo.keyring
++
++  let data: unknown
++  try {
++    data = JSON.parse(raw)
++  } catch {
++    // The parser's own message can quote part of the input, so it is dropped.
++    throw new KeyringError('the value is not valid JSON')
++  }
++
++  if (!isRecord(data)) throw new KeyringError('expected a JSON object with "current" and "keys"')
++  const { current, keys: rawKeys } = data
++  if (typeof current !== 'string' || !KEY_ID_PATTERN.test(current)) {
++    throw new KeyringError('"current" must be a key id like "k2"')
++  }
++  if (!isRecord(rawKeys) || Object.keys(rawKeys).length === 0) {
++    throw new KeyringError('"keys" must be an object with at least one key')
++  }
++
++  const keys = new Map<string, KeyringEntry>()
++  for (const [keyId, entry] of Object.entries(rawKeys)) {
++    if (!KEY_ID_PATTERN.test(keyId)) {
++      throw new KeyringError('a key id is not in the form "k" plus a number')
++    }
++    if (!isRecord(entry) || typeof entry.key !== 'string') {
++      throw new KeyringError(`key ${safeId(keyId)} needs a "key" string`)
++    }
++    const bytes = base64ToBytes(entry.key)
++    if (!bytes) throw new KeyringError(`key ${safeId(keyId)} is not valid base64`)
++    if (bytes.length !== KEY_BYTES) {
++      throw new KeyringError(`key ${safeId(keyId)} must be exactly ${KEY_BYTES} bytes, found ${bytes.length}`)
++    }
++    keys.set(keyId, { bytes, createdAt: parseCreatedAt(keyId, entry.createdAt) })
++  }
++
++  if (!keys.has(current)) {
++    throw new KeyringError(`"current" is ${safeId(current)} but that id is not in "keys"`)
++  }
++
++  const keyring: Keyring = { current, keys }
++  warnIfKeyIsOld(keyring, options.now ?? new Date())
++
++  if (!options.now) memo = { raw, keyring }
++  return keyring
++}
+ 
+-async function importKey(base64Key: string): Promise<CryptoKey> {
+-  const raw = Uint8Array.from(atob(base64Key), (c) => c.charCodeAt(0))
+-  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt'])
++// Age in whole days of the keyring's current key, from its createdAt date.
++export function currentKeyAgeDays(keyring: Keyring, now: Date = new Date()): number {
++  const entry = keyring.keys.get(keyring.current)
++  if (!entry) return 0
++  const created = new Date(`${entry.createdAt}T00:00:00Z`).getTime()
++  return Math.floor((now.getTime() - created) / MS_PER_DAY)
+ }
+ 
+-export async function encryptConnectionString(plaintext: string, base64Key: string): Promise<string> {
+-  const key = await importKey(base64Key)
+-  const iv = crypto.getRandomValues(new Uint8Array(12))
+-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext))
++function warnIfKeyIsOld(keyring: Keyring, now: Date): void {
++  const age = currentKeyAgeDays(keyring, now)
++  if (age >= KEY_AGE_WARNING_DAYS) {
++    console.warn(
++      `[key-rotation] The current tenant encryption key ${keyring.current} is ${age} days old. ` +
++        `Plan a scheduled rotation (every 12 months). See docs/runbooks/encryption-key-rotation.md.`,
++    )
++  }
++}
++
++// ── stored value format (AC-2, AC-3) ────────────────────────────────────────
++
++// Reads the key id prefix without decrypting. `keyId` is null for a legacy
++// value with no prefix. A prefix that is not a valid key id is rejected.
++export function readKeyPrefix(stored: string): { keyId: string | null; payload: string } | null {
++  const sep = stored.indexOf(':')
++  if (sep === -1) return { keyId: null, payload: stored }
++  const keyId = stored.slice(0, sep)
++  if (!KEY_ID_PATTERN.test(keyId)) return null
++  return { keyId, payload: stored.slice(sep + 1) }
++}
++
++// The text bound to each value so it only decrypts for its own tenant and key.
++function boundData(orgId: string, keyId: string): Uint8Array<ArrayBuffer> {
++  // Copied into a fresh array so the type is the same under the Worker and DOM typings.
++  return Uint8Array.from(new TextEncoder().encode(`${orgId}|${keyId}`))
++}
++
++// Imported CryptoKeys are cached per keyring object, so a warm isolate imports
++// each key once.
++// (Typed from importKey itself so this file type checks both in the Worker and
++// in the Node scripts that import it, where the global CryptoKey type differs.)
++type ImportedKey = Awaited<ReturnType<typeof crypto.subtle.importKey>>
++const importedKeys = new WeakMap<Keyring, Map<string, Promise<ImportedKey>>>()
++
++function importKey(keyring: Keyring, keyId: string): Promise<ImportedKey> | null {
++  const entry = keyring.keys.get(keyId)
++  if (!entry) return null
++  let perKeyring = importedKeys.get(keyring)
++  if (!perKeyring) {
++    perKeyring = new Map()
++    importedKeys.set(keyring, perKeyring)
++  }
++  let pending = perKeyring.get(keyId)
++  if (!pending) {
++    pending = crypto.subtle.importKey('raw', entry.bytes, 'AES-GCM', false, ['encrypt', 'decrypt'])
++    perKeyring.set(keyId, pending)
++  }
++  return pending
++}
++
++export async function encryptConnectionString(
++  plaintext: string,
++  keyring: Keyring,
++  orgId: string,
++): Promise<string> {
++  const keyId = keyring.current
++  const key = await importKey(keyring, keyId)
++  if (!key) throw new ConnectionStringDecryptError('unknown_key', orgId, keyId)
++
++  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES))
++  const ciphertext = await crypto.subtle.encrypt(
++    { name: 'AES-GCM', iv, additionalData: boundData(orgId, keyId) },
++    key,
++    new TextEncoder().encode(plaintext),
++  )
+ 
+   const combined = new Uint8Array(iv.length + ciphertext.byteLength)
+   combined.set(iv, 0)
+   combined.set(new Uint8Array(ciphertext), iv.length)
+ 
+-  return btoa(String.fromCharCode(...combined))
++  return `${keyId}:${bytesToBase64(combined)}`
+ }
+ 
+-export async function decryptConnectionString(encoded: string, base64Key: string): Promise<string> {
+-  const key = await importKey(base64Key)
+-  const combined = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0))
+-  const iv = combined.slice(0, 12)
+-  const ciphertext = combined.slice(12)
++export async function decryptConnectionString(
++  stored: string,
++  keyring: Keyring,
++  orgId: string,
++): Promise<DecryptResult> {
++  const prefix = readKeyPrefix(stored)
++  if (!prefix) {
++    // Not a legacy value and not a valid prefix. Report the legacy id rather
++    // than echoing whatever came before the colon.
++    throw new ConnectionStringDecryptError('malformed', orgId, 'unknown')
++  }
++
++  const legacy = prefix.keyId === null
++  const keyId = prefix.keyId ?? LEGACY_KEY_ID
++
++  const key = await importKey(keyring, keyId)
++  if (!key) throw new ConnectionStringDecryptError('unknown_key', orgId, keyId)
++
++  const combined = base64ToBytes(prefix.payload)
++  if (!combined || combined.length <= IV_BYTES) {
++    throw new ConnectionStringDecryptError('malformed', orgId, keyId)
++  }
++
++  const iv = combined.slice(0, IV_BYTES)
++  const ciphertext = combined.slice(IV_BYTES)
+ 
+-  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+-  return new TextDecoder().decode(plaintext)
++  try {
++    const plaintext = await crypto.subtle.decrypt(
++      legacy ? { name: 'AES-GCM', iv } : { name: 'AES-GCM', iv, additionalData: boundData(orgId, keyId) },
++      key,
++      ciphertext,
++    )
++    return { plaintext: new TextDecoder().decode(plaintext), keyId, legacy }
++  } catch {
++    throw new ConnectionStringDecryptError('auth_failed', orgId, keyId)
++  }
+ }
+diff --git a/apps/web/src/worker/lib/neon-api.ts b/apps/web/src/worker/lib/neon-api.ts
+index 7cbb88c..c0329c2 100644
+--- a/apps/web/src/worker/lib/neon-api.ts
++++ b/apps/web/src/worker/lib/neon-api.ts
+@@ -1,5 +1,5 @@
+-// Minimal wrapper around the Neon Management API — just what provisioning
+-// needs. Full reference: https://api-docs.neon.tech/reference/createproject
++// Minimal wrapper around the Neon Management API — what provisioning and key
++// rotation need. Full reference: https://api-docs.neon.tech/reference/createproject
+ //
+ // Deliberately framework-agnostic (plain fetch, no Workers-only APIs) so the
+ // same function runs both inside the Worker's queue consumer and in the
+@@ -83,3 +83,115 @@ export async function deleteNeonProject(apiKey: string, projectId: string): Prom
+     throw new Error(`Neon project deletion failed (${res.status}): ${await res.text()}`)
+   }
+ }
++
++// ── Emergency key rotation helpers ──────────────────────────────────────────
++// Used by scripts/rotate-keys.ts in --emergency mode (spec 0003, AC-9, AC-11).
++// They rebuild a tenant's connection string from Neon alone, so a lost or
++// leaked encryption key never needs the old stored value.
++//
++// Unlike the helpers above, these errors never carry the response body: a
++// reset-password response contains the new password. Only the step name and the
++// HTTP status are kept, which is what lands in the run note.
++
++export type NeonStep =
++  | 'list_branches'
++  | 'list_databases'
++  | 'reset_password'
++  | 'connection_uri'
++
++export class NeonApiError extends Error {
++  readonly step: NeonStep
++  readonly status: number | null
++
++  constructor(step: NeonStep, status: number | null, detail?: string) {
++    super(`Neon ${step} failed${status ? ` (HTTP ${status})` : ''}${detail ? `: ${detail}` : ''}`)
++    this.name = 'NeonApiError'
++    this.step = step
++    this.status = status
++  }
++}
++
++function neonHeaders(apiKey: string): Record<string, string> {
++  return { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }
++}
++
++// The branch Neon marks `default: true`. (`primary` is the older name for the
++// same flag and is deprecated, so it is only read when `default` is absent.)
++export async function getDefaultBranchId(apiKey: string, projectId: string): Promise<string> {
++  const res = await fetch(`${NEON_API_BASE}/projects/${encodeURIComponent(projectId)}/branches?limit=100`, {
++    headers: neonHeaders(apiKey),
++  })
++  if (!res.ok) throw new NeonApiError('list_branches', res.status)
++
++  const data = (await res.json()) as { branches?: Array<{ id: string; default?: boolean; primary?: boolean }> }
++  const branches = data.branches ?? []
++  const match = branches.find((b) => b.default ?? b.primary)
++  if (!match) throw new NeonApiError('list_branches', null, 'no default branch')
++  return match.id
++}
++
++// Each tenant project has exactly one application database. More or fewer than
++// one is a failure, not a guess: the caller records it and skips the tenant.
++export async function getTenantDatabase(
++  apiKey: string,
++  projectId: string,
++  branchId: string,
++): Promise<{ name: string; ownerName: string }> {
++  const res = await fetch(
++    `${NEON_API_BASE}/projects/${encodeURIComponent(projectId)}/branches/${encodeURIComponent(branchId)}/databases`,
++    { headers: neonHeaders(apiKey) },
++  )
++  if (!res.ok) throw new NeonApiError('list_databases', res.status)
++
++  const data = (await res.json()) as { databases?: Array<{ name: string; owner_name: string }> }
++  const databases = data.databases ?? []
++  if (databases.length !== 1) {
++    throw new NeonApiError('list_databases', null, `expected 1 database, found ${databases.length}`)
++  }
++  return { name: databases[0].name, ownerName: databases[0].owner_name }
++}
++
++// POST .../roles/{role}/reset_password. The old password stops working once
++// Neon applies the change to the compute, which is asynchronous, so callers
++// should retry their first connection. Returns the new password. The caller
++// must never log it.
++export async function resetRolePassword(
++  apiKey: string,
++  projectId: string,
++  branchId: string,
++  roleName: string,
++): Promise<string> {
++  const res = await fetch(
++    `${NEON_API_BASE}/projects/${encodeURIComponent(projectId)}/branches/${encodeURIComponent(branchId)}` +
++      `/roles/${encodeURIComponent(roleName)}/reset_password`,
++    { method: 'POST', headers: neonHeaders(apiKey) },
++  )
++  if (!res.ok) throw new NeonApiError('reset_password', res.status)
++
++  const data = (await res.json()) as { role?: { password?: string } }
++  const password = data.role?.password
++  if (!password) throw new NeonApiError('reset_password', null, 'response had no password')
++  return password
++}
++
++// Direct (not pooled) connection URI, the same form createNeonProject stores
++// from `connection_uris[0].connection_uri`.
++export async function getConnectionUri(
++  apiKey: string,
++  projectId: string,
++  target: { branchId: string; databaseName: string; roleName: string },
++): Promise<string> {
++  const query = new URLSearchParams({
++    branch_id: target.branchId,
++    database_name: target.databaseName,
++    role_name: target.roleName,
++  })
++  const res = await fetch(`${NEON_API_BASE}/projects/${encodeURIComponent(projectId)}/connection_uri?${query}`, {
++    headers: neonHeaders(apiKey),
++  })
++  if (!res.ok) throw new NeonApiError('connection_uri', res.status)
++
++  const data = (await res.json()) as { uri?: string }
++  if (!data.uri) throw new NeonApiError('connection_uri', null, 'response had no uri')
++  return data.uri
++}
+diff --git a/apps/web/src/worker/lib/resilient-neon.ts b/apps/web/src/worker/lib/resilient-neon.ts
+new file mode 100644
+index 0000000..e5ff12b
+--- /dev/null
++++ b/apps/web/src/worker/lib/resilient-neon.ts
+@@ -0,0 +1,174 @@
++// A Neon HTTP client that survives a tenant password change (spec 0003, AC-10).
++//
++// After an emergency key rotation (`rotate:keys --emergency`) every tenant's
++// database password changes, but the tenant resolver may still hold the old
++// connection string in KV for up to 5 minutes. A query then fails with a
++// database authentication error. When that happens this client, at most once
++// per request:
++//
++//   1. asks `refresh()` for a fresh connection string (the resolver deletes the
++//      cached copy, re-reads and decrypts the catalog value, and writes the
++//      fresh value back to the cache),
++//   2. replays the same query, or the same batch, on a client built from it.
++//
++// A rejected password means no statement ran, so replaying is safe for single
++// queries and for batched transactions. Any other error is returned untouched,
++// and a failure on the replay is returned normally, so there is no loop.
++//
++// How it plugs into Drizzle: `drizzle-orm/neon-http` only needs two members of
++// the Neon client, `query(text, params, opts)` (it awaits the result) and
++// `transaction(queries, opts)` (its `db.batch()`). Both are implemented here.
++// A Drizzle upgrade could change that contract, so re-run the emergency drill
++// after upgrading drizzle-orm or @neondatabase/serverless (see the runbook).
++
++import { neon } from '@neondatabase/serverless'
++import type { HTTPQueryOptions, HTTPTransactionOptions, NeonQueryFunction } from '@neondatabase/serverless'
++
++type Client = NeonQueryFunction<false, false>
++// Typed like the client Drizzle is handed (array and full result modes off).
++// Drizzle may pass `arrayMode: true` per query at runtime; those options are
++// handed straight through to Neon unchanged.
++type QueryOptions = HTTPQueryOptions<false, false>
++type TransactionOptions = HTTPTransactionOptions<false, false>
++
++// Run `exec` on the current client and, on a database authentication error,
++// once more on the refreshed client.
++type Runner = <T>(exec: (client: Client) => PromiseLike<T>) => Promise<T>
++
++// Postgres SQLSTATE codes for a rejected login: 28P01 invalid_password,
++// 28000 invalid_authorization_specification.
++//
++// TODO(spec 0003 follow up): confirm during the emergency drill the exact
++// code Neon's HTTP endpoint returns for a rejected password, then keep only
++// the code(s) that actually appear.
++const AUTH_ERROR_CODES: ReadonlySet<string> = new Set(['28P01', '28000'])
++const AUTH_ERROR_MESSAGE = /password authentication failed/i
++
++function readProperty(value: unknown, key: string): unknown {
++  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>)[key] : undefined
++}
++
++// Neon's own error nests the failed fetch under `sourceError`, and Drizzle
++// wraps driver errors as `cause`, so walk both.
++export function isDatabaseAuthError(err: unknown): boolean {
++  let current: unknown = err
++  for (let depth = 0; depth < 8 && current instanceof Error; depth++) {
++    const code = readProperty(current, 'code')
++    if (typeof code === 'string' && AUTH_ERROR_CODES.has(code)) return true
++    if (AUTH_ERROR_MESSAGE.test(current.message)) return true
++    current = readProperty(current, 'cause') ?? readProperty(current, 'sourceError')
++  }
++  return false
++}
++
++// What `client.query()` hands back. Like Neon's own query promise it is lazy:
++// nothing is sent until it is awaited (or passed to `transaction()`), and each
++// `then` runs the query again.
++class RetryingQuery implements PromiseLike<unknown> {
++  readonly text: string
++  readonly params: unknown[]
++  readonly options: QueryOptions | undefined
++  private readonly run: Runner
++
++  constructor(run: Runner, text: string, params: unknown[], options: QueryOptions | undefined) {
++    this.run = run
++    this.text = text
++    this.params = params
++    this.options = options
++  }
++
++  private execute(): Promise<unknown> {
++    return this.run((client) => client.query(this.text, this.params, this.options))
++  }
++
++  then<R1 = unknown, R2 = never>(
++    onFulfilled?: ((value: unknown) => R1 | PromiseLike<R1>) | null,
++    onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
++  ): Promise<R1 | R2> {
++    return this.execute().then(onFulfilled, onRejected)
++  }
++
++  catch<R = never>(onRejected?: ((reason: unknown) => R | PromiseLike<R>) | null): Promise<unknown> {
++    return this.execute().catch(onRejected)
++  }
++
++  finally(onFinally?: (() => void) | null): Promise<unknown> {
++    return this.execute().finally(onFinally)
++  }
++}
++
++function isRetryingQueryList(value: unknown): value is RetryingQuery[] {
++  return Array.isArray(value) && value.every((item) => item instanceof RetryingQuery)
++}
++
++/**
++ * @param connectionString The tenant connection string the request starts with.
++ * @param refresh Returns a fresh connection string, or null when none can be
++ *   found. Called at most once. If it throws, the original error is returned.
++ */
++export function createResilientNeon(
++  connectionString: string,
++  refresh: () => Promise<string | null>,
++): Client {
++  const initial = neon(connectionString)
++  let current: Client = initial
++  let refreshing: Promise<Client | null> | null = null
++
++  // One refresh per request, shared by queries that fail at the same moment
++  // (for example inside Promise.all).
++  const refreshOnce = (): Promise<Client | null> => {
++    refreshing ??= refresh().then(
++      (fresh) => {
++        if (!fresh) return null
++        current = neon(fresh)
++        return current
++      },
++      (err: unknown) => {
++        // Name only: an error message could carry a connection string.
++        console.error(`[tenant-resolver] connection refresh failed: ${err instanceof Error ? err.name : 'error'}`)
++        return null
++      },
++    )
++    return refreshing
++  }
++
++  const run: Runner = async (exec) => {
++    const used = current
++    try {
++      return await exec(used)
++    } catch (err) {
++      // Only a failure on the original client is retried. A failure on the
++      // refreshed client is the "second failure" and goes back as it is.
++      if (used !== initial || !isDatabaseAuthError(err)) throw err
++      const fresh = await refreshOnce()
++      if (!fresh) throw err
++      return await exec(fresh)
++    }
++  }
++
++  const query = (text: string, params?: unknown[], options?: QueryOptions): RetryingQuery =>
++    new RetryingQuery(run, text, params ?? [], options)
++
++  const transaction = (queries: unknown, options?: TransactionOptions): Promise<unknown> => {
++    if (!isRetryingQueryList(queries)) {
++      throw new Error('Tenant client transactions accept an array of queries created by this client.')
++    }
++    // Rebuild the queries on whichever client runs the batch, so a retry sends
++    // the same statements to the refreshed connection.
++    return run((client) =>
++      client.transaction(queries.map((q) => client.query(q.text, q.params, q.options)), options),
++    )
++  }
++
++  const unsafe = (): never => {
++    throw new Error('sql.unsafe() is not supported on the tenant client.')
++  }
++
++  const direct = (): never => {
++    throw new Error('Call the tenant client through Drizzle, or use client.query().')
++  }
++
++  // Drizzle's neon-http driver is typed against NeonQueryFunction but only uses
++  // `query` and `transaction`. This is the one place that contract is faked.
++  return Object.assign(direct, { query, transaction, unsafe }) as unknown as Client
++}
+diff --git a/apps/web/src/worker/middleware/tenant-resolver.ts b/apps/web/src/worker/middleware/tenant-resolver.ts
+index c999f82..55fad2a 100644
+--- a/apps/web/src/worker/middleware/tenant-resolver.ts
++++ b/apps/web/src/worker/middleware/tenant-resolver.ts
+@@ -1,45 +1,90 @@
+ import { createMiddleware } from 'hono/factory'
+-import { neon } from '@neondatabase/serverless'
+ import { drizzle } from 'drizzle-orm/neon-http'
+ import { eq } from 'drizzle-orm'
+ import type { Env, Variables } from '../types'
+ import { getCatalogDb } from '../db/catalog'
+ import { tenantProjects } from '../../../drizzle/catalog/schema'
+-import { decryptConnectionString } from '../lib/crypto'
++import {
++  ConnectionStringDecryptError,
++  KeyringError,
++  decryptConnectionString,
++  parseKeyring,
++  type Keyring,
++} from '../lib/crypto'
++import { createResilientNeon } from '../lib/resilient-neon'
+ import * as schema from '../../../drizzle/tenant/schema'
+ 
+ // KV is eventually consistent (~60s propagation) which is fine here: tenant
+ // connection info barely ever changes, and a stale cache hit just means an
+ // extra request or two lands on an old cache entry before the TTL clears it.
++// After an emergency key rotation (tenant passwords reset) a stale entry is
++// handled by the retry in createResilientNeon, see below.
+ const CACHE_TTL_SECONDS = 300
+ 
++type LoadResult =
++  | { kind: 'ok'; connectionString: string }
++  | { kind: 'no_tenant' }
++  | { kind: 'inactive'; status: string }
++
++// Reads the tenant's row from the catalog and decrypts its connection string.
++// Never touches the KV cache. Throws ConnectionStringDecryptError.
++async function loadFromCatalog(env: Env, keyring: Keyring, orgId: string): Promise<LoadResult> {
++  const catalogDb = getCatalogDb(env.CATALOG_DATABASE_URL)
++  const [tenant] = await catalogDb
++    .select()
++    .from(tenantProjects)
++    .where(eq(tenantProjects.orgId, orgId))
++    .limit(1)
++
++  if (!tenant) return { kind: 'no_tenant' }
++  if (tenant.status !== 'active') return { kind: 'inactive', status: tenant.status }
++
++  // The org id comes from the verified Clerk token (clerkAuth()), and it is
++  // bound into the stored value, so a value copied into another tenant's row
++  // fails to decrypt here.
++  const { plaintext } = await decryptConnectionString(tenant.encryptedConnectionString, keyring, orgId)
++  return { kind: 'ok', connectionString: plaintext }
++}
++
+ // Runs after clerkAuth(), which guarantees c.get('orgId') is set.
+ export const tenantResolver = () =>
+   createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
+     const orgId = c.get('orgId')
+     const cacheKey = `conn:${orgId}`
+ 
++    // Parsed on every request but only read and validated once per isolate
++    // (parseKeyring memoizes), which is also when the key age warning is logged.
++    let keyring: Keyring
++    try {
++      keyring = parseKeyring(c.env.TENANT_CONN_KEYRING)
++    } catch (err) {
++      if (!(err instanceof KeyringError)) throw err
++      // The message names the problem, never key material.
++      console.error(`[tenant-resolver] ${err.message}`)
++      return c.json({ error: 'Server configuration error' }, 500)
++    }
++
+     let connectionString = await c.env.TENANT_CACHE.get(cacheKey)
+ 
+     if (!connectionString) {
+-      const catalogDb = getCatalogDb(c.env.CATALOG_DATABASE_URL)
+-      const [tenant] = await catalogDb
+-        .select()
+-        .from(tenantProjects)
+-        .where(eq(tenantProjects.orgId, orgId))
+-        .limit(1)
+-
+-      if (!tenant) {
++      let loaded: LoadResult
++      try {
++        loaded = await loadFromCatalog(c.env, keyring, orgId)
++      } catch (err) {
++        if (!(err instanceof ConnectionStringDecryptError)) throw err
++        // Org id and key id only, never the stored value.
++        console.error(`[tenant-resolver] ${err.message}`)
++        return c.json({ error: 'Tenant connection is unavailable' }, 500)
++      }
++
++      if (loaded.kind === 'no_tenant') {
+         return c.json({ error: 'Organization has no provisioned tenant yet' }, 404)
+       }
+-      if (tenant.status !== 'active') {
+-        return c.json({ error: `Tenant is not active (status: ${tenant.status})` }, 409)
++      if (loaded.kind === 'inactive') {
++        return c.json({ error: `Tenant is not active (status: ${loaded.status})` }, 409)
+       }
+ 
+-      connectionString = await decryptConnectionString(
+-        tenant.encryptedConnectionString,
+-        c.env.TENANT_CONN_ENCRYPTION_KEY,
+-      )
++      connectionString = loaded.connectionString
+ 
+       // Don't block the response on the cache write.
+       c.executionCtx.waitUntil(
+@@ -47,7 +92,21 @@ export const tenantResolver = () =>
+       )
+     }
+ 
+-    c.set('tenantDb', drizzle(neon(connectionString), { schema }))
++    // If a query is rejected for a bad database password (the tenant's
++    // password was reset after this value was cached), the client calls this
++    // once: drop the cached value, re-read and decrypt the catalog value, put
++    // the fresh value back in the cache, and replay the query on it.
++    const refresh = async (): Promise<string | null> => {
++      await c.env.TENANT_CACHE.delete(cacheKey)
++      const reloaded = await loadFromCatalog(c.env, keyring, orgId)
++      if (reloaded.kind !== 'ok') return null
++      c.executionCtx.waitUntil(
++        c.env.TENANT_CACHE.put(cacheKey, reloaded.connectionString, { expirationTtl: CACHE_TTL_SECONDS }),
++      )
++      return reloaded.connectionString
++    }
++
++    c.set('tenantDb', drizzle(createResilientNeon(connectionString, refresh), { schema }))
+ 
+     await next()
+   })
+diff --git a/apps/web/src/worker/queue/provision-tenant.ts b/apps/web/src/worker/queue/provision-tenant.ts
+index 9f037a8..53dbddc 100644
+--- a/apps/web/src/worker/queue/provision-tenant.ts
++++ b/apps/web/src/worker/queue/provision-tenant.ts
+@@ -1,7 +1,7 @@
+ import type { Env } from '../types'
+ import { createNeonProject, findProjectByName } from '../lib/neon-api'
+ import { applyPendingMigrations } from '../lib/run-migration'
+-import { encryptConnectionString } from '../lib/crypto'
++import { encryptConnectionString, parseKeyring } from '../lib/crypto'
+ import { getCatalogDb } from '../db/catalog'
+ import { tenantProjects, orgs, provisioningEvents } from '../../../drizzle/catalog/schema'
+ import { TENANT_MIGRATIONS } from '../lib/tenant-migrations'
+@@ -58,7 +58,8 @@ export async function handleTenantProvisionQueue(
+       // every tenant in the catalog.
+       await applyPendingMigrations(connectionUri, TENANT_MIGRATIONS)
+ 
+-      const encrypted = await encryptConnectionString(connectionUri, env.TENANT_CONN_ENCRYPTION_KEY)
++      // Stored as `<currentKeyId>:<base64>`, with the org id bound in.
++      const encrypted = await encryptConnectionString(connectionUri, parseKeyring(env.TENANT_CONN_KEYRING), clerkOrgId)
+ 
+       await catalogDb
+         .insert(tenantProjects)
+diff --git a/apps/web/src/worker/types.ts b/apps/web/src/worker/types.ts
+index fe35621..5fe09d7 100644
+--- a/apps/web/src/worker/types.ts
++++ b/apps/web/src/worker/types.ts
+@@ -34,7 +34,9 @@ export interface Env {
+   CLERK_JWT_KEY: string
+   CLERK_WEBHOOK_SECRET: string
+   NEON_API_KEY: string
+-  TENANT_CONN_ENCRYPTION_KEY: string
++  // JSON keyring: { current, keys: { <keyId>: { key, createdAt } } }. See
++  // src/worker/lib/crypto.ts. Replaces the single key secret used before rotation.
++  TENANT_CONN_KEYRING: string
+ }
+ 
+ export interface Variables {
+diff --git a/apps/web/worker-configuration.d.ts b/apps/web/worker-configuration.d.ts
+index 9634396..925c2d9 100644
+--- a/apps/web/worker-configuration.d.ts
++++ b/apps/web/worker-configuration.d.ts
+@@ -9,7 +9,7 @@ interface __BaseEnv_Env {
+ 	DEFAULT_TENANT_REGION: "aws-eu-central-1";
+ 	CATALOG_DATABASE_URL: string;
+ 	NEON_API_KEY: string;
+-	TENANT_CONN_ENCRYPTION_KEY: string;
++	TENANT_CONN_KEYRING: string;
+ 	VITE_CLERK_PUBLISHABLE_KEY: string;
+ 	CLERK_SECRET_KEY: string;
+ 	CLERK_JWT_KEY: string;
+@@ -31,7 +31,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
+ 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
+ };
+ declare namespace NodeJS {
+-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEFAULT_TENANT_REGION" | "CATALOG_DATABASE_URL" | "NEON_API_KEY" | "TENANT_CONN_ENCRYPTION_KEY" | "VITE_CLERK_PUBLISHABLE_KEY" | "CLERK_SECRET_KEY" | "CLERK_JWT_KEY" | "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN" | "VITE_PUBLIC_POSTHOG_HOST" | "VITE_PUBLIC_POSTHOG_ASSETS_HOST" | "DEV">> {}
++	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEFAULT_TENANT_REGION" | "CATALOG_DATABASE_URL" | "NEON_API_KEY" | "TENANT_CONN_KEYRING" | "VITE_CLERK_PUBLISHABLE_KEY" | "CLERK_SECRET_KEY" | "CLERK_JWT_KEY" | "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN" | "VITE_PUBLIC_POSTHOG_HOST" | "VITE_PUBLIC_POSTHOG_ASSETS_HOST" | "DEV">> {}
+ }
+ 
+ // Begin runtime types
+diff --git a/apps/web/wrangler.jsonc b/apps/web/wrangler.jsonc
+index 077880c..7491a6e 100644
+--- a/apps/web/wrangler.jsonc
++++ b/apps/web/wrangler.jsonc
+@@ -75,7 +75,7 @@
+ 		]
+ 	},
+ 	// Non-secret config. Secrets (CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET,
+-	// CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY) are set
++	// CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_KEYRING) are set
+ 	// via `wrangler secret put <NAME>` in production and `.dev.vars` locally
+ 	// — never committed here.
+ 	"vars": {
+diff --git a/docs/runbooks/encryption-key-rotation.md b/docs/runbooks/encryption-key-rotation.md
+new file mode 100644
+index 0000000..15e3c90
+--- /dev/null
++++ b/docs/runbooks/encryption-key-rotation.md
+@@ -0,0 +1,224 @@
++# Runbook: tenant connection string key rotation
++
++Spec: [`docs/specs/0003-encryption-key-rotation`](../specs/0003-encryption-key-rotation/index.md)
++
++Every tenant's Neon connection string (it contains a database password) is stored encrypted in the catalog table
++`tenant_projects.encrypted_connection_string`. The keys that encrypt it live in one Worker secret, `TENANT_CONN_KEYRING`.
++This runbook covers replacing a key without any tenant noticing, replacing it after a leak, and recovering when it is lost.
++
++## At a glance
++
++| Situation | Procedure |
++|---|---|
++| Setting this up for the first time | [1. First time setup](#1-first-time-setup) |
++| Yearly rotation (Worker logs a key age warning at 335 days) | [2. Scheduled rotation](#2-scheduled-rotation) |
++| The key, or the catalog data, may have leaked | [3. Emergency rotation](#3-emergency-rotation) |
++| Every copy of the key is gone | [4. Lost key recovery](#4-lost-key-recovery) |
++
++You run all of this yourself, from your own machine, with `npm run rotate:keys` in `apps/web`. There is no scheduled job and no
++admin route. The script reads `CATALOG_DATABASE_URL` and `TENANT_CONN_KEYRING` from `apps/web/.env` (and `NEON_API_KEY` for
++`--emergency`).
++
++## The keyring
++
++```json
++{
++  "current": "k2",
++  "keys": {
++    "k1": { "key": "<base64, 32 bytes>", "createdAt": "2026-01-15" },
++    "k2": { "key": "<base64, 32 bytes>", "createdAt": "2027-01-10" }
++  }
++}
++```
++
++- Generate a key with `openssl rand -base64 32`. Use the next integer for the id (`k3` follows `k2`).
++- `createdAt` is the day the key was generated, written `YYYY-MM-DD`. The age warning counts from it.
++- In `.dev.vars` and `.env` write the whole keyring as **one line of JSON inside single quotes**:
++  `TENANT_CONN_KEYRING='{"current":"k2","keys":{...}}'`.
++- Set the Worker secret with `npx wrangler secret put TENANT_CONN_KEYRING`, then paste the same one line.
++- A stored value looks like `k2:<base64>`. The id before the colon says which key made it. A value with no prefix is the old
++  format and is read as `k1`.
++
++Rules that keep tenants online:
++
++- `current` must be an id that is in `keys`.
++- **Never delete a key from the keyring while any row still uses it.** A dry run (`--dry-run`) shows how many rows use each id.
++- Before every `wrangler secret put`, save the keyring you are replacing (password manager note is fine). That is your undo.
++
++## Backup rule
++
++The new key goes into **both** backups before any row depends on it:
++
++1. a password manager entry, and
++2. one offline copy (printed or on a USB stick, kept somewhere else).
++
++Retired keys stay in the offline copy for as long as any catalog restore point that used them exists, because restoring the
++catalog brings back values encrypted with the old key.
++
++**Catalog restore window:** _not yet recorded. Check how far back your Neon plan can restore the catalog and write the length
++here, so you know how long a retired key must be kept._
++
++The local `.env` holds the plaintext keyring while a run is in progress. Paste it from the password manager for the run and
++delete it afterwards. `.env` is gitignored.
++
++## Calendar reminder
++
++Rotate every **12 months**. Put a repeating reminder in your calendar for **11 months** after each key's `createdAt`. As a
++backstop, the Worker logs `[key-rotation] The current tenant encryption key kN is N days old` once each time an isolate starts
++once the key is 335 days old, and `rotate:keys` prints the same warning.
++
++## Reading what `rotate:keys` prints
++
++- `--dry-run` writes nothing, not even a run record. It checks the keyring, decrypts **every** row, shows how many rows use each
++  key id, and lists the orgs a real run would change. For a scheduled rotation it exits with an error if any row cannot be read,
++  and you must fix that before going on.
++- Each real run is recorded in the catalog table `key_rotation_runs` (`running`, then `completed` or `failed`, with counts and a
++  `note`). The note holds only org ids and short reason codes such as `decrypt_unknown_key`, `cas_conflict`,
++  `neon_list_branches_404`, `connect_check_failed`. Never a key, password or connection string.
++- Look at recent runs with:
++  `select kind, from_key_id, to_key_id, status, tenants_total, tenants_done, tenants_failed, note, started_at, finished_at from key_rotation_runs order by started_at desc;`
++- Only one run can be `running` at a time. If the script crashed or you pressed Ctrl-C, the run stays `running` and the next
++  start refuses, printing the id. Clear it with `npm run rotate:keys -- --abandon-run <id>`, then run again. Only rows still on
++  an old key are touched.
++- A `failed` run is never reopened. Fix the cause and run again.
++
++## 1. First time setup
++
++Today's rows have no prefix and were written with the single key in `TENANT_CONN_ENCRYPTION_KEY`. They are read as `k1`.
++
++1. **Back up the existing key** to the password manager and the offline copy. Do this first. A typo in the next steps must not
++   cost you the key.
++2. Create the keyring with the existing key's value as `k1` and `current` set to `k1`. Use the key's real creation date for
++   `createdAt` (or today's date if you do not know it).
++3. Put the keyring in your local `.env`, then apply the catalog migration (`npm run db:migrate:catalog`) so the
++   `key_rotation_runs` table exists.
++4. Run `npm run rotate:keys -- --dry-run`. Every row should decrypt and be listed as `k1` with "no prefix (old format)".
++5. Run `npx wrangler secret put TENANT_CONN_KEYRING`, deploy the Worker, and confirm it serves requests for a test tenant.
++   Keep the old `TENANT_CONN_ENCRYPTION_KEY` secret in place for now, the new code does not read it.
++6. Run `npm run rotate:keys`. The rows are rewritten as `k1:` values with the org id bound in.
++7. Run `npm run rotate:keys -- --dry-run` again and confirm every row shows as `k1` with no old format rows. Open the app as a
++   test tenant.
++8. Remove the old secret: `npx wrangler secret delete TENANT_CONN_ENCRYPTION_KEY`.
++
++**Rollback.** Before step 6, redeploy the previous Worker version, which still reads the old secret. After step 6 the old Worker
++cannot read the `k1:` values: restore the catalog from a Neon restore point and redeploy the previous Worker, or run
++`--emergency` (procedure 3) to rebuild every value from Neon.
++
++## 2. Scheduled rotation
++
++Replaces the key only. Tenant database passwords do not change, so nothing breaks for tenants. Use it yearly. Example below
++moves `k1` to `k2`.
++
++1. **Add.** Generate the new key and back it up first (see the backup rule). Add it to the keyring as the next id and leave
++   `current` unchanged. Put that keyring in your local `.env`, run `npm run rotate:keys -- --dry-run`, fix anything it reports,
++   then `npx wrangler secret put TENANT_CONN_KEYRING`. Every Worker can now read both keys and nobody writes the new one yet.
++2. **Switch.** Set `current` to the new id, run `--dry-run` again, then `secret put` again. New provisioning now uses the new
++   key. Run `npx wrangler deployments list` and confirm the newest version serves all traffic, then wait about a minute.
++3. **Re-encrypt.** With the same keyring in your local `.env`: `npm run rotate:keys -- --dry-run`, then `npm run rotate:keys`.
++4. **Verify.** Run `npm run rotate:keys -- --dry-run` and confirm **zero rows on old key ids**. Check the run row says
++   `completed` and open the app as a test tenant.
++5. **Retire.** After a **7 day soak** (keep the old key in the live keyring for about a week, in case you need to roll back),
++   run a dry run to confirm zero rows still use it, remove it from the keyring, and `secret put` again. Keep it in the offline
++   backup while any catalog restore point that used it still exists.
++
++The scheduled path does not touch the KV cache: the cached value is the plaintext connection string and its password has not
++changed.
++
++**Undo a phase.**
++
++- To undo step 1, put the saved keyring back.
++- To undo step 2, set `current` back to the old id and **keep both keys in the list**, because a tenant provisioned in between
++  already uses the new key.
++- Never delete a key from the list while any row uses it.
++
++## 3. Emergency rotation
++
++Use when the key, the catalog data, or both may have leaked. It replaces the key **and** resets every tenant's database
++password through Neon, so the leaked connection strings stop working.
++
++1. Do steps 1 and 2 of the scheduled rotation with a new key, **keeping the old key in the keyring** for the run (rows not yet
++   reset still name it in their prefix).
++2. Make sure `NEON_API_KEY` is in your local `.env`. Run `npm run rotate:keys -- --dry-run --emergency` and read the list.
++3. Run `npm run rotate:keys -- --emergency`. It needs a real terminal and asks you to type `reset <count>` first. For each
++   tenant, one at a time, it:
++   1. lists the Neon project's branches and takes the default one,
++   2. lists that branch's databases and takes the one application database and its owner role (more than one database fails
++      that tenant rather than guessing),
++   3. resets the role's password through Neon,
++   4. fetches the new connection string from Neon and confirms it connects (it retries for a few seconds, because Neon applies
++      a reset to the compute a moment later),
++   5. encrypts it with the current key, swaps it into the catalog only if the row has not changed, and updates the run record.
++4. After the run says `completed`, run `--dry-run` and confirm zero rows on old key ids, then **remove the old key from the
++   keyring immediately** and `secret put`. There is no soak: the old key is compromised.
++
++What happens to tenants: their cached connection string (up to 5 minutes) holds the old password. The first query that is
++rejected makes the Worker drop the cache entry, re-read and decrypt the catalog value, and retry once, so at most one request per
++tenant needs that retry and none should surface an error.
++
++**If a run fails**
++
++- A failure **before** a tenant's reset (project missing in Neon, more than one database) changes nothing: that tenant is
++  recorded and skipped, the others continue, and the run ends `failed`. Fix the cause and run again: only rows still on an old
++  key are touched.
++- A failure **at or after** a reset (the reset call fails unclearly, the new string will not connect, the catalog write loses a
++  race) stops the run at that tenant, because its database password may differ from what the catalog holds. At most one tenant
++  is ever in that state. Repair it with `npm run rotate:keys -- --emergency --org-id <org id>`, which resets again and writes,
++  then run again to continue with the rest.
++
++## 4. Lost key recovery
++
++Last resort, when no copy of an old key can be found. Tenants whose rows use that key are unreachable until their row is reset.
++
++1. Create a keyring with **only** a new key as `current` (it can be `k1` again if the old keyring is gone, but a fresh id such as
++   the next integer is easier to tell apart in the logs). Back it up (see the backup rule).
++2. Put it in your local `.env` and run `npm run rotate:keys -- --dry-run --emergency`. It lists every row it cannot read. In
++   emergency mode that is expected and does not fail the command.
++3. `npx wrangler secret put TENANT_CONN_KEYRING`, deploy, then run `npm run rotate:keys -- --emergency`. It never decrypts old
++   values: every tenant's stored value is rebuilt from Neon, so it needs only `NEON_API_KEY` and access to the catalog.
++4. Run `--dry-run` and confirm every row is on the new key, then open the app as a test tenant.
++
++## After an incident: other secrets to review
++
++If the key or the catalog leaked, assume anything stored next to them could have too. Rotate or review:
++
++- `CLERK_SECRET_KEY`, `CLERK_JWT_KEY`, `CLERK_WEBHOOK_SECRET` (Clerk dashboard)
++- `NEON_API_KEY` (it can reset any tenant password) and `CATALOG_DATABASE_URL` (the catalog database password)
++- any other secret in `.dev.vars` or set with `wrangler secret put` (payment, SMS and similar provider keys)
++- the KV cache `TENANT_CACHE`: it holds decrypted connection strings for up to 5 minutes and is **not** protected by this key.
++  An emergency rotation makes those cached passwords useless, since the passwords are reset.
++- Neon and Cloudflare account access: who has it, and any active API tokens.
++
++## Things to confirm during the drills
++
++These were written from the Neon API docs and local tests and need one look against the real services:
++
++1. **The database error code Neon returns for a rejected password.** `src/worker/lib/resilient-neon.ts` retries on SQLSTATE
++   `28P01` or `28000` and on the text "password authentication failed". Note what the emergency drill really returns and keep
++   only what appears.
++2. **The connection string form.** The string `getConnectionUri` fetches from Neon should have the same shape as the one
++   provisioning stores (direct, not pooled, `sslmode=require`). Compare host and options on one drill tenant.
++3. **How long the reset takes to apply.** The script retries the connect check up to 8 times with growing waits. Note how many
++   attempts the drill needed.
++4. **`list branches` accepts `limit=100`**, and the default branch carries `default: true`.
++
++After upgrading `drizzle-orm` or `@neondatabase/serverless`, run the emergency drill again: the resolver retry client
++implements the two methods Drizzle's Neon driver calls (`query` and `transaction`).
++
++## Drill log
++
++Each drill runs on the deployed Worker (the only environment) against throwaway tenants named `drill-...`. Write the date,
++what you saw, and anything that surprised you.
++
++| Drill | What to do | Date | Result |
++|---|---|---|---|
++| Backup check, password manager | Copy the key back from the password manager entry into `.env`, run `--dry-run`, confirm every row decrypts | not yet run | |
++| Backup check, offline copy | Same with the offline copy | not yet run | |
++| Scheduled rotation with request loop | Hit one `drill-` tenant's API once per second through steps 1 to 4 of procedure 2. Expect no failed request | not yet run | |
++| Emergency rotation with request loop | Same loop through procedure 3 on a `drill-` tenant. Expect at most one request to need the retry and none to return an error | not yet run | |
++| Lost key recovery | Remove the old key from the keyring, run `--emergency` on a `drill-` tenant. The tenant works again | not yet run | |
++
++Request loop, with your own host and a valid Clerk token for the `drill-` org:
++
++```sh
++while true; do curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' -H "Authorization: Bearer $TOKEN" "https://<your-worker-host>/api/<a tenant route>"; sleep 1; done
++```
+diff --git a/docs/scope/scope.md b/docs/scope/scope.md
+index 5910b1c..9d3eed8 100644
+--- a/docs/scope/scope.md
++++ b/docs/scope/scope.md
+@@ -234,10 +234,11 @@ table.
+ connection string. Designed in spec 0003: a versioned keyring, an operator script for scheduled and emergency rotation,
+ and a runbook. **Done when:** a rotation procedure exists and has been exercised at least once without breaking any
+ tenant connection.
++code in `src/worker/lib/crypto.ts`, `src/worker/lib/resilient-neon.ts`, `src/worker/lib/neon-api.ts`, `src/worker/middleware/tenant-resolver.ts`, `scripts/rotate-keys.ts`, `drizzle/catalog/schema.ts`, `docs/runbooks/encryption-key-rotation.md`
+ 
+ - [x] Design the rotation and backup procedure (spec): [0003](../specs/0003-encryption-key-rotation/index.md)
+ - [ ] Build it: `/develop encryption key rotation`
+-    - [ ] Keyring crypto module, versioned format, and call site switch (AC-1, AC-2, AC-3, AC-12)
++    - [x] Keyring crypto module, versioned format, and call site switch (AC-1, AC-2, AC-3, AC-12)
+     - [ ] Catalog run table, rotation script, and first run on dev data (AC-5, AC-6, AC-7, AC-8, AC-15)
+     - [ ] Scheduled rotation drill with a request loop (AC-4, AC-14)
+     - [ ] Emergency mode, Neon helpers, resolver retry, and their drills (AC-9, AC-10, AC-11, AC-14)
+diff --git a/docs/specs/0003-encryption-key-rotation/index.md b/docs/specs/0003-encryption-key-rotation/index.md
+index b2d2cda..c122822 100644
+--- a/docs/specs/0003-encryption-key-rotation/index.md
++++ b/docs/specs/0003-encryption-key-rotation/index.md
+@@ -1,7 +1,7 @@
+ # 0003. Rotate the tenant connection encryption key without downtime
+ 
+ **Date**: 2026-10-23
+-**Status**: Proposed
++**Status**: In Progress
+ 
+ ## Summary
+ 
+diff --git a/docs/specs/0003-encryption-key-rotation/verify.md b/docs/specs/0003-encryption-key-rotation/verify.md
+new file mode 100644
+index 0000000..1b07e90
+--- /dev/null
++++ b/docs/specs/0003-encryption-key-rotation/verify.md
+@@ -0,0 +1,43 @@
++# Verify: Encryption key rotation strategy · spec 0003 · updated 2026-10-24
++_Steps derived from spec 0003 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
++
++Run from `apps/web`. Needs `CATALOG_DATABASE_URL`, `TENANT_CONN_KEYRING` and (for emergency steps) `NEON_API_KEY` in `.env`. Drill steps use throwaway orgs named `drill-...` on the deployed Worker, the only environment.
++
++## UI / manual
++- [ ] Deploy with `TENANT_CONN_KEYRING` set, sign in as a test tenant, open any page that reads tenant data → data loads, no 500                                  → AC-1, AC-3
++- [ ] Deploy (or run `wrangler dev`) with `TENANT_CONN_KEYRING` unset, call a tenant route → clear "Server configuration error" 500, Worker log names the problem and prints no key material → AC-1
++- [ ] Set the keyring `createdAt` for `current` to a date 340 days ago, deploy, make one request → exactly one `[key-rotation] ... days old` warning per isolate start, none per request → AC-12 · Key age warning row
++- [ ] Create a new Clerk organization while the keyring `current` is `k2` → the new `tenant_projects` row's value starts with `k2:` → AC-2 · Queue consumer rows (key id, org id)
++- [ ] Copy tenant A's `encrypted_connection_string` into tenant B's row, call a tenant route as B → 500 "Tenant connection is unavailable", log names B's org id and the key id, never the value → AC-3 · Resolver decrypt row (org id)
++- [ ] Change one row's prefix to a key id that is not in the keyring (for example `k9:`), call a tenant route as that tenant → same 500, log names the org id and `k9` → AC-3
++- [ ] Zero downtime drill: start a request loop (1 per second) against a `drill-` tenant, then follow the runbook's scheduled rotation steps 1 to 4 (add, switch, re-encrypt, verify) → no failed request in the loop, run row ends `completed` → AC-4, AC-14
++- [ ] Emergency drill: same request loop on a `drill-` tenant, run `rotate:keys -- --emergency` → at most one request needs the retry and none returns an error; note the exact database error code Neon returned and that `resilient-neon.ts` matches it → AC-9, AC-10, AC-14
++- [ ] Lost key drill: remove the old key from the keyring on a `drill-` tenant, deploy, run `rotate:keys -- --emergency` → the tenant works again with only `NEON_API_KEY` and catalog access → AC-11, AC-14
++- [ ] Backup check: paste the key back into `.env` from the password manager entry, then from the offline copy, run `rotate:keys -- --dry-run` with each → every row decrypts both times → AC-14
++- [ ] Open `docs/runbooks/encryption-key-rotation.md` → four procedures (first time setup, scheduled, emergency, lost key), backup rule, 12 month reminder, 7 day soak, other secrets checklist, drill log with real dates and results, and the catalog restore window length filled in → AC-13, AC-14
++- [ ] Open `apps/web/src/client` constants and `globalConfig/index.tsx` → neither reads `TENANT_CONN_ENCRYPTION_KEY` or `TENANT_CONN_KEYRING` → AC-15
++
++## Commands
++- [ ] `npx tsc -b` → no new errors (the `broadcasts.tsx` error already exists on `main`); also typecheck `scripts/` with a temporary tsconfig, since no project config includes it → AC-1
++- [ ] `grep -rn "TENANT_CONN_ENCRYPTION_KEY\|tenantConnectionEncryptionKey" apps globalConfig --include=*.ts --include=*.tsx --include=*.jsonc --include=*.json` → no matches (docs are cleaned by `/sync`) → AC-15
++- [ ] `npm run db:migrate:catalog`, then `\d key_rotation_runs` in psql → table, both enums and the partial unique index `key_rotation_runs_one_running_idx` exist on the real dev catalog → AC-7
++- [ ] Try inserting a second `running` row in `key_rotation_runs` → unique violation; a second `completed` row is accepted → AC-7
++- [ ] Break the keyring one way at a time (missing, not JSON, `current` not in `keys`, key of 31 or 33 bytes, bad base64, bad `createdAt`) and run `npm run rotate:keys -- --dry-run` → each fails with a message that names the problem and prints no key material, exit 1 → AC-1
++- [ ] `npm run rotate:keys -- --dry-run` with legacy and `k1:` rows → counts per key id (legacy shown as "no prefix"), orgs that would change, "every row decrypts"; `select count(*) from key_rotation_runs` unchanged and no row changed → AC-8
++- [ ] Put one row on a key id missing from the keyring, run `--dry-run` → that org is listed with `decrypt_unknown_key`, exit code 1; with `--dry-run --emergency` the same row is listed but exit code 0 → AC-8, AC-11
++- [ ] `npm run rotate:keys` with `current` = `k2` and rows on `k1` and unprefixed → every row becomes `k2:...`; a follow up `--dry-run` shows zero rows on old key ids; run row `completed` with matching counts → AC-5, AC-7 · Script row selection row
++- [ ] Run `npm run rotate:keys` again with every row on `current` → run completes at once with 0 tenants and a new run row → AC-7
++- [ ] Rotate a row, then decrypt the old and new value with the matching org id → both give the same connection string (the script's own pre-write check also passes) → AC-5 · Script re-encrypt row (org id)
++- [ ] Rewrite one row from another connection just before the script's update (queue consumer upsert) → script skips it and lists it, or counts it done if it landed on the current key; never overwrites a changed value → AC-6
++- [ ] Kill the script (`kill -9`) after the first tenant → run stays `running`; `npm run rotate:keys` refuses and prints the id; `-- --abandon-run <id>` marks it `failed`; a rerun touches only rows still on an old key → AC-5, AC-6, AC-7
++- [ ] `-- --abandon-run not-a-uuid`, `-- --abandon-run <already failed id>`, and `-- --abandon-run <id> --dry-run` → each refused with a clear message → AC-7
++- [ ] `npm run rotate:keys -- --emergency` piped from `/dev/null` or with a wrong confirmation text → refused, no password reset, no run row → AC-9
++- [ ] `npm run rotate:keys -- --emergency` with the typed `reset <count>` on `drill-` tenants → each row moves to the current key, its stored string connects with the new password and the old password is rejected → AC-9 · Script emergency rows (project id, branch, database and role, new password)
++- [ ] Make one `drill-` tenant's Neon project unreachable (or have two databases) and run `--emergency` → that tenant is skipped with a reason code in the run note, the others finish, run ends `failed`, the skipped tenant's password was not reset → AC-9
++- [ ] Confirm that the connection string `getConnectionUri` returns has the same shape as the one provisioning stores (direct, not pooled, `sslmode=require`) → AC-9 · Script emergency row (new password)
++- [ ] After any failed or emergency run: `select kind, from_key_id, to_key_id, status, tenants_total, tenants_done, tenants_failed, note from key_rotation_runs order by started_at desc;` → `from_key_id`, `to_key_id`, `kind` match what ran, counters match, `note` holds only org ids and reason codes → AC-7 · Run record rows
++- [ ] Search script output, run notes and Worker logs from every run above for the keyring, any key, any `npg_` password and `postgresql://` strings → none found → AC-1, AC-3, AC-9
++- [ ] Unit style check of the resolver retry: with a cached stale password, one request fails once internally and succeeds; a second failure is returned; a non-authentication error is never retried; a `db.batch()` is retried too → AC-10
++
++## Acceptance-criteria coverage
++- AC-1 covered by the missing keyring page check, the broken keyring commands, the tsc step and the leak search · AC-2 covered by the new Clerk org step and the rotate step · AC-3 covered by the copy between rows, unknown key id and first page load steps · AC-4 covered by the zero downtime drill · AC-5 covered by the rotate, re-encrypt and resume steps · AC-6 covered by the rewrite-just-before-update and resume steps · AC-7 covered by the migration, second running row, rotate, repeat, abandon and run record steps · AC-8 covered by both dry run steps · AC-9 covered by the confirmation, emergency drill, skip and URI shape steps · AC-10 covered by the emergency drill and retry check steps · AC-11 covered by the lost key drill and the `--dry-run --emergency` step · AC-12 covered by the 340 day page check · AC-13 covered by the runbook review step · AC-14 covered by the three drills, the backup check and the runbook review · AC-15 covered by the grep and client constants steps
+diff --git a/globalConfig/index.tsx b/globalConfig/index.tsx
+index d60f751..d525880 100644
+--- a/globalConfig/index.tsx
++++ b/globalConfig/index.tsx
+@@ -65,7 +65,6 @@ export const appConfig = {
+     env: {
+         catalogDbUrl: import.meta.env.CATALOG_DATABASE_URL!,
+         neonApiKey: import.meta.env.NEON_API_KEY!,
+-        tenantConnectionEncryptionKey: import.meta.env.TENANT_CONN_ENCRYPTION_KEY!,
+         clerkPublishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY!,
+         clerkSecretKey: import.meta.env.CLERK_PUBLISHABLE_KEY!,
+         clerkJwtKey: import.meta.env.CLERK_JWT_KEY!,

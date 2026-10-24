@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, uuid, pgEnum, integer } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, uuid, pgEnum, integer, uniqueIndex } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // Lives in a single dedicated Neon project — the "control plane" — separate
 // from every tenant project it tracks. See chat notes: this is the thing
@@ -32,7 +33,11 @@ export const tenantProjects = pgTable('tenant_projects', {
   neonProjectName: text('neon_project_name').notNull(), // `tenant-{orgId}`, kept human-searchable
   region: text('region').notNull().default('aws-eu-central-1'),
 
-  // AES-GCM encrypted with TENANT_CONN_ENCRYPTION_KEY — never store plaintext.
+  // AES-GCM encrypted, never plaintext. Stored as `<keyId>:<base64 of IV + ciphertext>`
+  // (for example `k2:...`), where keyId names an entry in the TENANT_CONN_KEYRING
+  // secret and the org id + key id are bound in as additional authenticated data.
+  // A value with no prefix is the pre-rotation format and is read as key `k1`.
+  // See src/worker/lib/crypto.ts and docs/specs/0003-encryption-key-rotation.
   encryptedConnectionString: text('encrypted_connection_string').notNull(),
 
   // Bumped by the migration fan-out job; lets you tell which tenants are
@@ -55,3 +60,43 @@ export const provisioningEvents = pgTable('provisioning_events', {
   detail: text('detail'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// One row per `npm run rotate:keys` real run (scripts/rotate-keys.ts). Dry runs
+// write nothing. No foreign keys: a run only counts tenants.
+export const rotationKind = pgEnum('rotation_kind', ['scheduled', 'emergency'])
+
+export const rotationStatus = pgEnum('rotation_status', [
+  'running', // in progress, or the script crashed (clear it with --abandon-run)
+  'completed', // every selected row ended on the current key
+  'failed', // anything else
+])
+
+export const keyRotationRuns = pgTable(
+  'key_rotation_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: rotationKind('kind').notNull(),
+
+    // Distinct old key ids found, comma separated (usually one, like `k1`).
+    fromKeyId: text('from_key_id').notNull(),
+    // The keyring's `current` id when the run started.
+    toKeyId: text('to_key_id').notNull(),
+
+    status: rotationStatus('status').notNull().default('running'),
+    tenantsTotal: integer('tenants_total').notNull(),
+    tenantsDone: integer('tenants_done').notNull().default(0),
+    tenantsFailed: integer('tenants_failed').notNull().default(0),
+
+    // Org ids and a fixed reason code or HTTP status per failure. Never raw
+    // response text, a connection string, or a secret.
+    note: text('note'),
+
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (table) => [
+    // Only one run can be `running` at a time: every indexed row has the same
+    // status value, so a second `running` row violates uniqueness.
+    uniqueIndex('key_rotation_runs_one_running_idx').on(table.status).where(sql`${table.status} = 'running'`),
+  ],
+)

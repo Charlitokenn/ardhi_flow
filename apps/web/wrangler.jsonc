@@ -75,7 +75,7 @@
 		]
 	},
 	// Non-secret config. Secrets (CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET,
-	// CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY) are set
+	// CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_KEYRING) are set
 	// via `wrangler secret put <NAME>` in production and `.dev.vars` locally
 	// — never committed here.
 	"vars": {

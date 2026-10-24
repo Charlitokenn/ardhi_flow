@@ -5,7 +5,7 @@ import {Command} from 'commander'
 import {neon} from '@neondatabase/serverless'
 import {drizzle} from 'drizzle-orm/neon-http'
 import {eq, inArray} from 'drizzle-orm'
-import {decryptConnectionString} from '../src/worker/lib/crypto'
+import {decryptConnectionString, parseKeyring} from '../src/worker/lib/crypto'
 import {tenantProjects} from '../drizzle/catalog/schema'
 import * as schema from '../drizzle/tenant/schema'
 import {isFetchNetworkError, printFetchNetworkErrorHint} from './lib/network-error-hint'
@@ -27,11 +27,12 @@ program
 const {orgId, reset} = program.opts<{ orgId: string; reset: boolean }>()
 
 async function main() {
-    const {CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY} = process.env
+    const {CATALOG_DATABASE_URL, TENANT_CONN_KEYRING} = process.env
 
-    if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
-        throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
+    if (!CATALOG_DATABASE_URL) {
+        throw new Error('Missing required env var: CATALOG_DATABASE_URL')
     }
+    const keyring = parseKeyring(TENANT_CONN_KEYRING)
 
     const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
     const [tenant] = await catalogDb.select().from(tenantProjects).where(eq(tenantProjects.orgId, orgId))
@@ -44,9 +45,10 @@ async function main() {
         process.exit(1)
     }
 
-    const connectionUri = await decryptConnectionString(
+    const {plaintext: connectionUri} = await decryptConnectionString(
         tenant.encryptedConnectionString,
-        TENANT_CONN_ENCRYPTION_KEY,
+        keyring,
+        tenant.orgId,
     )
 
     const db = drizzle(neon(connectionUri), {schema})

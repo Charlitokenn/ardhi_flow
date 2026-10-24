@@ -9,8 +9,8 @@
 // string, and applies any migration (from drizzle/tenant/migrations/) that
 // hasn't been recorded as applied yet for that specific tenant.
 //
-// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_ENCRYPTION_KEY
-// set (same values as your Worker secrets).
+// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_KEYRING set (same
+// values as your Worker secrets).
 //
 // If this fails with "TypeError: fetch failed" even though the network
 // otherwise has working TCP/TLS connectivity to Neon (verified via e.g.
@@ -29,7 +29,7 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { eq } from 'drizzle-orm'
 import { applyPendingMigrations, getAppliedMigrationTags } from '../src/worker/lib/run-migration'
-import { decryptConnectionString } from '../src/worker/lib/crypto'
+import { decryptConnectionString, parseKeyring } from '../src/worker/lib/crypto'
 import { tenantProjects } from '../drizzle/catalog/schema'
 import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
 import { isFetchNetworkError, printFetchNetworkErrorHint } from './lib/network-error-hint'
@@ -48,11 +48,12 @@ program
 const { orgId, dryRun } = program.opts<{ orgId?: string; dryRun: boolean }>()
 
 async function main() {
-  const { CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY } = process.env
+  const { CATALOG_DATABASE_URL, TENANT_CONN_KEYRING } = process.env
 
-  if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
-    throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
+  if (!CATALOG_DATABASE_URL) {
+    throw new Error('Missing required env var: CATALOG_DATABASE_URL')
   }
+  const keyring = parseKeyring(TENANT_CONN_KEYRING)
 
   const migrations = loadTenantMigrationsFromDisk()
   console.log(
@@ -78,9 +79,10 @@ async function main() {
   for (const tenant of tenants) {
     const label = `${tenant.orgId} (${tenant.neonProjectName})`
     try {
-      const connectionUri = await decryptConnectionString(
+      const { plaintext: connectionUri } = await decryptConnectionString(
         tenant.encryptedConnectionString,
-        TENANT_CONN_ENCRYPTION_KEY,
+        keyring,
+        tenant.orgId,
       )
 
       if (dryRun) {

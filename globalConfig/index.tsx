@@ -65,7 +65,6 @@ export const appConfig = {
     env: {
         catalogDbUrl: import.meta.env.CATALOG_DATABASE_URL!,
         neonApiKey: import.meta.env.NEON_API_KEY!,
-        tenantConnectionEncryptionKey: import.meta.env.TENANT_CONN_ENCRYPTION_KEY!,
         clerkPublishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY!,
         clerkSecretKey: import.meta.env.CLERK_PUBLISHABLE_KEY!,
         clerkJwtKey: import.meta.env.CLERK_JWT_KEY!,

@@ -4,7 +4,8 @@
 // without needing a live webhook call.
 //
 // Requires a .env with CATALOG_DATABASE_URL, NEON_API_KEY, and
-// TENANT_CONN_ENCRYPTION_KEY set (same values as your Worker secrets).
+// TENANT_CONN_KEYRING set (same values as your Worker secrets). The keyring is
+// one line of JSON in single quotes, see docs/runbooks/encryption-key-rotation.md.
 //
 // Usage:
 //   npm run provision:tenant -- --org-id=org_2abc123 --name="Acme Plots"
@@ -16,7 +17,7 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { createNeonProject, findProjectByName } from '../src/worker/lib/neon-api'
 import { applyPendingMigrations } from '../src/worker/lib/run-migration'
-import { encryptConnectionString } from '../src/worker/lib/crypto'
+import { encryptConnectionString, parseKeyring } from '../src/worker/lib/crypto'
 import { tenantProjects, orgs, provisioningEvents } from '../drizzle/catalog/schema'
 import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
 
@@ -35,13 +36,15 @@ program
 const { orgId, name, region } = program.opts<{ orgId: string; name: string; region: string }>()
 
 async function main() {
-  const { CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY } = process.env
+  const { CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_KEYRING } = process.env
 
-  if (!CATALOG_DATABASE_URL || !NEON_API_KEY || !TENANT_CONN_ENCRYPTION_KEY) {
-    throw new Error(
-      'Missing required env vars: CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_ENCRYPTION_KEY',
-    )
+  if (!CATALOG_DATABASE_URL || !NEON_API_KEY) {
+    throw new Error('Missing required env vars: CATALOG_DATABASE_URL, NEON_API_KEY')
   }
+
+  // Validated before the Neon project is created, so a bad keyring can never
+  // leave an orphaned project behind.
+  const keyring = parseKeyring(TENANT_CONN_KEYRING)
 
   const catalogDb = drizzle(neon(CATALOG_DATABASE_URL))
   const projectName = `tenant-${name}`
@@ -65,7 +68,7 @@ async function main() {
   const applied = await applyPendingMigrations(connectionUri, migrations)
   console.log(`  ✓ Schema applied (${applied.join(', ')})`)
 
-  const encrypted = await encryptConnectionString(connectionUri, TENANT_CONN_ENCRYPTION_KEY)
+  const encrypted = await encryptConnectionString(connectionUri, keyring, orgId)
 
   await catalogDb
     .insert(tenantProjects)

@@ -9,7 +9,7 @@ interface __BaseEnv_Env {
 	DEFAULT_TENANT_REGION: "aws-eu-central-1";
 	CATALOG_DATABASE_URL: string;
 	NEON_API_KEY: string;
-	TENANT_CONN_ENCRYPTION_KEY: string;
+	TENANT_CONN_KEYRING: string;
 	VITE_CLERK_PUBLISHABLE_KEY: string;
 	CLERK_SECRET_KEY: string;
 	CLERK_JWT_KEY: string;
@@ -31,7 +31,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEFAULT_TENANT_REGION" | "CATALOG_DATABASE_URL" | "NEON_API_KEY" | "TENANT_CONN_ENCRYPTION_KEY" | "VITE_CLERK_PUBLISHABLE_KEY" | "CLERK_SECRET_KEY" | "CLERK_JWT_KEY" | "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN" | "VITE_PUBLIC_POSTHOG_HOST" | "VITE_PUBLIC_POSTHOG_ASSETS_HOST" | "DEV">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEFAULT_TENANT_REGION" | "CATALOG_DATABASE_URL" | "NEON_API_KEY" | "TENANT_CONN_KEYRING" | "VITE_CLERK_PUBLISHABLE_KEY" | "CLERK_SECRET_KEY" | "CLERK_JWT_KEY" | "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN" | "VITE_PUBLIC_POSTHOG_HOST" | "VITE_PUBLIC_POSTHOG_ASSETS_HOST" | "DEV">> {}
 }
 
 // Begin runtime types

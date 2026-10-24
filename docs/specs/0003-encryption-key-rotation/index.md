@@ -1,7 +1,7 @@
 # 0003. Rotate the tenant connection encryption key without downtime
 
 **Date**: 2026-10-23
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

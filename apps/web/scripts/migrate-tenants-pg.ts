@@ -8,8 +8,8 @@
 // fetch/undici stack entirely, using raw sockets instead. See
 // scripts/seed-tenant-pg.ts for the same pattern applied to seeding.
 //
-// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_ENCRYPTION_KEY
-// set (same values as your Worker secrets).
+// Requires a .env with CATALOG_DATABASE_URL and TENANT_CONN_KEYRING set (same
+// values as your Worker secrets).
 //
 // Usage:
 //   npm run migrate:tenants:pg
@@ -22,7 +22,7 @@ import { Pool } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
 import { applyPendingMigrationsPg, getAppliedMigrationTagsPg } from '../src/worker/lib/run-migration-pg'
-import { decryptConnectionString } from '../src/worker/lib/crypto'
+import { decryptConnectionString, parseKeyring } from '../src/worker/lib/crypto'
 import { tenantProjects } from '../drizzle/catalog/schema'
 import { loadTenantMigrationsFromDisk } from './lib/tenant-migration-files'
 
@@ -35,11 +35,12 @@ program
 const { orgId, dryRun } = program.opts<{ orgId?: string; dryRun: boolean }>()
 
 async function main() {
-  const { CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY } = process.env
+  const { CATALOG_DATABASE_URL, TENANT_CONN_KEYRING } = process.env
 
-  if (!CATALOG_DATABASE_URL || !TENANT_CONN_ENCRYPTION_KEY) {
-    throw new Error('Missing required env vars: CATALOG_DATABASE_URL, TENANT_CONN_ENCRYPTION_KEY')
+  if (!CATALOG_DATABASE_URL) {
+    throw new Error('Missing required env var: CATALOG_DATABASE_URL')
   }
+  const keyring = parseKeyring(TENANT_CONN_KEYRING)
 
   const migrations = loadTenantMigrationsFromDisk()
   console.log(
@@ -66,9 +67,10 @@ async function main() {
   for (const tenant of tenants) {
     const label = `${tenant.orgId} (${tenant.neonProjectName})`
     try {
-      const connectionUri = await decryptConnectionString(
+      const { plaintext: connectionUri } = await decryptConnectionString(
         tenant.encryptedConnectionString,
-        TENANT_CONN_ENCRYPTION_KEY,
+        keyring,
+        tenant.orgId,
       )
 
       if (dryRun) {

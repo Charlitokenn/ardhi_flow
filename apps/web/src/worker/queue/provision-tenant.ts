@@ -1,7 +1,7 @@
 import type { Env } from '../types'
 import { createNeonProject, findProjectByName } from '../lib/neon-api'
 import { applyPendingMigrations } from '../lib/run-migration'
-import { encryptConnectionString } from '../lib/crypto'
+import { encryptConnectionString, parseKeyring } from '../lib/crypto'
 import { getCatalogDb } from '../db/catalog'
 import { tenantProjects, orgs, provisioningEvents } from '../../../drizzle/catalog/schema'
 import { TENANT_MIGRATIONS } from '../lib/tenant-migrations'
@@ -58,7 +58,8 @@ export async function handleTenantProvisionQueue(
       // every tenant in the catalog.
       await applyPendingMigrations(connectionUri, TENANT_MIGRATIONS)
 
-      const encrypted = await encryptConnectionString(connectionUri, env.TENANT_CONN_ENCRYPTION_KEY)
+      // Stored as `<currentKeyId>:<base64>`, with the org id bound in.
+      const encrypted = await encryptConnectionString(connectionUri, parseKeyring(env.TENANT_CONN_KEYRING), clerkOrgId)
 
       await catalogDb
         .insert(tenantProjects)

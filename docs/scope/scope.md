@@ -234,10 +234,11 @@ table.
 connection string. Designed in spec 0003: a versioned keyring, an operator script for scheduled and emergency rotation,
 and a runbook. **Done when:** a rotation procedure exists and has been exercised at least once without breaking any
 tenant connection.
+code in `src/worker/lib/crypto.ts`, `src/worker/lib/resilient-neon.ts`, `src/worker/lib/neon-api.ts`, `src/worker/middleware/tenant-resolver.ts`, `scripts/rotate-keys.ts`, `drizzle/catalog/schema.ts`, `docs/runbooks/encryption-key-rotation.md`
 
 - [x] Design the rotation and backup procedure (spec): [0003](../specs/0003-encryption-key-rotation/index.md)
 - [ ] Build it: `/develop encryption key rotation`
-    - [ ] Keyring crypto module, versioned format, and call site switch (AC-1, AC-2, AC-3, AC-12)
+    - [x] Keyring crypto module, versioned format, and call site switch (AC-1, AC-2, AC-3, AC-12)
     - [ ] Catalog run table, rotation script, and first run on dev data (AC-5, AC-6, AC-7, AC-8, AC-15)
     - [ ] Scheduled rotation drill with a request loop (AC-4, AC-14)
     - [ ] Emergency mode, Neon helpers, resolver retry, and their drills (AC-9, AC-10, AC-11, AC-14)
