@@ -5,7 +5,7 @@ import {PageHero} from "@/components/pageHero.tsx"
 import {Button} from "@/components/ui/button.tsx"
 
 interface BroadcastDashboardProps {
-    onCreateNew: () => void
+    onCreateNew?: () => void
 }
 
 export default function BroadcastDashboard({onCreateNew}: BroadcastDashboardProps) {
