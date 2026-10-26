@@ -55,8 +55,9 @@ The new key goes into **both** backups before any row depends on it:
 Retired keys stay in the offline copy for as long as any catalog restore point that used them exists, because restoring the
 catalog brings back values encrypted with the old key.
 
-**Catalog restore window:** _not yet recorded. Check how far back your Neon plan can restore the catalog and write the length
-here, so you know how long a retired key must be kept._
+**Catalog restore window:** 6 hours (Neon project `catalog`, `jolly-frog-89901747`, `history_retention_seconds: 21600`,
+checked 2026-10-27). A retired key can leave the offline copy 6 hours after a dry run shows zero rows on it. Check this
+again if you change Neon plan or the project's history retention setting, because a longer window means keeping keys longer.
 
 The local `.env` holds the plaintext keyring while a run is in progress. Paste it from the password manager for the run and
 delete it afterwards. `.env` is gitignored.
@@ -216,6 +217,7 @@ what you saw, and anything that surprised you.
 | Scheduled rotation with request loop | Hit one `drill-` tenant's API once per second through steps 1 to 4 of procedure 2. Expect no failed request | not yet run | |
 | Emergency rotation with request loop | Same loop through procedure 3 on a `drill-` tenant. Expect at most one request to need the retry and none to return an error | not yet run | |
 | Lost key recovery | Remove the old key from the keyring, run `--emergency` on a `drill-` tenant. The tenant works again | not yet run | |
+| Lost key recovery, real (not a drill) | The legacy key was replaced by a fresh `k1`, then `--emergency` rebuilt the one dev tenant from Neon. Counts as the first run on dev data, not as the `drill-` drill above | 2026-10-25 | Run `completed`, 1 tenant done, 0 failed. Dry run on 2026-10-26 showed every row on `k1` and decrypting. Old `TENANT_CONN_ENCRYPTION_KEY` Worker secret deleted 2026-10-26 |
 
 Request loop, with your own host and a valid Clerk token for the `drill-` org:
 

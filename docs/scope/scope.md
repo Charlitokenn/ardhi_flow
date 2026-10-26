@@ -239,7 +239,7 @@ code in `src/worker/lib/crypto.ts`, `src/worker/lib/resilient-neon.ts`, `src/wor
 - [x] Design the rotation and backup procedure (spec): [0003](../specs/0003-encryption-key-rotation/index.md)
 - [ ] Build it: `/develop encryption key rotation`
     - [x] Keyring crypto module, versioned format, and call site switch (AC-1, AC-2, AC-3, AC-12)
-    - [ ] Catalog run table, rotation script, and first run on dev data (AC-5, AC-6, AC-7, AC-8, AC-15)
+    - [x] Catalog run table, rotation script, and first run on dev data (AC-5, AC-6, AC-7, AC-8, AC-15)
     - [ ] Scheduled rotation drill with a request loop (AC-4, AC-14)
     - [ ] Emergency mode, Neon helpers, resolver retry, and their drills (AC-9, AC-10, AC-11, AC-14)
     - [ ] Runbook, drill log, and leftover cleanup (AC-13, AC-14, AC-15)
