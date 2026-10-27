@@ -154,12 +154,22 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
         return counts
     }, [allRows])
 
-    const rows = useMemo(
-        () => (statusTab === "ALL" ? allRows : allRows.filter((row) => row.status === statusTab)),
-        [allRows, statusTab],
-    )
-
     const isLatestFirst = sorting[0]?.desc !== false
+
+    // Ordered here, not by the table: TanStack drops a sort entry whose id
+    // isn't a sortable column, and there is no createdAt column. Campaigns
+    // with no createdAt go last either way.
+    const rows = useMemo(() => {
+        const filtered = statusTab === "ALL" ? allRows : allRows.filter((row) => row.status === statusTab)
+        const time = (row: CampaignRow) => (row.createdAt ? new Date(row.createdAt).getTime() : null)
+        return [...filtered].sort((a, b) => {
+            const ta = time(a)
+            const tb = time(b)
+            if (ta === null || tb === null) return ta === tb ? 0 : ta === null ? 1 : -1
+            return isLatestFirst ? tb - ta : ta - tb
+        })
+    }, [allRows, statusTab, isLatestFirst])
+
     const toggleSortOrder = () => setSorting([{id: "createdAt", desc: !isLatestFirst}])
 
     const columns = useMemo<ColumnDef<DataGridFeatures, CampaignRow>[]>(
@@ -177,6 +187,7 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                                 <Badge variant={STATUS_VARIANT[row.status] ?? "secondary"} size="sm">
                                     {row.status}
                                 </Badge>
+                                <span>{TYPE_LABELS[row.type] ?? row.type}</span>
                                 {row.createdAt && <span>{formatDateTimeShort(row.createdAt)}</span>}
                             </div>
                         </div>
@@ -184,6 +195,19 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                 },
                 enableSorting: false,
                 size: 300,
+            },
+            {
+                accessorKey: "recipientCount",
+                id: "recipientCount",
+                header: "Recipients",
+                cell: (info) => (
+                    <div className="text-center">
+                        <div className="font-semibold">{info.row.original.recipientCount}</div>
+                        <div className="text-xs text-muted-foreground">recipients</div>
+                    </div>
+                ),
+                enableSorting: false,
+                size: 90,
             },
             {
                 accessorKey: "sentCount",

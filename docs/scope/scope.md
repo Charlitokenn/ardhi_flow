@@ -173,15 +173,15 @@ NextSMS, and its delivery status tracked per message.
         - [x] Sample client preview when no client is picked (AC-7, spec build plan step 7)
     - [ ] Verify it: `/check verify message-templates`
     - [x] Test it: `/test message-templates`
-- [x] Design connecting the broadcast dashboard (spec): [0003](../specs/0003-connect-broadcast-dashboard.md)
+- [x] Design connecting the broadcast dashboard (spec): [0003](../specs/0003-connect-broadcast-dashboard/index.md)
     - [x] Build it: `/develop connect-broadcast-dashboard`
         - [x] Read-only campaigns endpoint (AC-2, AC-5)
         - [x] Dashboard shows real campaign data (AC-1, AC-2)
         - [x] Dashboard <-> compose flow navigation folded into the route (AC-1, AC-3, AC-4)
         - [x] Reminder page's duplicate entry point removed (AC-4)
         - [x] Quick Actions menu's own duplicate entry point removed too (found during build, not in the original spec — same fix, applied consistently)
-    - [ ] Verify it: `/check verify connect-broadcast-dashboard`
-    - [ ] Test it: `/test connect-broadcast-dashboard`
+    - [x] Verify it: `/check verify connect-broadcast-dashboard`
+    - [x] Test it: `/test connect-broadcast-dashboard`
 - [ ] Design the send flow and NextSMS integration (spec): `/architect sms messaging`
 
 ## Slice 4: Reporting
