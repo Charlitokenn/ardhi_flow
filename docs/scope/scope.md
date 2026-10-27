@@ -171,7 +171,7 @@ status tracked per message.
         - [x] "Use a template" picker in the compose flow (AC-9)
         - [x] Sample client preview when no client is picked (AC-7, spec build plan step 7)
     - [ ] Verify it: `/check verify message-templates`
-    - [ ] Test it: `/test message-templates`
+    - [x] Test it: `/test message-templates`
 - [ ] Design the send flow and NextSMS integration (spec): `/architect sms messaging`
 
 ## Slice 4: Reporting
