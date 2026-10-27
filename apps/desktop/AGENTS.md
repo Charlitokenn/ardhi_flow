@@ -36,11 +36,19 @@ VITE_WEB_APP_URL=https://<deployed web app> pnpm compile:desktop   # package an 
 | `ARDHIFLOW_WEB_DEV_URL` | dev only | Override the dev server URL if the web app isn't on `http://localhost:5173/`. |
 | `VITE_DISTRIBUTION_CHANNEL` | build time, optional | Auto-updater channel. |
 
+## Distribution
+
+Distributed via the **Microsoft Store**. Not built for that yet; when it is:
+
+- Add an `appx` target to `electron-builder.mjs` (`win.target: ['appx']`) with the Store identity (`appx.identityName`, `publisher`, `publisherDisplayName`) from Partner Center. The Store signs the package, so no code-signing certificate is needed for Store builds.
+- The Store delivers updates. Store builds should not run `AutoUpdater` (`process.windowsStore` is `true` in Store installs).
+- Store packages are built on Windows; the winCodeSign symlink note below still applies.
+
 ## Gotchas
 
 - Navigation is blocked to any origin except the web app's own plus `VITE_EXTRA_ALLOWED_ORIGINS` (`BlockNotAllowdOrigins.ts`), and `window.open` to any origin is denied (`ExternalUrls.ts`, empty allowlist). **Clerk OAuth (social sign-in) redirects off-origin and will be blocked** until its origins are allowed. Email/password sign-in stays on-origin and works.
-- Auto-update has no publish target configured yet (`electron-builder.mjs` has no `publish`), so `AutoUpdater` finds no releases and exits quietly. Configure it before shipping.
-- No code signing is configured; Windows/macOS installers will be unsigned.
+- Auto-update has no publish target configured (`electron-builder.mjs` has no `publish`), so `AutoUpdater` finds no `app-update.yml` and skips quietly. With Store distribution, that is the intended end state (see Distribution).
+- No code signing is configured. Store builds are signed by the Store; only installers distributed outside it would need a certificate.
 - On Windows, `compile` needs symlink rights (Developer Mode on, or an elevated shell): electron-builder unpacks its `winCodeSign` tools, which contain symlinks, and otherwise fails with "A required privilege is not held by the client". `-c.win.signAndEditExecutable=false` skips that step, but then the exe keeps Electron's default icon and version info.
 - `apps/desktop/dist/` is the installer output (gitignored), not a Turbo build output; Turbo caches only the `dist/` of `main` and `preload`.
 - `tests/e2e.spec.ts` runs against a packaged build (`compile` first). It is not part of any automated run.

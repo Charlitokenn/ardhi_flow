@@ -3,11 +3,13 @@
   "name": "ardhi-flow-marketing",
   "compatibility_date": "2026-08-01",
 
-  // Pure static site — Astro's build output, no Worker script needed. If
-  // this site ever needs server-rendered pages (a blog, a contact form
-  // handler, etc.), add the @astrojs/cloudflare adapter and a `main` entry
-  // here — same pattern as the app's Worker.
+  // Server-rendered via @astrojs/cloudflare: pages with `prerender = false`
+  // (country-aware pricing, see src/middleware.ts) run in this Worker; every
+  // other page is prerendered and served straight from the assets binding.
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
+    "binding": "ASSETS",
     "directory": "./dist"
   }
 }

@@ -8,7 +8,7 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
-Or from the repo root: `pnpm --filter ardhi-flow-marketing dev` (note the package name here is `ardhi-flow-marketing`, not `@ardhiflow/marketing`). Deploy: `astro build && wrangler deploy` with its own `wrangler.jsonc`.
+Or from the repo root: `pnpm --filter ardhi-flow-marketing dev` (note the package name here is `ardhi-flow-marketing`, not `@ardhiflow/marketing`). Deploy: `astro build && wrangler deploy` with its own `wrangler.jsonc`. Rendering: `@astrojs/cloudflare` adapter; pages are prerendered unless they set `prerender = false` (index and Pricing do, for country aware pricing). `src/middleware.ts` sets `Astro.locals.countryCode` from Cloudflare geolocation on those pages; `"TZ"` gets local pricing and copy.
 
 ## Documentation
 
