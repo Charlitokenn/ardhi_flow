@@ -1,7 +1,7 @@
 # 0001. Finish the contacts feature: view sheet, statements, confirmation letters, bulk import
 
 **Date**: 2026-08-18
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
@@ -57,7 +57,7 @@ See [rationale.md](rationale.md).
 
 Each child spec carries its own build plan. Build them in this order, since later children depend on earlier ones:
 
-1. [0001-company-branding-settings.md](0001-company-branding-settings.md): the settings table, its endpoint, and the Clerk `OrganizationProfile` "Branding" page.
+1. [0001-company-branding-settings.md](0001-company-branding-settings.md): the settings table, its endpoint, and the "Branding" tab on the Clerk `OrganizationProfile` "Settings" page.
 2. [0002-contact-view-and-detail-data.md](0002-contact-view-and-detail-data.md): the `statement-data` endpoint and the view sheet wiring fix, since 0003 and 0004 both consume it.
 3. [0003-client-statement-pdf.md](0003-client-statement-pdf.md) and [0004-confirmation-letter-pdf.md](0004-confirmation-letter-pdf.md): can build in parallel once 0001 and 0002 are done, since neither depends on the other.
 4. [0005-contacts-csv-bulk-import.md](0005-contacts-csv-bulk-import.md): independent of the other four, can build any time.

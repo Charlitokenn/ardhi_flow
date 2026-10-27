@@ -29,3 +29,6 @@ dist-ssr
 
 # MCPs
 .junie/mcp
+
+# Test results
+test-results/

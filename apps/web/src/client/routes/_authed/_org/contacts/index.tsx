@@ -109,6 +109,7 @@ function RouteComponent() {
                                 entityName="contacts"
                                 fields={contactFields}
                                 onSubmit={handleBulkImport}
+                                serverValidatesRequiredFields
                             />
                         }
                     />

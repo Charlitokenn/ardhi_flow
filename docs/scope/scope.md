@@ -20,7 +20,7 @@ know how to build a feature, use `/develop` and skip `/architect`. You decide wh
 | 1  | Multi tenant provisioning pipeline    | Foundation | existing    |
 | 2  | Auth and tenant scoped API middleware | Foundation | existing    |
 | 3  | App shell and routing                 | Foundation | existing    |
-| 4  | Contacts                              | Slice 1    | in-progress |
+| 4  | Contacts                              | Slice 1    | done        |
 | 5  | Projects and Plots                    | Slice 1    | existing    |
 | 6  | Sales / Plot Sale Contracts           | Slice 1    | in-progress |
 | 7  | Payments and Reconciliation           | Slice 1    | in-progress |
@@ -59,24 +59,26 @@ code in `src/client/routes/`
 
 ## Slice 1: Core sales and collections loop
 
-### 4. Contacts · in-progress
+### 4. Contacts · done
 
 Directory of clients, land sellers, agents, auditors, surveyors, and ICT support, with next of kin details. List,
 create, edit, view, client statement, confirmation letter, and CSV bulk import are all wired to real data, per the
-accepted spec below. Awaiting `/check verify` and `/test`. **Done when:** viewing a contact goes through a working
+accepted spec below. Verified and gated 2026-10-27. **Done when:** viewing a contact goes through a working
 `view-contact-form.tsx` sheet, a client statement and a confirmation letter can both be generated for a contact, and the
 CSV bulk uploader actually creates contacts.
 
 - [x] Design the remaining pieces (spec): [0001](../specs/0001-contacts-completion/index.md)
 - [x] Build it: `/develop contacts`
-    - [x] Company branding settings: tenant settings table, `GET`/`PUT /api/company-settings`, Clerk "Branding" custom
-      page (spec 0001)
+    - [x] Company branding settings: tenant settings table, `GET`/`PUT /api/company-settings`, "Branding" tab on the
+      Clerk "Settings" custom page (spec 0001)
     - [x] Contact view sheet fix and the shared contact detail endpoint (spec 0002)
     - [x] Client statement PDF: real branding, sales agent, and download (spec 0003)
     - [x] Confirmation letter PDF: new document, gated on a fully paid contract (spec 0004)
     - [x] CSV bulk import backend and results summary (spec 0005)
-- [ ] Verify it: `/check verify contacts`
-- [ ] Test it: `/test contacts`
+- [x] Verify it: `/check verify contacts` (2026-10-27; four edge cases accepted unverified for lack of seed
+  fixtures, left unticked in [verify.md](../specs/0001-contacts-completion/verify.md))
+- [x] Test it: `/test contacts` (2026-10-27; Vitest 49 passing, `pnpm test`; Playwright bulk import flow 2 passing,
+  `pnpm test:e2e` with `E2E_CLERK_USER_ID` set)
   code in `src/client/components/data-grids/contacts-datagrid.tsx`,
   `src/client/components/forms/contacts/view-contact-form.tsx`,
   `src/client/components/forms/contacts/client-statement.tsx`,
@@ -167,6 +169,7 @@ status tracked per message.
         - [x] CRUD + preview API, admin gated (AC-1, AC-3, AC-4, AC-10)
         - [x] Template management screen with live preview (AC-1, AC-3, AC-4, AC-7)
         - [x] "Use a template" picker in the compose flow (AC-9)
+        - [x] Sample client preview when no client is picked (AC-7, spec build plan step 7)
     - [ ] Verify it: `/check verify message-templates`
     - [ ] Test it: `/test message-templates`
 - [ ] Design the send flow and NextSMS integration (spec): `/architect sms messaging`

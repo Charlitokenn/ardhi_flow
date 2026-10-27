@@ -205,14 +205,15 @@ export const ConfirmationLetterDocument: React.FC<ConfirmationLetterProps> = ({
                     huduma zetu.
                 </Text>
 
-                <Text style={styles.contactLine}>Namba za simu: {mobileNumber || "—"}</Text>
-                <Text style={styles.contactLine}>Barua Pepe: {email || "—"}</Text>
+                {/* Unset branding falls back to blank, not placeholder text (spec 0001 index, 0004 AC-3). */}
+                <Text style={styles.contactLine}>Namba za simu: {mobileNumber ?? ""}</Text>
+                <Text style={styles.contactLine}>Barua Pepe: {email ?? ""}</Text>
 
                 <View style={styles.closing}>
                     <Text style={styles.closingLine}>Wako,</Text>
                     <Text style={styles.closingLine}>{companyName},</Text>
                     <Text style={styles.signatureLine}>..................................</Text>
-                    <Text style={styles.signerTitle}>{signerTitle || "—"}</Text>
+                    <Text style={styles.signerTitle}>{signerTitle ?? ""}</Text>
                 </View>
 
                 <View style={styles.footer}>

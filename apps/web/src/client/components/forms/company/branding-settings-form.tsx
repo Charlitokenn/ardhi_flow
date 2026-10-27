@@ -1,5 +1,5 @@
 import {useState} from "react"
-import {useAuth} from "@clerk/react"
+import {useAuth, useOrganization} from "@clerk/react"
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
 import {toast} from "sonner"
 import {apiClient} from "@/lib/api.ts"
@@ -9,6 +9,7 @@ import {PhoneInput} from "@/components/reui/phone-input.tsx"
 import {Textarea} from "@/components/ui/textarea.tsx"
 import {Field, FieldContent, FieldError, FieldGroup, FieldLabel, FieldSet,} from "@/components/ui/field.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar.tsx"
 import {ColorPicker} from "@/components/ui/color-picker.tsx"
 import {ColorSwatchIcon} from "@/assets/icons";
 
@@ -53,6 +54,7 @@ function toFormValues(settings: Partial<Record<keyof FormValues, string | null>>
 // own `company_settings` row via GET/PUT /api/company-settings.
 export function BrandingSettingsForm() {
     const {getToken} = useAuth()
+    const {organization} = useOrganization()
     const queryClient = useQueryClient()
     const api = apiClient(getToken)
 
@@ -145,6 +147,27 @@ export function BrandingSettingsForm() {
 
     return (
         <div className="space-y-6 p-1">
+            {/* Read only: always live from Clerk, never saved to company_settings
+                (edited under the profile's General page instead). */}
+            <div className="flex items-center gap-3 rounded-md border p-3">
+                <Avatar className="size-10 rounded-lg">
+                    <AvatarImage
+                        src={organization?.imageUrl}
+                        alt={`${organization?.name ?? "Organization"} logo`}
+                        className="object-cover"
+                    />
+                    <AvatarFallback className="rounded-lg">
+                        {organization?.name?.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="grid text-sm leading-tight">
+                    <span className="font-medium">{organization?.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                        Company name and logo are managed under General.
+                    </span>
+                </div>
+            </div>
+
             <FieldSet>
                 <FieldGroup>
                     <Field orientation="responsive">

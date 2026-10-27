@@ -46,8 +46,9 @@ import {
     MessageTemplateForm,
     type MessageTemplateFormValues
 } from "@/components/forms/messaging/message-template-form.tsx"
+import {MessageTemplatePreview} from "@/components/messaging/message-template-preview.tsx"
 import {apiClient} from "@/lib/api.ts"
-import {CopyIcon, MoreHorizontalIcon, SquarePenIcon, Trash2Icon} from "lucide-react"
+import {CopyIcon, EyeIcon, MoreHorizontalIcon, SquarePenIcon, Trash2Icon} from "lucide-react"
 import {Skeleton} from "@/components/ui/skeleton.tsx";
 
 type MessageTemplateRow = MessageTemplateFormValues & {
@@ -81,6 +82,7 @@ export function MessageTemplatesDataGrid() {
     const [sorting, setSorting] = useState<SortingState>([{id: "createdAt", desc: true}])
     const [pagination, setPagination] = useState<PaginationState>({pageIndex: 0, pageSize: 8})
     const [editingTemplate, setEditingTemplate] = useState<MessageTemplateRow | null>(null)
+    const [previewingTemplate, setPreviewingTemplate] = useState<MessageTemplateRow | null>(null)
     const [deletingTemplate, setDeletingTemplate] = useState<MessageTemplateRow | null>(null)
 
     const templatesQuery = useQuery({
@@ -199,24 +201,30 @@ export function MessageTemplatesDataGrid() {
                 header: "",
                 cell: (info) => {
                     const row = info.row.original
-                    if (!isAdmin) return null
+                    // Preview is open to every staff member (spec AC-5);
+                    // the rest of the menu is admin only (AC-4).
                     return (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="size-8">
+                                <Button variant="ghost" size="icon" className="size-8" aria-label="Template actions">
                                     <MoreHorizontalIcon className="size-4"/>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                {!row.isDefault && (
+                                <DropdownMenuItem onSelect={() => setPreviewingTemplate(row)}>
+                                    <EyeIcon className="size-4"/> Preview
+                                </DropdownMenuItem>
+                                {isAdmin && !row.isDefault && (
                                     <DropdownMenuItem onSelect={() => setEditingTemplate(row)}>
                                         <SquarePenIcon className="size-4"/> Edit
                                     </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onSelect={() => duplicateMutation.mutate(row.id)}>
-                                    <CopyIcon className="size-4"/> Duplicate
-                                </DropdownMenuItem>
-                                {!row.isDefault && (
+                                {isAdmin && (
+                                    <DropdownMenuItem onSelect={() => duplicateMutation.mutate(row.id)}>
+                                        <CopyIcon className="size-4"/> Duplicate
+                                    </DropdownMenuItem>
+                                )}
+                                {isAdmin && !row.isDefault && (
                                     <>
                                         <DropdownMenuSeparator/>
                                         <DropdownMenuItem
@@ -278,6 +286,34 @@ export function MessageTemplatesDataGrid() {
                 widthClassName="sm:max-w-xl"
             >
                 {editingTemplate && <MessageTemplateForm mode="edit" template={editingTemplate}/>}
+            </ReusableSheet>
+
+            <ReusableSheet
+                open={!!previewingTemplate}
+                onOpenChange={(open) => !open && setPreviewingTemplate(null)}
+                title={previewingTemplate ? `Preview: ${previewingTemplate.name}` : "Preview"}
+                widthClassName="sm:max-w-xl"
+            >
+                {previewingTemplate && (
+                    <div className="space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary">
+                                {CATEGORY_LABELS[previewingTemplate.category] ?? previewingTemplate.category}
+                            </Badge>
+                            {previewingTemplate.reminderTiming && (
+                                <Badge variant="secondary">
+                                    {TIMING_LABELS[previewingTemplate.reminderTiming] ?? previewingTemplate.reminderTiming}
+                                </Badge>
+                            )}
+                            <Badge variant="secondary">{previewingTemplate.channel}</Badge>
+                            {previewingTemplate.isDefault && <Badge variant="secondary">Default</Badge>}
+                        </div>
+                        <MessageTemplatePreview
+                            body={previewingTemplate.body}
+                            reminderTiming={previewingTemplate.reminderTiming}
+                        />
+                    </div>
+                )}
             </ReusableSheet>
 
             <AlertDialog open={!!deletingTemplate} onOpenChange={(open) => !open && setDeletingTemplate(null)}>

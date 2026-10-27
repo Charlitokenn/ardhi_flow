@@ -91,6 +91,29 @@ less elegantly. Option 3 was rejected because the engineer was asked directly wh
 author customizable and chose the fixed system format, trading a small amount of wording flexibility for guaranteed
 correctness (the amount, plot list, and project always come from the database, never retyped).
 
+### The AC-7 sample client (added 2026-10-27)
+
+AC-7 asked for a placeholder client when none is chosen, but the first version of this spec never named its values or
+where it renders, so the build showed the raw body and guessed segments as `length / 160`. Three ways to render it were
+weighed:
+
+- **Server (chosen).** `contactId` becomes optional on the preview call, and the worker renders the sample through the
+  same `renderMessageTemplate()`. Pro: one render path, so the line wording and GSM 7 segment count (the rule for how
+  many billed SMS a text costs) can never drift from a real preview. Con: one request per typing pause, even with no
+  client picked.
+- **Browser.** Pro: no request and no API change. Con: worker code cannot be imported by the client, so the three line
+  formats and the segment counter would be copied into client code and kept in sync by hand. A wrong count is exactly
+  what AC-7 exists to prevent.
+- **Shared package** (move rendering into a package both sides import, like `@ardhiflow/shared-schema`). Pro: exact,
+  no drift, no request. Con: a refactor of the render engine and its imports that is far larger than this gap, for a
+  saving of one debounced request.
+
+The engineer chose the server path. For the values, they chose the spec's own AC-2 sample (James, installment 3,
+Tshs. 340,000, plots 4,5, Kigamboni Greens) over neutral filler such as "Mteja", so the Past Due default renders exactly
+the string this spec already treats as correct. That gives a quick visual check of the line wording and counts, though
+not of real data lookups (only a real client exercises those). The day
+counts follow the samples too: 2 days overdue, 3 days remaining (the "Zimebakia siku 3" sample).
+
 ## Follow-up context
 
 No community skills are installed for this project (no `## Agent skills` section in `../../../AGENTS.md`), so Step 0

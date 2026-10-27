@@ -6,6 +6,7 @@ import {z} from 'zod'
 import type {Env, Variables} from '../types'
 import {
     commissionPayouts,
+    CONTACT_TYPE,
     contacts,
     contractInstallments,
     contractPayments,
@@ -21,7 +22,17 @@ const insertContactSchema = createInsertSchema(contacts).omit({id: true, created
 
 // Bulk import never accepts isDeleted from the client either — it's server
 // controlled, same as id/createdAt/updatedAt.
-const bulkContactRowSchema = insertContactSchema.omit({isDeleted: true})
+//
+// createInsertSchema takes "required" from the table, where mobile_number is
+// nullable and contact_type has a default — so without these overrides a row
+// missing either one (or with a blank fullName) was silently created. The
+// import spec requires all three (0005 AC-4).
+const requiredText = z.string().trim().min(1, {error: 'Required'})
+const bulkContactRowSchema = insertContactSchema.omit({isDeleted: true}).extend({
+    fullName: requiredText,
+    mobileNumber: requiredText,
+    contactType: z.enum(CONTACT_TYPE.enumValues),
+})
 
 const bulkImportBodySchema = z.object({
     rows: z.array(z.record(z.string(), z.unknown())).min(1),

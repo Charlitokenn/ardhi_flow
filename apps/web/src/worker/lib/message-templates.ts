@@ -140,6 +140,49 @@ export async function findDueItemsForContact(
     })
 }
 
+function addDays(date: string, days: number): string {
+    const d = new Date(date)
+    d.setUTCDate(d.getUTCDate() + days)
+    return todayDateString(d)
+}
+
+// The fixed sample client a preview renders against when no real client is
+// picked yet (AC-7). Values come from the spec's own AC-2 sample, so the
+// Past Due default renders that exact string. Only ever used in a preview
+// response — never stored, never mixed with a real client's data, and never
+// reaches the send flow. See spec Value sourcing.
+export const SAMPLE_FIRST_NAME = 'James'
+const SAMPLE_INSTALLMENT_NO = 3
+const SAMPLE_AMOUNT = 340000
+const SAMPLE_PLOT_NUMBERS = ['4', '5']
+const SAMPLE_PROJECT_NAME = 'Kigamboni Greens'
+const SAMPLE_DAYS_OVERDUE = 2
+const SAMPLE_DAYS_REMAINING = 3
+
+// One constant due-items group for the sample client, its dueDate derived
+// from today by the timing's day count. No reminderTiming → no due items.
+export function sampleDueItems(
+    reminderTiming: 'UPCOMING' | 'DUE_TODAY' | 'PAST_DUE' | null,
+    today: string = todayDateString(),
+): DueItemGroup[] {
+    if (!reminderTiming) return []
+    const base = {
+        contractId: 'sample',
+        installmentNo: SAMPLE_INSTALLMENT_NO,
+        amount: SAMPLE_AMOUNT,
+        plotNumbers: [...SAMPLE_PLOT_NUMBERS],
+        projectName: SAMPLE_PROJECT_NAME,
+    }
+    switch (reminderTiming) {
+        case 'PAST_DUE':
+            return [{...base, dueDate: addDays(today, -SAMPLE_DAYS_OVERDUE), daysOverdue: SAMPLE_DAYS_OVERDUE}]
+        case 'DUE_TODAY':
+            return [{...base, dueDate: today}]
+        case 'UPCOMING':
+            return [{...base, dueDate: addDays(today, SAMPLE_DAYS_REMAINING), daysRemaining: SAMPLE_DAYS_REMAINING}]
+    }
+}
+
 // Mirrors formatCurrency in src/client/lib/utils.ts (`Tshs. ${amount.toLocaleString('en-TZ')}`)
 // — duplicated here since worker code can't import client files.
 function formatAmount(amount: number): string {

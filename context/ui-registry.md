@@ -48,6 +48,13 @@ Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 - **Used in**: `AppSidebar`
 - **Notes**: Renders nothing if there's no active organization.
 
+### BrandingSettingsForm
+- **File**: `components/forms/company/branding-settings-form.tsx`
+- **Purpose**: Edits the tenant's document branding (slogan, brand color, email, mobile, address, website, signer title) used by the client statement and confirmation letter PDFs.
+- **Props**: none (reads `useOrganization()` and `GET`/`PUT /api/company-settings` itself)
+- **Used in**: `OrganizationSettings` "Branding" tab, inside the `TeamSwitcher`'s Clerk `<OrganizationProfile>` "Settings" custom page
+- **Notes**: Org name and logo are shown read only at the top, live from Clerk; they are never saved to `company_settings` (spec 0001). Saving needs `org:admin` (`PUT` returns 403 otherwise).
+
 ### ModeToggle
 - **File**: `components/mode-toggle.tsx`
 - **Purpose**: Light/dark theme toggle switch.
@@ -90,6 +97,25 @@ Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 - **Files**: `components/data-grids/contacts-datagrid.tsx`, `contracts-datagrid.tsx`, `projects-datagrid.tsx`, `transactions-datagrid.tsx`
 - **Purpose**: Feature-specific TanStack Table grids built on the `reui/data-grid` wrapper.
 - **Notes**: `components/data-grids/datagrid-template.tsx` is the copy-from-scratch starting point for a new resource's grid — mirror its structure rather than building a table from raw markup. Follows the pattern noted in `ui-rules.md`.
+
+### MessageTemplatesDataGrid
+- **File**: `components/data-grids/message-templates-datagrid.tsx`
+- **Purpose**: The template list on `/messaging/templates`, with an Active switch and a row actions menu.
+- **Used in**: `routes/_authed/_org/messaging/templates.tsx`
+- **Notes**: Preview is offered to every staff member. Edit, Duplicate, Delete and the Active switch are admin only. A default template never gets Edit or Delete, only Duplicate (spec 0002 AC-3).
+
+### MessageTemplateForm
+- **File**: `components/forms/messaging/message-template-form.tsx`
+- **Purpose**: Create and edit form for a message template, closing its own sheet on save via `useSheetControl()`.
+- **Props**: `mode: "create" | "edit"`, `template?: MessageTemplateFormValues` (required for edit). Also exports the `ReminderTiming` type.
+- **Used in**: `routes/_authed/_org/messaging/templates.tsx` (New Template sheet), `message-templates-datagrid.tsx` (Edit sheet)
+
+### MessageTemplatePreview
+- **File**: `components/messaging/message-template-preview.tsx`
+- **Purpose**: Client picker plus the rendered SMS text, character count and segment count for one template body, via `POST /api/message-templates/preview`. Renders against the worker's fixed sample client ("Sample client (James)") until a real client is picked.
+- **Props**: `body: string`, `reminderTiming: ReminderTiming | null`
+- **Used in**: `message-template-form.tsx` (live preview while typing), `message-templates-datagrid.tsx` (read only Preview sheet)
+- **Notes**: Debounces `body` itself (400ms). Without a chosen client it shows the raw body and a rough count; the AC-7 placeholder client is still owed by the spec.
 
 ### AddEditContactForm
 - **File**: `components/forms/contacts/add-edit-contact-form.tsx` (728 lines)

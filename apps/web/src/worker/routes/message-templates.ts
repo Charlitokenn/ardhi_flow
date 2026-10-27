@@ -5,7 +5,12 @@ import {and, desc, eq} from 'drizzle-orm'
 import {z} from 'zod'
 import type {Env, Variables} from '../types'
 import {contacts, messageTemplates} from '../../../drizzle/tenant/schema'
-import {findDueItemsForContact, renderMessageTemplate} from '../lib/message-templates'
+import {
+    findDueItemsForContact,
+    renderMessageTemplate,
+    SAMPLE_FIRST_NAME,
+    sampleDueItems,
+} from '../lib/message-templates'
 
 // isDefault/isDeleted/createdBy/timestamps are all server controlled — never
 // accepted from the client, same convention as contacts.ts.
@@ -19,7 +24,9 @@ const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({
 })
 
 const previewBodySchema = z.object({
-    contactId: z.string().uuid(),
+    // Omitted → render against the fixed sample client instead (AC-7), so
+    // the editor shows exact text and counts before a client is picked.
+    contactId: z.string().uuid().optional(),
     // The template's current body/reminderTiming, sent directly rather than
     // looked up by a saved id — this is what lets the editor preview a
     // draft as the admin types, before it has ever been saved (AC-7), using
@@ -73,7 +80,8 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
     })
     // Registered ahead of `/:id` so "preview" is never read as an id, same
     // convention as installments.ts's `/bulk`. Renders one template body
-    // against one real client's real due installments — the tracer bullet
+    // against one real client's real due installments (or the fixed sample
+    // client when contactId is omitted) — the tracer bullet
     // through DB -> grouping -> render described in the spec, and the tool
     // a staff member uses to sanity check a template before relying on it.
     // Takes body/reminderTiming directly (not a saved template id) so the
@@ -83,6 +91,16 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
         const {contactId, body, reminderTiming} = c.req.valid('json')
         const invariantError = reminderTimingInvariantError(body, reminderTiming)
         if (invariantError) return c.json({error: invariantError}, 422)
+
+        // No client picked: same render path, fed the sample client. No
+        // tenant table reads.
+        if (!contactId) {
+            const result = renderMessageTemplate(
+                {body, reminderTiming},
+                {firstName: SAMPLE_FIRST_NAME, dueItems: sampleDueItems(reminderTiming)},
+            )
+            return c.json(result)
+        }
 
         const db = c.get('tenantDb')
 
@@ -112,7 +130,12 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
             where: and(eq(messageTemplates.id, id), eq(messageTemplates.isDeleted, false)),
         })
         if (!existing) return c.json({error: 'Not found'}, 404)
-        if (existing.isDefault) {
+        // A default's content is fixed (AC-3), but it can still be switched
+        // on/off so it can be hidden from the "use a template" picker. See
+        // spec data model, isActive.
+        const fields = Object.keys(input)
+        const onlyTogglesActive = fields.length > 0 && fields.every((field) => field === 'isActive')
+        if (existing.isDefault && !onlyTogglesActive) {
             return c.json({error: 'A default template cannot be edited — duplicate it instead'}, 422)
         }
 
@@ -136,7 +159,7 @@ const messageTemplatesRoute = new Hono<{ Bindings: Env; Variables: Variables }>(
         const db = c.get('tenantDb')
 
         const existing = await db.query.messageTemplates.findFirst({
-            where: eq(messageTemplates.id, id),
+            where: and(eq(messageTemplates.id, id), eq(messageTemplates.isDeleted, false)),
         })
         if (!existing) return c.json({error: 'Not found'}, 404)
         if (existing.isDefault) {

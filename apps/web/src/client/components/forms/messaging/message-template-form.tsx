@@ -1,6 +1,6 @@
-import {useEffect, useMemo, useState} from "react"
+import {useState} from "react"
 import {useAuth} from "@clerk/react"
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
+import {useMutation, useQueryClient} from "@tanstack/react-query"
 import {toast} from "sonner"
 import {apiClient} from "@/lib/api.ts"
 import {Button} from "@/components/ui/button.tsx"
@@ -8,15 +8,11 @@ import {Input} from "@/components/ui/input.tsx"
 import {Textarea} from "@/components/ui/textarea.tsx"
 import {Field, FieldContent, FieldError, FieldGroup, FieldLabel} from "@/components/ui/field.tsx"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx"
-import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover.tsx"
-import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from "@/components/ui/command.tsx"
-import {Badge} from "@/components/reui/badge.tsx"
-import {CheckIcon, ChevronsUpDownIcon, LoaderIcon} from "lucide-react"
 import {useSheetControl} from "@/components-reusable/reusable-sheet.tsx"
-import {cn} from "@/lib/utils.ts"
+import {MessageTemplatePreview} from "@/components/messaging/message-template-preview.tsx"
 
 type Category = "PAYMENT_REMINDER" | "OVERDUE_NOTICE" | "FULLY_PAID_THANKYOU" | "MARKETING" | "GENERAL" | "CUSTOM"
-type ReminderTiming = "UPCOMING" | "DUE_TODAY" | "PAST_DUE"
+export type ReminderTiming = "UPCOMING" | "DUE_TODAY" | "PAST_DUE"
 type Channel = "SMS" | "WHATSAPP"
 
 const CATEGORY_OPTIONS: {value: Category; label: string}[] = [
@@ -66,51 +62,7 @@ export function MessageTemplateForm({mode, template}: MessageTemplateFormProps) 
     const [body, setBody] = useState(template?.body ?? "")
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    // Debounced so the preview doesn't re-render on every keystroke.
-    const [debouncedBody, setDebouncedBody] = useState(body)
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedBody(body), 400)
-        return () => clearTimeout(timer)
-    }, [body])
-
-    const [previewOpen, setPreviewOpen] = useState(false)
-    const [previewContactId, setPreviewContactId] = useState<string | null>(null)
-    const [previewContactName, setPreviewContactName] = useState<string>("")
-
-    const contactsQuery = useQuery({
-        queryKey: ["contacts"],
-        queryFn: async () => {
-            const res = await api.api.contacts.$get()
-            if (!res.ok) throw new Error(`Failed to load contacts (${res.status})`)
-            return res.json()
-        },
-        enabled: previewOpen,
-    })
-
-    const needsTiming = debouncedBody.includes("{dueItems}")
-
-    const previewQuery = useQuery({
-        queryKey: ["message-template-preview", debouncedBody, reminderTiming, previewContactId],
-        queryFn: async () => {
-            const res = await api.api["message-templates"].preview.$post({
-                json: {contactId: previewContactId!, body: debouncedBody, reminderTiming},
-            })
-            if (!res.ok) {
-                const errBody: unknown = await res.json().catch(() => null)
-                const message = (errBody && typeof errBody === "object" && "error" in errBody
-                    ? (errBody as {error?: string}).error : null) ?? "Failed to render preview"
-                throw new Error(message)
-            }
-            return res.json()
-        },
-        enabled: !!previewContactId,
-    })
-
-    // Client-side fallback so there's always *some* character count, even
-    // before a preview client is chosen (spec AC-7: "...or a placeholder
-    // client if none is chosen yet"). Approximate — {dueItems} is shown
-    // unexpanded — becomes exact once previewQuery has real data.
-    const fallbackCharCount = debouncedBody.length
+    const needsTiming = body.includes("{dueItems}")
 
     const validate = (): boolean => {
         const next: Record<string, string> = {}
@@ -150,10 +102,6 @@ export function MessageTemplateForm({mode, template}: MessageTemplateFormProps) 
         if (!validate()) return
         saveMutation.mutate()
     }
-
-    const filteredContacts = useMemo(() => {
-        return (contactsQuery.data ?? []).filter((c) => !c.isDeleted)
-    }, [contactsQuery.data])
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -249,85 +197,7 @@ export function MessageTemplateForm({mode, template}: MessageTemplateFormProps) 
                 </Field>
             </FieldGroup>
 
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Preview</span>
-                    <Popover open={previewOpen} onOpenChange={setPreviewOpen}>
-                        <PopoverTrigger asChild>
-                            <Button type="button" variant="outline" size="sm" className="gap-1.5">
-                                {previewContactName || "Pick a client"}
-                                <ChevronsUpDownIcon className="size-3.5 text-muted-foreground"/>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-72 p-0" align="end">
-                            <Command>
-                                <CommandInput placeholder="Search clients..."/>
-                                <CommandList>
-                                    <CommandEmpty>
-                                        {contactsQuery.isLoading ? "Loading..." : "No client found."}
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                        {filteredContacts.map((c) => (
-                                            <CommandItem
-                                                key={c.id}
-                                                value={c.fullName}
-                                                onSelect={() => {
-                                                    setPreviewContactId(c.id)
-                                                    setPreviewContactName(c.fullName)
-                                                    setPreviewOpen(false)
-                                                }}
-                                            >
-                                                <CheckIcon
-                                                    className={cn(
-                                                        "size-3.5",
-                                                        previewContactId === c.id ? "opacity-100" : "opacity-0",
-                                                    )}
-                                                />
-                                                {c.fullName}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-
-                {previewContactId && previewQuery.isFetching && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <LoaderIcon className="size-3.5 animate-spin"/> Rendering...
-                    </div>
-                )}
-                {previewContactId && previewQuery.isError && (
-                    <p className="text-sm text-destructive">{(previewQuery.error as Error).message}</p>
-                )}
-                {previewContactId && previewQuery.data && !previewQuery.isFetching && (
-                    <>
-                        <p className="whitespace-pre-wrap rounded-md bg-background border p-3 text-sm">
-                            {previewQuery.data.text}
-                        </p>
-                        {previewQuery.data.dueItemsFound === 0 && needsTiming && (
-                            <p className="text-xs text-amber-600">
-                                Nothing due for this client in this timing right now.
-                            </p>
-                        )}
-                    </>
-                )}
-                {!previewContactId && (
-                    <p className="whitespace-pre-wrap rounded-md bg-background border p-3 text-sm text-muted-foreground">
-                        {body || "Nothing typed yet."}
-                    </p>
-                )}
-
-                <div className="flex items-center gap-2">
-                    <Badge variant="secondary">
-                        {previewContactId && previewQuery.data ? previewQuery.data.charCount : fallbackCharCount} characters
-                    </Badge>
-                    <Badge variant="secondary">
-                        {previewContactId && previewQuery.data ? previewQuery.data.segmentCount : Math.max(1, Math.ceil(fallbackCharCount / 160))} SMS segment(s)
-                    </Badge>
-                </div>
-            </div>
+            <MessageTemplatePreview body={body} reminderTiming={reminderTiming}/>
 
             <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => sheetControl?.close()}>

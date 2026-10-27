@@ -254,6 +254,14 @@ export interface CsvUploaderProps<TInsert extends Record<string, unknown>> {
     onSubmit: (
         rows: TInsert[],
     ) => Promise<CsvImportSummary | void> | CsvImportSummary | void;
+    /**
+     * When true, a blank or unparseable required cell no longer aborts the
+     * whole file: the row is sent without that field and the server is
+     * trusted to fail just that row in its summary. Only enable this for an
+     * endpoint whose row schema actually enforces every `required` field
+     * (default: false, abort on the first bad row).
+     */
+    serverValidatesRequiredFields?: boolean;
 }
 
 // ============================================================================
@@ -377,6 +385,7 @@ export function ReusableCSVUploader<TInsert extends Record<string, unknown>>({
                                                                                  fields,
                                                                                  maxFileSizeMb = 5,
                                                                                  onSubmit,
+                                                                                 serverValidatesRequiredFields = false,
                                                                              }: CsvUploaderProps<TInsert>) {
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [file, setFile] = useState<File | null>(null);
@@ -650,6 +659,9 @@ export function ReusableCSVUploader<TInsert extends Record<string, unknown>>({
                     (parsedValue === null || parsedValue === undefined) &&
                     field.required
                 ) {
+                    // Leave the field out so the server reports this one row
+                    // as failed while the rest of the file still imports.
+                    if (serverValidatesRequiredFields) continue;
                     setError(
                         `Row ${rowIndex + 2}: Could not parse required field "${field.label ?? field.key}" from value "${raw}".`,
                     );
@@ -706,6 +718,7 @@ export function ReusableCSVUploader<TInsert extends Record<string, unknown>>({
         mapping,
         onSubmit,
         requiredFieldsMissing,
+        serverValidatesRequiredFields,
     ]);
 
     const dropzoneLabelId = "csv-upload-dropzone-label";
