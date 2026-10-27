@@ -152,7 +152,7 @@ the nav.
 
 ## Slice 3: Client communication
 
-### 10. SMS messaging (NextSMS) · in-progress · needs a decision
+### 10. SMS messaging (NextSMS) · in-progress
 
 Templated payment reminder, overdue notice, and marketing campaigns with per message delivery tracking. Schema
 (`sms_campaigns`, `sms_messages`, `sms_delivery_events`) is fully modeled. Reusable message templates (create, store,
@@ -182,7 +182,14 @@ NextSMS, and its delivery status tracked per message.
         - [x] Quick Actions menu's own duplicate entry point removed too (found during build, not in the original spec — same fix, applied consistently)
     - [x] Verify it: `/check verify connect-broadcast-dashboard`
     - [x] Test it: `/test connect-broadcast-dashboard`
-- [ ] Design the send flow and NextSMS integration (spec): `/architect sms messaging`
+- [x] Design the send flow and NextSMS integration (spec): [0004](../specs/0004-sms-send-flow/index.md)
+    - [ ] Build it: `/develop sms-send-flow`
+        - [ ] One message end to end: migrations, encrypted SMS settings page, NextSMS client, test send, delivery webhook (AC-1, AC-2, AC-3, AC-4, AC-15, AC-18)
+        - [ ] Campaign drafts and audience: batched due items, segments and skip rules, draft CRUD, preview with cost and balance, real compose flow (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10)
+        - [ ] Background sending: send endpoint, send queue with crash safety and finalise (AC-11, AC-12, AC-13, AC-14)
+        - [ ] Delivery tracking: campaign detail sheet, cron and per tenant sweep, docs (AC-13, AC-16, AC-17, AC-18)
+    - [ ] Verify it: `/check verify sms-send-flow`
+    - [ ] Test it: `/test sms-send-flow`
 
 ## Slice 4: Reporting
 
@@ -286,6 +293,12 @@ Out of scope for v1, kept so the plan stays honest.
 
 - **Client facing self service portal**: contacts already carry an optional `clerkUserId` for this, but no portal UI
   exists yet.
+- **Scheduled and recurring SMS campaigns**: `SCHEDULED` stays unused; needs its own spec for cron pickup and East
+  Africa Time (raised by spec 0004).
+- **One off "send with template" from the Reminders page**: reuses the spec 0004 pipeline with no campaign (raised by
+  spec 0004).
+- **Rate limit the NextSMS delivery webhook** alongside the provisioning webhook abuse item in feature 14 (raised by
+  spec 0004).
 - **Mobile apps**: not part of v1.
 - **Multi currency support**: not part of v1.
 - **Full double entry accounting**: expenses are a cash ledger, not a chart of accounts, for v1.
