@@ -118,10 +118,10 @@ can be reconciled against its real balance, with the reconciliation state visibl
 A staff facing follow up tool for installments, in the sidebar nav under Finance → Reminder.
 `InstallmentsReminderDataGrid` lists every installment, real data via `GET /api/installments`, flattened with client,
 plot, and project, and lets staff log and edit follow up comments per installment (`contractEvents`,
-`eventType: 'FOLLOWUP_COMMENT'`). A "Receivables Calendar" sheet gives a calendar view of the same data. A "Message
-Broadcast" sheet opens the same compose flow UI tracked under SMS messaging (feature 10); its send button is not wired
-to anything yet, so that piece's completion belongs to feature 10, not here. Predates this workflow, so `/develop` and
-`/sync` leave it alone.
+`eventType: 'FOLLOWUP_COMMENT'`). A "Receivables Calendar" sheet gives a calendar view of the same data. It used to also have a "Message
+Broadcast" sheet opening the same compose flow UI tracked under SMS messaging (feature 10); spec 0003 removes that
+sheet in favor of the dedicated `/messaging/broadcasts` page, once built. Predates this workflow, so `/develop` and
+`/sync` leave the rest of it alone.
 code in `src/client/routes/_authed/_org/finance/reminder.tsx`,
 `src/client/components/data-grids/installments-reminder-datagrid.tsx`, `src/worker/routes/installments.ts`
 
@@ -156,12 +156,13 @@ the nav.
 
 Templated payment reminder, overdue notice, and marketing campaigns with per message delivery tracking. Schema
 (`sms_campaigns`, `sms_messages`, `sms_delivery_events`) is fully modeled. Reusable message templates (create, store,
-and preview reminder text) are built — schema, API, and UI (spec 0002) — but not yet verified or tested. The dedicated `/messaging` route is still a bare page header, but a full compose
-flow UI already exists (`broadcast-dashboard.tsx`/`broadcast-flow.tsx`), reachable through the "Message Broadcast" sheet
-on the Reminder page (feature 18). It holds its own state and reads company settings for a sender preview, but nothing
-about it calls a real send endpoint; "Send Campaign" is a plain button. No NextSMS API integration exists. **Done
-when:** a campaign can be created from a template, sent to a selected contact list through NextSMS, and its delivery
-status tracked per message.
+and preview reminder text) are built — schema, API, and UI (spec 0002) — but not yet verified or tested. The old bare
+`/messaging` page is gone, replaced by `/messaging/broadcasts` and `/messaging/templates` in the nav; connecting
+`/messaging/broadcasts` to a real dashboard (real campaign list, working navigation into the existing compose flow,
+and retiring the Reminder page's now-duplicate entry point) is speced as spec 0003. The compose flow itself
+(`broadcast-flow.tsx`) still holds only local state — nothing calls a real send endpoint, and no NextSMS API
+integration exists. **Done when:** a campaign can be created from a template, sent to a selected contact list through
+NextSMS, and its delivery status tracked per message.
 
 - [x] Design message templates (spec): [0002](../specs/0002-message-templates/index.md)
     - [x] Build it: `/develop message-templates`
@@ -172,6 +173,15 @@ status tracked per message.
         - [x] Sample client preview when no client is picked (AC-7, spec build plan step 7)
     - [ ] Verify it: `/check verify message-templates`
     - [x] Test it: `/test message-templates`
+- [x] Design connecting the broadcast dashboard (spec): [0003](../specs/0003-connect-broadcast-dashboard.md)
+    - [x] Build it: `/develop connect-broadcast-dashboard`
+        - [x] Read-only campaigns endpoint (AC-2, AC-5)
+        - [x] Dashboard shows real campaign data (AC-1, AC-2)
+        - [x] Dashboard <-> compose flow navigation folded into the route (AC-1, AC-3, AC-4)
+        - [x] Reminder page's duplicate entry point removed (AC-4)
+        - [x] Quick Actions menu's own duplicate entry point removed too (found during build, not in the original spec — same fix, applied consistently)
+    - [ ] Verify it: `/check verify connect-broadcast-dashboard`
+    - [ ] Test it: `/test connect-broadcast-dashboard`
 - [ ] Design the send flow and NextSMS integration (spec): `/architect sms messaging`
 
 ## Slice 4: Reporting

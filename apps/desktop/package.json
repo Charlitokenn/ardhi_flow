@@ -1,0 +1,31 @@
+{
+  "name": "@ardhiflow/desktop",
+  "productName": "ArdhiFlow",
+  "description": "ArdhiFlow desktop client (Electron shell around the web app)",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "author": "ArdhiFlow",
+  "main": "packages/entry-point.mjs",
+  "engines": {
+    "node": ">=23.0.0"
+  },
+  "scripts": {
+    "start": "node packages/dev-mode.js",
+    "compile": "turbo build --filter=@ardhiflow/desktop... && electron-builder build --config electron-builder.mjs",
+    "test": "playwright test tests/e2e.spec.ts"
+  },
+  "dependencies": {
+    "@ardhiflow/desktop-main": "workspace:*",
+    "@ardhiflow/desktop-preload": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/node": "25.5.0",
+    "electron": "41.0.3",
+    "electron-builder": "26.8.1",
+    "glob": "13.0.6",
+    "playwright": "^1.58.2",
+    "vite": "8.0.3"
+  }
+}

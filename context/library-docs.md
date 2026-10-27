@@ -90,6 +90,12 @@
 - This project is on **Zod v4** (`^4.4.3`), which changed several APIs from v3 — most visibly, string-format validators moved to top-level functions: `z.email()`, not the v3-style `z.string().email()`. `add-edit-contact-form.tsx`'s `emailOptional` schema uses the correct v4 form (`z.email().safeParse(v)`) — follow that, not v3-era examples you might recall or find in older tutorials/blog posts.
 - Both the server (`drizzle-zod`-generated schemas, via `@hono/zod-validator`) and the client (hand-written per-step schemas in complex forms) are on this same v4 — no version mismatch between the two, just no schema *sharing* between them (see `code-standards.md`).
 
+## Electron + electron-builder (`apps/desktop`)
+
+- The desktop app loads the web app **by URL** (dev server in dev, `VITE_WEB_APP_URL` when packaged). Don't try to bundle the SPA into the app with `loadFile`: relative `/api/*` calls and Clerk both break on `file://`.
+- Under pnpm, nothing is hoisted: every desktop package declares `electron` itself, and `@ardhiflow/electron-versions` resolves the binary with `createRequire(...)('electron')` rather than `npx electron`. Template docs and upstream examples assume npm workspaces (`npm run -ws`, `@npmcli/map-workspaces`); don't copy those back in.
+- electron-builder (26.x) collects third-party production deps through its pnpm-aware collector. Our own workspace packages are excluded from `node_modules/@ardhiflow/**` and re-added as `dist/**` + `package.json` only (see `electron-builder.mjs`).
+
 ## Version Lock
 
 | Library | Locked Version | Reason |

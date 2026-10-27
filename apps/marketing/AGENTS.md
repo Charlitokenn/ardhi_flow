@@ -8,6 +8,8 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
+Or from the repo root: `pnpm --filter ardhi-flow-marketing dev` (note the package name here is `ardhi-flow-marketing`, not `@ardhiflow/marketing`). Deploy: `astro build && wrangler deploy` with its own `wrangler.jsonc`.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build

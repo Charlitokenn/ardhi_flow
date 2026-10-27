@@ -1,0 +1,9 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": ["VITE_WEB_APP_URL", "VITE_EXTRA_ALLOWED_ORIGINS", "VITE_DISTRIBUTION_CHANNEL"]
+    }
+  }
+}

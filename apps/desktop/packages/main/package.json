@@ -1,0 +1,25 @@
+{
+  "name": "@ardhiflow/desktop-main",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "6.8.3"
+  },
+  "devDependencies": {
+    "@ardhiflow/electron-versions": "workspace:*",
+    "@types/node": "25.5.0",
+    "electron": "41.0.3",
+    "electron-devtools-installer": "4.0.0",
+    "typescript": "6.0.2",
+    "vite": "8.0.3"
+  }
+}

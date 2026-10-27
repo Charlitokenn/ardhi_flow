@@ -1,4 +1,5 @@
 import {useState} from "react";
+import {useNavigate} from "@tanstack/react-router";
 import {ArchiveIcon, CreditCardIcon, RadioIcon, ShoppingCartIcon, UserPlusIcon, ZapIcon} from "lucide-react";
 import {
     DropdownMenu,
@@ -13,7 +14,6 @@ import {Button} from "@/components/ui/button.tsx";
 import {ReusableSheet} from "@/components-reusable/reusable-sheet";
 import {AddEditContactForm} from "@/components/forms/contacts/add-edit-contact-form.tsx";
 import {AddEditProjectsForm} from "@/components/forms/projects/add-edit-projects-form.tsx";
-import MessagingPortal from "@/components/messaging/messaging-portal.tsx";
 
 interface QuickActionsMenuProps {
     side?: "top" | "right" | "bottom" | "left";
@@ -98,8 +98,21 @@ export function QuickActionsMenu({
     // sheet should be shown. Using a single piece of state (instead of one
     // boolean per item) keeps only one quick-action sheet open at a time.
     const [activeLabel, setActiveLabel] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     const activeItem = allItems.find((item) => item.label === activeLabel);
+
+    // "Message Broadcasting" navigates to the real Broadcasts page instead
+    // of opening its own copy of the flow in a sheet — see
+    // docs/specs/0003-connect-broadcast-dashboard: Broadcasts now lives in
+    // exactly one place, not duplicated per entry point.
+    const handleItemClick = (label: string) => {
+        if (label === "Message Broadcasting") {
+            navigate({to: "/messaging/broadcasts"});
+            return;
+        }
+        setActiveLabel(label);
+    };
 
     return (
         <div className="flex items-center justify-center">
@@ -124,7 +137,7 @@ export function QuickActionsMenu({
                                     return (
                                         <DropdownMenuItem
                                             key={item.label}
-                                            onClick={() => setActiveLabel(item.label)}
+                                            onClick={() => handleItemClick(item.label)}
                                             className="cursor-pointer"
                                         >
                                             <Icon/>
@@ -161,17 +174,6 @@ export function QuickActionsMenu({
                         if (!open) setActiveLabel(null);
                     }}
                     onSuccess={() => setActiveLabel(null)}
-                />
-            ) : activeItem?.label === "Message Broadcasting" ? (
-                <ReusableSheet
-                    open={activeItem !== undefined}
-                    onOpenChange={(open) => {
-                        if (!open) setActiveLabel(null);
-                    }}
-                    title={activeItem?.sheetTitle ?? ""}
-                    description={activeItem?.sheetDescription}
-                    widthClassName="sm:max-w-full"
-                    children={<MessagingPortal/>}
                 />
             ) : (
                 <ReusableSheet
