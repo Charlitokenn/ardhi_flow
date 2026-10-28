@@ -63,6 +63,19 @@
 			{
 				"queue": "tenant-provisioning",
 				"binding": "TENANT_PROVISION_QUEUE"
+			},
+			// SMS campaign chunks (docs/specs/0004-sms-send-flow). Create with:
+			//   wrangler queues create sms-send
+			//   wrangler queues create sms-send-dlq
+			{
+				"queue": "sms-send",
+				"binding": "SMS_SEND_QUEUE"
+			},
+			// One delivery sweep per tenant, fanned out by the cron below. Create with:
+			//   wrangler queues create sms-sweep
+			{
+				"queue": "sms-sweep",
+				"binding": "SMS_SWEEP_QUEUE"
 			}
 		],
 		"consumers": [
@@ -71,8 +84,31 @@
 				"max_batch_size": 5,
 				"max_retries": 3,
 				"dead_letter_queue": "tenant-provisioning-dlq"
+			},
+			// One chunk (up to 500 messages) per invocation. A chunk that runs out
+			// of retries lands in sms-send-dlq, whose consumer fails it closed.
+			{
+				"queue": "sms-send",
+				"max_batch_size": 1,
+				"max_retries": 3,
+				"dead_letter_queue": "sms-send-dlq"
+			},
+			{
+				"queue": "sms-send-dlq",
+				"max_batch_size": 1,
+				"max_retries": 3
+			},
+			// No dead letter queue: a failed sweep is simply redone 30 minutes later.
+			{
+				"queue": "sms-sweep",
+				"max_batch_size": 5,
+				"max_retries": 2
 			}
 		]
+	},
+	// SMS delivery sweep (src/worker/cron/sms-delivery-sweep.ts).
+	"triggers": {
+		"crons": ["*/30 * * * *"]
 	},
 	// Non-secret config. Secrets (CLERK_SECRET_KEY, CLERK_WEBHOOK_SECRET,
 	// CATALOG_DATABASE_URL, NEON_API_KEY, TENANT_CONN_KEYRING) are set
@@ -80,6 +116,9 @@
 	// — never committed here.
 	"vars": {
 		"DEFAULT_TENANT_REGION": "aws-eu-central-1",
+		// Each tenant's own NextSMS token lives encrypted in its sms_settings row
+		// (docs/specs/0004-sms-send-flow); only the base URL is config.
+		"NEXTSMS_BASE_URL": "https://messaging-service.co.tz",
 		"VITE_CLERK_PUBLISHABLE_KEY": "pk_test_cHJlY2lzZS10aXRtb3VzZS00My5jbGVyay5hY2NvdW50cy5kZXYk"
 	},
 

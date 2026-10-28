@@ -44,15 +44,21 @@ ardhi_flow/
 │   │   ├── router.tsx              # router + queryClient instances, auth context type
 │   │   └── routeTree.gen.ts        # AUTO-GENERATED — never hand-edit
 │   └── worker/                    # Hono app — the Cloudflare Worker (API + queue consumer)
-│       ├── index.ts                # exports { fetch, queue } — the Worker entry point; AppType exported here
+│       ├── index.ts                # exports { fetch, queue, scheduled } — the Worker entry point; AppType exported here
 │       ├── types.ts                 # Env bindings + Hono context Variables
 │       ├── middleware/
 │       │   ├── clerk-auth.ts        # verifies Clerk session JWT, requires org_id claim
-│       │   └── tenant-resolver.ts   # org_id -> tenant Neon connection (KV cache -> catalog DB)
+│       │   └── tenant-resolver.ts   # org_id -> tenant Neon connection, via lib/tenant-db.ts getTenantDbForOrg()
 │       ├── routes/                  # one file per resource: plots, contacts, projects, accounts, contracts, payments, expenses, dashboard
-│       │   └── webhooks/clerk.ts    # organization.created -> enqueues provisioning
+│       │   ├── campaigns.ts, sms-settings.ts  # SMS drafts, preview, test send, send, detail; NextSMS settings (spec 0004)
+│       │   ├── webhooks/clerk.ts    # organization.created -> enqueues provisioning
+│       │   └── webhooks/nextsms.ts  # NextSMS delivery reports, /api/webhooks/nextsms/:key (key + verify token, no Clerk)
 │       ├── queue/
-│       │   └── provision-tenant.ts  # the actual Neon project creation + migration, run by the queue consumer
+│       │   ├── provision-tenant.ts  # the actual Neon project creation + migration, run by the queue consumer
+│       │   ├── send-sms.ts          # sms-send + sms-send-dlq: hands QUEUED chunks to NextSMS, crash safe
+│       │   └── sms-sweep.ts         # sms-sweep: one tenant's delivery report poll, expiry, re-enqueue, timeout
+│       ├── cron/
+│       │   └── sms-delivery-sweep.ts # every 30 min: enqueues one sms-sweep per tenant with SMS
 │       ├── db/catalog.ts             # catalog Drizzle client factory
 │       └── lib/
 │           ├── neon-api.ts           # Neon Management API wrapper (project create, findProjectByName)
@@ -91,7 +97,8 @@ ardhi_flow/
       /finance/transactions                    -> transactions
       /finance/reminder                          -> payment reminders
       /finance/reconciliation                     -> account reconciliation
-    /messaging                                  -> SMS campaigns (NextSMS)
+    /messaging/broadcasts                       -> SMS campaigns: dashboard, compose flow, detail sheet (NextSMS)
+    /messaging/templates                        -> reusable message templates
     /reports                                     -> reporting
 ```
 
@@ -117,6 +124,17 @@ Clerk organization.created webhook -> src/worker/routes/webhooks/clerk.ts (verif
        3. apply generated tenant schema SQL
        4. AES-GCM encrypt the connection string, write a tenant_projects row to the catalog DB
        5. log a provisioning_events row at each step
+```
+
+```
+SMS campaign send (async, spec 0004):
+POST /api/campaigns/:id/send (authed chain)
+  -> resolve audience (lib/sms-audience.ts), check cost vs balance, claim DRAFT -> SENDING once
+  -> insert QUEUED sms_messages in 500 row chunks, enqueue one SMS_SEND_QUEUE message per chunk, 202
+  -> queue/send-sms.ts: claim rows (submitAttemptedAt), call NextSMS /text/single or /text/multi, record results, finalise
+Delivery: NextSMS -> POST /api/webhooks/nextsms/:key (catalog key lookup -> getTenantDbForOrg -> verify token)
+  backed by cron */30 -> SMS_SWEEP_QUEUE -> queue/sms-sweep.ts (polls /v2/reports, expires, re-enqueues orphaned chunks)
+The webhook, consumers and cron reach the catalog only through lib/sms-webhook-keys.ts and a tenant only through getTenantDbForOrg.
 ```
 
 ## Key Architectural Decisions
@@ -175,6 +193,8 @@ All secrets are read from `.dev.vars` locally and set via `wrangler secret put <
 - **commission_settings** — tenant-wide default commission % and payout-tranche count, seeded onto new contracts
 - **commission_payouts** — per-contract commission tranches, released as the client actually pays, each optionally linked to the payment that triggered it
 - **expenses** — cash outflows (land acquisition, salary, rent, commission settlement, etc.), optionally linked to an account, payee contact, project, and/or commission payout
-- **sms_campaigns / sms_messages / sms_delivery_events** — NextSMS integration: campaign definitions, individual sent messages (with cost, segment count, provider message id), and an append-only webhook delivery log
+- **sms_settings** — the tenant's own NextSMS account (one row): encrypted API token and webhook verify token, sender ID, webhook key
+- **sms_campaigns / sms_messages / sms_delivery_events** — NextSMS integration: campaign definitions with audience rules (not lists), individual sent messages (with cost, segment count, provider message id, chunk `batch_ref`, crash safety `submit_attempted_at`), and an append-only delivery log (`source` webhook or poll)
+- Catalog `tenant_projects.sms_webhook_key` — the unguessable path segment of each tenant's NextSMS webhook URL
 
 See `drizzle/tenant/schema.ts` and `drizzle/catalog/schema.ts` for full column definitions, indexes, and relations — they're the source of truth, this is a summary.

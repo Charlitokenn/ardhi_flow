@@ -5,6 +5,7 @@ import type {Env, Variables} from "./types";
 import {clerkAuth} from "./middleware/clerk-auth";
 import {tenantResolver} from "./middleware/tenant-resolver";
 import webhooksRoute from "./routes/webhooks/clerk";
+import nextsmsWebhookRoute from "./routes/webhooks/nextsms";
 import healthRoute from "./routes/health";
 import plotsRoute from "./routes/plots";
 import contactsRoute from "./routes/contacts";
@@ -19,7 +20,11 @@ import installmentsRoute from "./routes/installments";
 import commissionsRoute from "./routes/commissions";
 import messageTemplatesRoute from "./routes/message-templates";
 import campaignsRoute from "./routes/campaigns";
+import smsSettingsRoute from "./routes/sms-settings";
 import {handleTenantProvisionQueue, type ProvisionTenantMessage,} from "./queue/provision-tenant";
+import {handleSmsSendDeadLetterQueue, handleSmsSendQueue, type SmsSendMessage} from "./queue/send-sms";
+import {handleSmsSweepQueue, type SmsSweepMessage} from "./queue/sms-sweep";
+import {runSmsDeliverySweep} from "./cron/sms-delivery-sweep";
 import {TenantPresence, verifyPresenceConnection} from "./durable-objects/tenant-presence";
 
 // Re-exported so wrangler can find the Durable Object class named in
@@ -49,6 +54,8 @@ app.use(
 
 // Public — webhooks verify their own signature; health needs no auth.
 app.route("/api/webhooks", webhooksRoute);
+// NextSMS delivery reports: the path key plus a verify token, not a signature.
+app.route("/api/webhooks/nextsms", nextsmsWebhookRoute);
 app.route("/api/health", healthRoute);
 
 // Everything else under /api requires a verified Clerk session with an
@@ -68,7 +75,8 @@ const authed = new Hono<{ Bindings: Env; Variables: Variables }>()
     .route("/installments", installmentsRoute)
     .route("/commissions", commissionsRoute)
     .route("/message-templates", messageTemplatesRoute)
-    .route("/campaigns", campaignsRoute);
+    .route("/campaigns", campaignsRoute)
+    .route("/sms-settings", smsSettingsRoute);
 
 const routes = app.route("/api", authed);
 
@@ -77,7 +85,25 @@ const routes = app.route("/api", authed);
 // client setup.
 export type AppType = typeof routes;
 
+type QueueMessage = ProvisionTenantMessage | SmsSendMessage | SmsSweepMessage;
+
 export default {
     fetch: routes.fetch,
-    queue: handleTenantProvisionQueue,
-} satisfies ExportedHandler<Env, ProvisionTenantMessage>;
+    // One queue handler for the whole Worker, so it dispatches on the queue's name.
+    queue: async (batch: MessageBatch<QueueMessage>, env: Env, ctx: ExecutionContext) => {
+        switch (batch.queue) {
+            case "sms-send":
+                return handleSmsSendQueue(batch as MessageBatch<SmsSendMessage>, env, ctx);
+            case "sms-send-dlq":
+                return handleSmsSendDeadLetterQueue(batch as MessageBatch<SmsSendMessage>, env, ctx);
+            case "sms-sweep":
+                return handleSmsSweepQueue(batch as MessageBatch<SmsSweepMessage>, env, ctx);
+            default:
+                return handleTenantProvisionQueue(batch as MessageBatch<ProvisionTenantMessage>, env);
+        }
+    },
+    // The only cron is the 30 minute SMS delivery sweep (wrangler.jsonc triggers).
+    scheduled: async (_controller: ScheduledController, env: Env, ctx: ExecutionContext) => {
+        ctx.waitUntil(runSmsDeliverySweep(env));
+    },
+} satisfies ExportedHandler<Env, QueueMessage>;

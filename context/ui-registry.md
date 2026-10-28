@@ -55,6 +55,34 @@ Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 - **Used in**: `OrganizationSettings` "Branding" tab, inside the `TeamSwitcher`'s Clerk `<OrganizationProfile>` "Settings" custom page
 - **Notes**: Org name and logo are shown read only at the top, live from Clerk; they are never saved to `company_settings` (spec 0001). Saving needs `org:admin` (`PUT` returns 403 otherwise).
 
+### SmsSettingsForm
+- **File**: `components/forms/company/sms-settings-form.tsx`
+- **Purpose**: Connects the tenant's own NextSMS account: sender ID, API token (write only), and, after the first save, the webhook URL and verify token to paste into NextSMS, each with a copy button. Shows the live balance.
+- **Props**: none (reads `GET`/`PUT /api/sms-settings` and `GET /api/sms-settings/balance` itself)
+- **Used in**: `OrganizationSettings` "SMS" tab
+- **Notes**: Admin only edits (spec 0004 AC-1, AC-2). The token is never sent back, only `•••• <last 4>`. Shows a warning when a new token means a different NextSMS account. Shares the `["sms-settings"]` query with `useSmsSettings()` (`lib/use-sms-settings.ts`).
+
+### SmsNotConfiguredNotice
+- **File**: `components/messaging/sms-not-configured-notice.tsx`
+- **Purpose**: The "SMS is not set up" banner at the top of the compose flow.
+- **Props**: none
+- **Used in**: `BroadcastFlow`
+- **Notes**: Admins get "Open SMS settings", which opens the settings dialog on the SMS tab through `openOrganizationSettings("sms")` (`lib/organization-settings-events.ts`, handled by `TeamSwitcher`).
+
+### BroadcastFlow (compose flow) + ContentStep / AudienceStep / SendStep
+- **File**: `components/messaging/broadcast-flow.tsx`, `components/messaging/steps/*.tsx`, state shape in `components/messaging/compose-campaign.ts`
+- **Purpose**: Builds an SMS campaign: content (name, type, template, text), audience (segment, untick, add a client, skipped with reasons), and review (recipients, skips, cost, balance, test send, Send).
+- **Props**: `onBack`, `draft?: DraftRow` (a DRAFT reopened from the dashboard)
+- **Used in**: `routes/_authed/_org/messaging/broadcasts.tsx`
+- **Notes**: Saves as a draft (POST then PATCH) before Send. Every step reads one shared `useAudiencePreview()` result (`lib/use-audience-preview.ts`, `POST /api/campaigns/audience-preview`). A template locks the type and freezes its reminder timing; `normaliseCampaign` keeps the "due installments" segment from outliving the template. WhatsApp is a preview only.
+
+### CampaignDetailSheet
+- **File**: `components/messaging/campaign-detail-sheet.tsx`
+- **Purpose**: A sending, sent or failed campaign's results: sent, delivered, failed (same meanings as the grid), raw status counts, skip counts, and a paged recipient list with status, error and time.
+- **Props**: `campaignId: string | null`, `onClose`
+- **Used in**: `CampaignsDataGrid` (clicking a campaign's name; a DRAFT opens the compose flow instead)
+- **Notes**: Polls every 10 seconds while the campaign is `SENDING`.
+
 ### ModeToggle
 - **File**: `components/mode-toggle.tsx`
 - **Purpose**: Light/dark theme toggle switch.

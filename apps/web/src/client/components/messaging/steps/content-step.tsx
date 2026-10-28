@@ -5,6 +5,8 @@ import {useQuery} from '@tanstack/react-query'
 import {useState} from 'react'
 import {apiClient} from '@/lib/api.ts'
 import {ChevronDownIcon} from 'lucide-react'
+import {SMS_CAMPAIGN_TYPES, type SmsCampaignType} from '@ardhiflow/shared-schema'
+import {SMS_TYPE_LABELS} from '../compose-campaign'
 
 interface ContentStepProps {
     campaign: any
@@ -17,6 +19,8 @@ interface MessageTemplateSummary {
     channel: string
     isActive: boolean
     body: string
+    category: SmsCampaignType
+    reminderTiming: 'UPCOMING' | 'DUE_TODAY' | 'PAST_DUE' | null
 }
 
 export default function ContentStep({campaign, setCampaign}: ContentStepProps) {
@@ -68,6 +72,56 @@ export default function ContentStep({campaign, setCampaign}: ContentStepProps) {
                     </div>
                 </div>
 
+                {/* Campaign name and type (saved with the draft, SMS only) */}
+                {campaign.type === 'sms' && (
+                    <div className="mb-6 grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label htmlFor="campaignName" className="block text-sm font-medium text-foreground mb-2">
+                                Campaign name
+                            </label>
+                            <input
+                                id="campaignName"
+                                type="text"
+                                value={campaign.name ?? ''}
+                                onChange={(e) => setCampaign({...campaign, name: e.target.value})}
+                                placeholder="e.g. October past due reminders"
+                                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                maxLength={200}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="campaignType" className="block text-sm font-medium text-foreground mb-2">
+                                Type
+                            </label>
+                            {/* A template decides the type (AC-6); only a campaign with no template picks its own. */}
+                            <select
+                                id="campaignType"
+                                value={campaign.smsType ?? 'GENERAL'}
+                                disabled={!!campaign.templateId}
+                                onChange={(e) => setCampaign({...campaign, smsType: e.target.value as SmsCampaignType})}
+                                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
+                            >
+                                {SMS_CAMPAIGN_TYPES.map((type) => (
+                                    <option key={type} value={type}>{SMS_TYPE_LABELS[type]}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {campaign.templateId && (
+                            <p className="sm:col-span-2 text-xs text-muted-foreground">
+                                From template{campaign.templateName ? ` "${campaign.templateName}"` : ''}: it sets the
+                                type{campaign.reminderTiming ? ' and the reminder timing' : ''}.{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => setCampaign({...campaign, templateId: null, templateName: null, reminderTiming: null})}
+                                    className="font-medium text-primary hover:underline"
+                                >
+                                    Unlink template
+                                </button>
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* Title (for WhatsApp only) */}
                 {campaign.type === 'whatsapp' && (
                     <div className="mb-6">
@@ -113,7 +167,16 @@ export default function ContentStep({campaign, setCampaign}: ContentStepProps) {
                                             key={t.id}
                                             type="button"
                                             onClick={() => {
-                                                setCampaign({...campaign, message: t.body})
+                                                // The timing is frozen from the template, so {dueItems}
+                                                // renders the same way in the test send and the real send.
+                                                setCampaign({
+                                                    ...campaign,
+                                                    message: t.body,
+                                                    templateId: t.id,
+                                                    templateName: t.name,
+                                                    smsType: t.category,
+                                                    reminderTiming: t.reminderTiming,
+                                                })
                                                 setPickerOpen(false)
                                             }}
                                             className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-muted"

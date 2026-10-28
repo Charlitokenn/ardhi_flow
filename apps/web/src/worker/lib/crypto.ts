@@ -301,3 +301,107 @@ export async function decryptConnectionString(
     throw new ConnectionStringDecryptError('auth_failed', orgId, keyId)
   }
 }
+
+// ── tenant secrets other than the connection string (spec 0004, AC-18) ──────
+//
+// Same keyring and stored format (`<keyId>:<base64>`), but the bound data also
+// names what the value is for, `<orgId>|<purpose>|<keyId>`, so a value copied
+// into another column or another tenant fails to decrypt. The connection
+// string's own bound data (`<orgId>|<keyId>`) is left unchanged; the extra
+// `|purpose|` segment means the two formats can never be confused.
+
+export type SecretPurpose = 'sms_api_token' | 'sms_verify_token'
+
+export class SecretDecryptError extends Error {
+  readonly code: DecryptFailureCode
+  readonly orgId: string
+  readonly purpose: SecretPurpose
+  readonly keyId: string
+
+  constructor(code: DecryptFailureCode, orgId: string, purpose: SecretPurpose, keyId: string) {
+    super(`Cannot decrypt ${purpose} for org ${orgId} with key ${keyId}: ${code}`)
+    this.name = 'SecretDecryptError'
+    this.code = code
+    this.orgId = orgId
+    this.purpose = purpose
+    this.keyId = keyId
+  }
+}
+
+function secretBoundData(orgId: string, purpose: SecretPurpose, keyId: string): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from(new TextEncoder().encode(`${orgId}|${purpose}|${keyId}`))
+}
+
+export async function encryptSecret(
+  plaintext: string,
+  keyring: Keyring,
+  orgId: string,
+  purpose: SecretPurpose,
+): Promise<string> {
+  const keyId = keyring.current
+  const key = await importKey(keyring, keyId)
+  if (!key) throw new SecretDecryptError('unknown_key', orgId, purpose, keyId)
+
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES))
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: secretBoundData(orgId, purpose, keyId) },
+    key,
+    new TextEncoder().encode(plaintext),
+  )
+
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength)
+  combined.set(iv, 0)
+  combined.set(new Uint8Array(ciphertext), iv.length)
+
+  return `${keyId}:${bytesToBase64(combined)}`
+}
+
+// Unlike connection strings there is no legacy (unprefixed) format: these
+// values were always written with a key id.
+export async function decryptSecret(
+  stored: string,
+  keyring: Keyring,
+  orgId: string,
+  purpose: SecretPurpose,
+): Promise<{ plaintext: string; keyId: string }> {
+  const prefix = readKeyPrefix(stored)
+  if (!prefix || prefix.keyId === null) throw new SecretDecryptError('malformed', orgId, purpose, 'unknown')
+  const keyId = prefix.keyId
+
+  const key = await importKey(keyring, keyId)
+  if (!key) throw new SecretDecryptError('unknown_key', orgId, purpose, keyId)
+
+  const combined = base64ToBytes(prefix.payload)
+  if (!combined || combined.length <= IV_BYTES) throw new SecretDecryptError('malformed', orgId, purpose, keyId)
+
+  try {
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: combined.slice(0, IV_BYTES), additionalData: secretBoundData(orgId, purpose, keyId) },
+      key,
+      combined.slice(IV_BYTES),
+    )
+    return { plaintext: new TextDecoder().decode(plaintext), keyId }
+  } catch {
+    throw new SecretDecryptError('auth_failed', orgId, purpose, keyId)
+  }
+}
+
+// Random URL safe token (base64url, no padding), for the webhook key and the
+// webhook verify token.
+export function randomUrlToken(byteLength: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength))
+  return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+// Compares two strings without returning early on the first difference, so
+// the time taken does not reveal how much of a guessed token was right.
+export function timingSafeEqualString(a: string, b: string): boolean {
+  const left = new TextEncoder().encode(a)
+  const right = new TextEncoder().encode(b)
+  let diff = left.length ^ right.length
+  const length = Math.max(left.length, right.length)
+  for (let i = 0; i < length; i++) {
+    diff |= (left[i] ?? 0) ^ (right[i] ?? 0)
+  }
+  return diff === 0
+}

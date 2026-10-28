@@ -32,6 +32,12 @@
 //   --org-id <id>        Only this tenant (for drills, or to repeat one tenant).
 //   --abandon-run <id>   Mark a stuck `running` run as `failed`.
 //
+// After the connection strings, every tenant that has set up SMS (catalog
+// sms_webhook_key set) is opened and its sms_settings secrets (NextSMS API
+// token and webhook verify token, spec 0004) are moved to the current key too.
+// A tenant that can't be reached is reported and the run exits non zero, so
+// the old key is not retired while any of those rows still uses it.
+//
 // Keys, passwords and connection strings are never printed or stored in a run
 // note. Only org ids, key ids, counts and short reason codes are.
 
@@ -46,7 +52,9 @@ import {
   ConnectionStringDecryptError,
   KeyringError,
   decryptConnectionString,
+  decryptSecret,
   encryptConnectionString,
+  encryptSecret,
   parseKeyring,
   readKeyPrefix,
   LEGACY_KEY_ID,
@@ -60,6 +68,7 @@ import {
   resetRolePassword,
 } from '../src/worker/lib/neon-api'
 import { keyRotationRuns, tenantProjects } from '../drizzle/catalog/schema'
+import { smsSettings } from '../drizzle/tenant/schema'
 
 // See scripts/seed-tenant.ts for why this is needed: Node's fetch prefers
 // IPv6, which breaks Neon connectivity on networks where IPv6 doesn't
@@ -563,6 +572,97 @@ async function realRun(db: CatalogDb, keyring: Keyring, rows: TenantRow[]): Prom
   }
 }
 
+// ── tenant SMS secrets (spec 0004, AC-18) ────────────────────────────────────
+
+type SmsOutcome =
+  | { status: 'none' | 'current' | 'would_change' | 'done' }
+  | { status: 'failed'; reason: string }
+
+// Opens one tenant database (through its connection string, which the run
+// above has already moved) and moves its sms_settings secrets to the current
+// key. Compare and swap, like the catalog rows: the update only lands if both
+// stored values are still the ones read.
+async function rotateSmsSecrets(keyring: Keyring, row: TenantRow, write: boolean): Promise<SmsOutcome> {
+  try {
+    const { plaintext: connectionString } = await decryptConnectionString(
+      row.encryptedConnectionString,
+      keyring,
+      row.orgId,
+    )
+    const tenantDb = drizzle(neon(connectionString))
+    const [settings] = await tenantDb.select().from(smsSettings).limit(1)
+    if (!settings) return { status: 'none' }
+
+    const onCurrent = (value: string) => readKeyPrefix(value)?.keyId === keyring.current
+    if (onCurrent(settings.apiTokenEncrypted) && onCurrent(settings.webhookVerifyTokenEncrypted)) {
+      return { status: 'current' }
+    }
+    if (!write) {
+      // Confirms the keyring can still read both values.
+      await decryptSecret(settings.apiTokenEncrypted, keyring, row.orgId, 'sms_api_token')
+      await decryptSecret(settings.webhookVerifyTokenEncrypted, keyring, row.orgId, 'sms_verify_token')
+      return { status: 'would_change' }
+    }
+
+    const reencrypt = async (stored: string, purpose: 'sms_api_token' | 'sms_verify_token') => {
+      const { plaintext } = await decryptSecret(stored, keyring, row.orgId, purpose)
+      const next = await encryptSecret(plaintext, keyring, row.orgId, purpose)
+      const check = await decryptSecret(next, keyring, row.orgId, purpose)
+      if (check.plaintext !== plaintext || check.keyId !== keyring.current) throw new RotationStepError('verify_failed')
+      return next
+    }
+    const apiTokenEncrypted = await reencrypt(settings.apiTokenEncrypted, 'sms_api_token')
+    const webhookVerifyTokenEncrypted = await reencrypt(settings.webhookVerifyTokenEncrypted, 'sms_verify_token')
+
+    const updated = await tenantDb
+      .update(smsSettings)
+      .set({ apiTokenEncrypted, webhookVerifyTokenEncrypted, updatedAt: new Date() })
+      .where(
+        and(
+          eq(smsSettings.id, settings.id),
+          eq(smsSettings.apiTokenEncrypted, settings.apiTokenEncrypted),
+          eq(smsSettings.webhookVerifyTokenEncrypted, settings.webhookVerifyTokenEncrypted),
+        ),
+      )
+      .returning({ id: smsSettings.id })
+    return updated.length === 1 ? { status: 'done' } : { status: 'failed', reason: 'cas_conflict' }
+  } catch (err) {
+    return { status: 'failed', reason: reasonOf(err) }
+  }
+}
+
+// Runs over the tenants that have SMS set up. Rows are read again first, so a
+// real run sees the connection strings the run above just wrote.
+async function smsSecretsPass(db: CatalogDb, keyring: Keyring, write: boolean): Promise<void> {
+  const rows = (await loadRows(db)).filter((row) => row.smsWebhookKey !== null)
+  console.log(`
+→ SMS secrets: ${rows.length} tenant(s) with SMS set up.`)
+
+  const failures: string[] = []
+  let changed = 0
+  for (const row of rows) {
+    const outcome = await rotateSmsSecrets(keyring, row, write)
+    if (outcome.status === 'failed') {
+      failures.push(row.orgId)
+      console.error(`  ✗ ${row.orgId}: ${outcome.reason}`)
+    } else if (outcome.status === 'done' || outcome.status === 'would_change') {
+      changed++
+      console.log(`  ${write ? '✓' : '→'} ${row.orgId}${write ? '' : ' would change'}`)
+    }
+  }
+
+  if (failures.length > 0) {
+    process.exitCode = 1
+    console.error(
+      `
+✗ ${failures.length} tenant(s) still hold SMS secrets this run could not ${write ? 'move' : 'read'}. ` +
+        'Do not remove the old key until they are fixed (or their admin saves a new NextSMS token).',
+    )
+  } else {
+    console.log(`  ✓ ${changed} tenant(s) ${write ? 'moved' : 'would move'} to ${keyring.current}, the rest already there.`)
+  }
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -587,10 +687,12 @@ async function main() {
 
   if (opts.dryRun) {
     await dryRun(db, keyring, rows)
+    await smsSecretsPass(db, keyring, false)
     return
   }
 
   await realRun(db, keyring, rows)
+  await smsSecretsPass(db, keyring, true)
 }
 
 main().catch((err: unknown) => {

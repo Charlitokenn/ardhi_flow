@@ -16,24 +16,30 @@ import {MobileMockup} from "./mobile-mockup";
 import ContentStep from "./steps/content-step";
 import AudienceStep from "./steps/audience-step";
 import SendStep from "./steps/send-step";
+import {SmsNotConfiguredNotice} from "./sms-not-configured-notice";
+import {
+    campaignFromDraft,
+    type ComposeCampaign,
+    type DraftRow,
+    emptyCampaign,
+    normaliseCampaign,
+    SMS_TYPE_LABELS,
+} from "./compose-campaign";
 import {useAuth, useOrganization} from "@clerk/react";
 import {formatInternationalWithSpaces, getNameInitials} from "@/lib/utils.ts";
-import {useQuery} from "@tanstack/react-query";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {usePostHog} from "posthog-js/react";
+import {toast} from "sonner";
 import {apiClient} from "@/lib/api.ts";
+import {useAudiencePreview} from "@/lib/use-audience-preview.ts";
+import {useSmsSettings} from "@/lib/use-sms-settings.ts";
 
 type Step = "content" | "audience" | "send";
 
 interface BroadcastFlowProps {
     onBack: () => void;
-}
-
-interface Campaign {
-    type: "sms" | "whatsapp";
-    title: string;
-    message: string;
-    selectedAudience: "all" | "group" | "custom";
-    recipientCount: number;
-    sendOption: "immediate" | "scheduled" | "recurring";
+    // A DRAFT reopened from the dashboard; omitted for a new campaign.
+    draft?: DraftRow | null;
 }
 
 const time = new Date().toLocaleTimeString([], {
@@ -47,21 +53,38 @@ const chatDate = new Date().toLocaleDateString("en-US", {
     year: "numeric"
 });
 
-export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
+async function errorMessageFrom(res: { json(): Promise<unknown> }, fallback: string): Promise<string> {
+    const body: unknown = await res.json().catch(() => null)
+    if (body && typeof body === "object") {
+        const record = body as Record<string, unknown>
+        if (typeof record.message === "string") return record.message
+        if (typeof record.error === "string") return record.error
+    }
+    return fallback
+}
+
+// The compose flow (docs/specs/0004-sms-send-flow). Everything is saved as a
+// DRAFT first (POST, then PATCH), and Send works on what is stored.
+export default function BroadcastFlow({onBack, draft}: BroadcastFlowProps) {
+    const {getToken} = useAuth();
+    const api = apiClient(getToken);
+    const queryClient = useQueryClient();
+    const posthog = usePostHog();
+
     const [currentStep, setCurrentStep] = useState<Step>("content");
-    const [campaign, setCampaign] = useState({
-        type: "sms" as "sms" | "whatsapp",
-        title: "",
-        message: "",
-        selectedAudience: "all" as "all" | "group" | "custom",
-        recipientCount: 0,
-        sendOption: "immediate" as "immediate" | "scheduled" | "recurring",
-    });
+    const [campaign, setCampaignState] = useState<ComposeCampaign>(() =>
+        draft ? campaignFromDraft(draft) : emptyCampaign()
+    );
+    const setCampaign = (next: ComposeCampaign) => setCampaignState(normaliseCampaign(next));
+
+    const smsSettings = useSmsSettings();
+    const preview = useAudiencePreview(campaign, currentStep !== "content");
+    const previewResult = preview.data?.ok ? preview.data.data : null;
 
     const steps: { id: Step; label: string, icon: LucideIcon }[] = [
         {id: "content", label: "Content", icon: FileTextIcon},
         {id: "audience", label: "Audience", icon: UsersIcon},
-        {id: "send", label: "Send / Schedule", icon: SendIcon},
+        {id: "send", label: "Review & Send", icon: SendIcon},
     ];
 
     const stepIndex = steps.findIndex((s) => s.id === currentStep);
@@ -78,16 +101,89 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
         }
     };
 
+    // POST the first time, PATCH after. Returns the saved id.
+    const saveDraft = useMutation({
+        mutationFn: async (): Promise<string> => {
+            const json = {
+                name: campaign.name.trim(),
+                type: campaign.smsType,
+                templateId: campaign.templateId,
+                templateBody: campaign.message,
+                audience: campaign.audience,
+            };
+            const res = campaign.id
+                ? await api.api.campaigns[":id"].$patch({param: {id: campaign.id}, json})
+                : await api.api.campaigns.$post({json});
+            if (!res.ok) throw new Error(await errorMessageFrom(res, "Could not save the campaign"));
+            const saved = await res.json();
+            if (!("id" in saved)) throw new Error("Could not save the campaign");
+            return saved.id;
+        },
+        onSuccess: (id) => {
+            setCampaignState((current) => ({...current, id}));
+            queryClient.invalidateQueries({queryKey: ["campaigns"]});
+        },
+        onError: (error) => {
+            posthog.capture("sms_campaign_save_failed", {message: error.message});
+        },
+    });
+
+    const send = useMutation({
+        mutationFn: async () => {
+            const id = await saveDraft.mutateAsync();
+            const res = await api.api.campaigns[":id"].send.$post({param: {id}});
+            if (!res.ok) throw new Error(await errorMessageFrom(res, "The campaign could not be sent"));
+            return res.json();
+        },
+        onSuccess: (result) => {
+            queryClient.invalidateQueries({queryKey: ["campaigns"]});
+            posthog.capture("sms_campaign_sent", {recipientCount: result.recipientCount, type: campaign.smsType});
+            toast("Sending", {
+                description: `${result.recipientCount.toLocaleString()} messages are on their way`,
+                duration: 5000,
+                icon: <SendIcon className="size-6"/>,
+            });
+            onBack();
+        },
+        onError: (error) => {
+            posthog.capture("sms_campaign_send_failed", {message: error.message});
+            toast.error(error.message);
+        },
+    });
+
+    const canSave = campaign.type === "sms" && campaign.name.trim() !== "" && campaign.message.trim() !== "";
+    const canSend = canSave
+        && smsSettings.data?.configured === true
+        && !!previewResult
+        && previewResult.recipients.length > 0
+        && previewResult.balanceSufficient
+        && !preview.isFetching;
+
+    const handleSaveDraft = () => {
+        if (!canSave) {
+            toast.error("Give the campaign a name and a message first");
+            setCurrentStep("content");
+            return;
+        }
+        saveDraft.mutate(undefined, {
+            onSuccess: () => toast("Draft saved", {duration: 3000, icon: <FileTextIcon className="size-6"/>}),
+            onError: (error) => toast.error(error.message),
+        });
+    };
+
     return (
         <div className="min-h-screen bg-background -my-3.5 -mx-5.5">
             {/* Header */}
             <header className="border-b border-border px-4 py-1.5">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-medium text-foreground">New Campaign</h1>
+                        <h1 className="text-2xl font-medium text-foreground">
+                            {campaign.id ? campaign.name || "Draft campaign" : "New Campaign"}
+                        </h1>
                     </div>
                     <button
                         onClick={onBack}
+                        aria-label="Close"
                         className="text-muted-foreground hover:text-foreground transition-colors"
                     >
                         ✕
@@ -122,7 +218,8 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
 
             {/* Content */}
             <div className="flex flex-1">
-                <div className="flex-1 px-4 py-4">
+                <div className="flex-1 space-y-4 px-4 py-4">
+                    {campaign.type === "sms" && <SmsNotConfiguredNotice/>}
                     {currentStep === "content" && (
                         <ContentStep campaign={campaign} setCampaign={setCampaign}/>
                     )}
@@ -130,7 +227,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                         <AudienceStep campaign={campaign} setCampaign={setCampaign}/>
                     )}
                     {currentStep === "send" && (
-                        <SendStep campaign={campaign} setCampaign={setCampaign}/>
+                        <SendStep campaign={campaign}/>
                     )}
                 </div>
 
@@ -171,22 +268,16 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                             <div className="flex items-center justify-center">
                                 <div className="text-center">
                                     <div className="text-5xl font-bold text-primary">
-                                        {campaign.recipientCount}
+                                        {previewResult ? previewResult.recipients.length.toLocaleString() : "—"}
                                     </div>
                                     <p className="mt-2 text-sm text-muted-foreground">
-                                        recipients selected
+                                        recipients
                                     </p>
-                                    <button
-                                        onClick={() =>
-                                            setCampaign({
-                                                ...campaign,
-                                                recipientCount: Math.floor(Math.random() * 10000) + 100,
-                                            })
-                                        }
-                                        className="mt-4 px-3 py-1 text-xs rounded border border-border hover:bg-muted transition-colors"
-                                    >
-                                        Refresh count
-                                    </button>
+                                    {previewResult && previewResult.skipped.length > 0 && (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {previewResult.skipped.length.toLocaleString()} skipped
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -201,21 +292,23 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                             </div>
                             <div className="space-y-4 text-sm">
                                 <div>
-                                    <p className="text-xs text-muted-foreground">Channel</p>
-                                    <p className="font-medium text-foreground capitalize">
-                                        {campaign.type}
-                                    </p>
+                                    <p className="text-xs text-muted-foreground">Campaign</p>
+                                    <p className="font-medium text-foreground">{campaign.name || "Untitled"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Type</p>
+                                    <p className="font-medium text-foreground">{SMS_TYPE_LABELS[campaign.smsType]}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground">Recipients</p>
                                     <p className="font-medium text-foreground">
-                                        {campaign.recipientCount.toLocaleString()}
+                                        {previewResult ? previewResult.recipients.length.toLocaleString() : "—"}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground">Send Option</p>
-                                    <p className="font-medium text-foreground capitalize">
-                                        {campaign.sendOption}
+                                    <p className="text-xs text-muted-foreground">Estimated cost</p>
+                                    <p className="font-medium text-foreground">
+                                        {previewResult ? `TZS ${previewResult.estimatedCost.toLocaleString()}` : "—"}
                                     </p>
                                 </div>
                             </div>
@@ -243,6 +336,15 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                         >
                             Cancel
                         </button>
+                        {campaign.type === "sms" && (
+                            <button
+                                onClick={handleSaveDraft}
+                                disabled={saveDraft.isPending || send.isPending}
+                                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                            >
+                                {saveDraft.isPending && !send.isPending ? "Saving..." : "Save draft"}
+                            </button>
+                        )}
                         {stepIndex < steps.length - 1 ? (
                             <button
                                 onClick={handleNext}
@@ -253,10 +355,11 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
                             </button>
                         ) : (
                             <button
-                                onClick={onBack}
-                                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+                                onClick={() => send.mutate()}
+                                disabled={!canSend || send.isPending}
+                                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                             >
-                                Send Campaign
+                                {send.isPending ? "Sending..." : "Send Campaign"}
                             </button>
                         )}
                     </div>
@@ -266,7 +369,7 @@ export default function BroadcastFlow({onBack}: BroadcastFlowProps) {
     );
 }
 
-function PhonePreview({campaign}: { campaign: Campaign }) {
+function PhonePreview({campaign}: { campaign: ComposeCampaign }) {
     const previewMessage = campaign.message || "Your message will appear here";
     const isSms = campaign.type === "sms";
     const {organization} = useOrganization();

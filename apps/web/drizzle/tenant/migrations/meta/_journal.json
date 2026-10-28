@@ -57,6 +57,13 @@
       "when": 1788806960302,
       "tag": "0007_message_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793137672798,
+      "tag": "0008_sms_send_flow",
+      "breakpoints": true
     }
   ]
 }

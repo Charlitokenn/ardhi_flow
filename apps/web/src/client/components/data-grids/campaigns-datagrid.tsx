@@ -5,9 +5,9 @@
 // Compiler can't trace, so this file opts out entirely.
 "use no memo"
 
-import {useMemo, useState} from "react"
+import {useCallback, useMemo, useState} from "react"
 import {useAuth} from "@clerk/react"
-import {useQuery} from "@tanstack/react-query"
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query"
 import {toast} from "sonner"
 import {
     DataGrid,
@@ -32,6 +32,18 @@ import {
 } from "@/components/ui/dropdown-menu.tsx"
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog.tsx"
 import {Skeleton} from "@/components/ui/skeleton.tsx"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog.tsx"
+import {type DraftRow, EMPTY_AUDIENCE} from "@/components/messaging/compose-campaign.ts"
+import {CampaignDetailSheet} from "@/components/messaging/campaign-detail-sheet.tsx"
 import {apiClient} from "@/lib/api.ts"
 import {formatDateTimeShort} from "@/lib/utils.ts"
 import {type ExportColumn, exportToCSV} from "@/lib/export-csv.ts"
@@ -57,10 +69,15 @@ interface CampaignRow {
     sentCount: number
     deliveredCount: number
     createdAt: string | null
+    // Present from spec 0004 on; what the compose flow needs to reopen a draft.
+    templateId?: string | null
+    audience?: DraftRow["audience"]
 }
 
 interface CampaignsDataGridProps {
     onCreateNew: () => void
+    // Opens a DRAFT in the compose flow (docs/specs/0004-sms-send-flow AC-5, AC-17).
+    onOpenDraft?: (row: DraftRow) => void
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -91,10 +108,9 @@ const STATUS_TABS = [
 ] as const
 type StatusTab = (typeof STATUS_TABS)[number]["value"]
 
-// Not backed by any real endpoint yet — campaigns.ts is read-only by design
-// (docs/specs/0003-connect-broadcast-dashboard, AC-5). Real edit/delete/
-// duplicate belong to the NextSMS send-flow spec; this just gives honest
-// feedback instead of a silently-dead button.
+// Drafts can be edited and deleted (docs/specs/0004-sms-send-flow AC-5).
+// Opening a sent campaign's detail, and duplicating, come later in the same
+// spec; until then this gives honest feedback instead of a dead button.
 function notAvailableYet() {
     toast.info("Not available yet — coming with the send flow")
 }
@@ -124,9 +140,52 @@ function CampaignsEmptyState({onCreateNew}: { onCreateNew: () => void }) {
     )
 }
 
-export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
+export function CampaignsDataGrid({onCreateNew, onOpenDraft}: CampaignsDataGridProps) {
     const {getToken} = useAuth()
     const api = apiClient(getToken)
+    const queryClient = useQueryClient()
+    const [deleteCandidate, setDeleteCandidate] = useState<CampaignRow | null>(null)
+    const [detailId, setDetailId] = useState<string | null>(null)
+
+    const deleteDraft = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await api.api.campaigns[":id"].$delete({param: {id}})
+            if (!res.ok) {
+                const body: unknown = await res.json().catch(() => null)
+                const message = body && typeof body === "object" && "message" in body
+                    ? String((body as {message: unknown}).message) : "Could not delete the draft"
+                throw new Error(message)
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({queryKey: ["campaigns"]})
+            toast.success("Draft deleted")
+        },
+        onError: (error) => toast.error(error.message),
+        onSettled: () => setDeleteCandidate(null),
+    })
+
+    const openDraft = useCallback((row: CampaignRow) => {
+        if (row.status !== "DRAFT" || !onOpenDraft) {
+            notAvailableYet()
+            return
+        }
+        onOpenDraft({
+            id: row.id,
+            name: row.name,
+            type: row.type,
+            templateId: row.templateId ?? null,
+            templateBody: row.templateBody,
+            audience: row.audience ?? EMPTY_AUDIENCE,
+        })
+    }, [onOpenDraft])
+
+    // AC-17: a draft reopens in the compose flow, anything already sending or
+    // sent opens its detail sheet.
+    const openCampaign = useCallback((row: CampaignRow) => {
+        if (row.status === "DRAFT") openDraft(row)
+        else setDetailId(row.id)
+    }, [openDraft])
 
     const [sorting, setSorting] = useState<SortingState>([{id: "createdAt", desc: true}])
     const [pagination, setPagination] = useState<PaginationState>({pageIndex: 0, pageSize: 10})
@@ -182,7 +241,13 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                     const row = info.row.original
                     return (
                         <div className="space-y-1 py-1">
-                            <span className="font-medium">{row.name}</span>
+                            <button
+                                type="button"
+                                onClick={() => openCampaign(row)}
+                                className="font-medium hover:underline text-left"
+                            >
+                                {row.name}
+                            </button>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Badge variant={STATUS_VARIANT[row.status] ?? "secondary"} size="sm">
                                     {row.status}
@@ -244,19 +309,22 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                         <div className="flex items-center justify-end gap-1">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="size-8">
+                                    <Button variant="ghost" size="icon" className="size-8" aria-label={`Actions for ${row.name}`}>
                                         <MoreHorizontalIcon className="size-4"/>
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onSelect={notAvailableYet}>
+                                    <DropdownMenuItem onSelect={() => openDraft(row)}>
                                         <SquarePenIcon className="size-4"/> Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => exportToCSV([row], exportColumns, row.name)}>
                                         <DownloadIcon className="size-4"/> Export Data
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator/>
-                                    <DropdownMenuItem variant="destructive" onSelect={notAvailableYet}>
+                                    <DropdownMenuItem
+                                        variant="destructive"
+                                        onSelect={() => (row.status === "DRAFT" ? setDeleteCandidate(row) : notAvailableYet())}
+                                    >
                                         <Trash2Icon className="size-4"/> Delete
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -265,11 +333,18 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                                 variant="ghost"
                                 size="icon"
                                 className="size-8"
+                                aria-label={`Preview ${row.name}`}
                                 onClick={() => setPreviewCampaign(row)}
                             >
                                 <EyeIcon className="size-4"/>
                             </Button>
-                            <Button variant="ghost" size="icon" className="size-8" onClick={notAvailableYet}>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8"
+                                aria-label={`Duplicate ${row.name}`}
+                                onClick={notAvailableYet}
+                            >
                                 <CopyIcon className="size-4"/>
                             </Button>
                         </div>
@@ -279,7 +354,7 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                 size: 130,
             },
         ],
-        [],
+        [openDraft, openCampaign],
     )
 
     const table = useTable({
@@ -370,6 +445,28 @@ export function CampaignsDataGrid({onCreateNew}: CampaignsDataGridProps) {
                     </p>
                 </DialogContent>
             </Dialog>
+
+            <CampaignDetailSheet campaignId={detailId} onClose={() => setDetailId(null)}/>
+
+            <AlertDialog open={!!deleteCandidate} onOpenChange={(open) => !open && setDeleteCandidate(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            "{deleteCandidate?.name}" will no longer appear on the dashboard. Nothing was sent.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep it</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => deleteCandidate && deleteDraft.mutate(deleteCandidate.id)}
+                            disabled={deleteDraft.isPending}
+                        >
+                            Delete draft
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }

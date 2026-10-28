@@ -4,12 +4,14 @@ import {Plus} from 'lucide-react'
 import {PageHero} from "@/components/pageHero.tsx"
 import {Button} from "@/components/ui/button.tsx"
 import {CampaignsDataGrid} from "@/components/data-grids/campaigns-datagrid.tsx"
+import type {DraftRow} from "@/components/messaging/compose-campaign.ts"
 
 interface BroadcastDashboardProps {
     onCreateNew: () => void
+    onOpenDraft?: (row: DraftRow) => void
 }
 
-export default function BroadcastDashboard({onCreateNew}: BroadcastDashboardProps) {
+export default function BroadcastDashboard({onCreateNew, onOpenDraft}: BroadcastDashboardProps) {
     return (
         <div className="-my-3.5 -mx-5">
             <header className="px-5">
@@ -30,7 +32,7 @@ export default function BroadcastDashboard({onCreateNew}: BroadcastDashboardProp
             </header>
 
             <div className="px-5">
-                <CampaignsDataGrid onCreateNew={onCreateNew}/>
+                <CampaignsDataGrid onCreateNew={onCreateNew} onOpenDraft={onOpenDraft}/>
             </div>
         </div>
     )

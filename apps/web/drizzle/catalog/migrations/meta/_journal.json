@@ -15,6 +15,13 @@
       "when": 1792790615613,
       "tag": "0001_key_rotation_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793137677407,
+      "tag": "0002_sms_webhook_key",
+      "breakpoints": true
     }
   ]
 }

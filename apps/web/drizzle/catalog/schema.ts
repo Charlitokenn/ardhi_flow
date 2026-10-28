@@ -49,6 +49,12 @@ export const tenantProjects = pgTable('tenant_projects', {
   // R2 key prefix for this tenant's files, e.g. `tenants/{orgId}/`.
   r2Prefix: text('r2_prefix').notNull(),
 
+  // Random path segment of this tenant's NextSMS delivery webhook
+  // (/api/webhooks/nextsms/<key>), set on the first SMS settings save. Only
+  // read and written through src/worker/lib/sms-webhook-keys.ts.
+  // See docs/specs/0004-sms-send-flow.
+  smsWebhookKey: text('sms_webhook_key').unique(),
+
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

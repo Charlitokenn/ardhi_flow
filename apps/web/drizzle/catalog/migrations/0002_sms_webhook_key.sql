@@ -1,0 +1,2 @@
+ALTER TABLE "tenant_projects" ADD COLUMN "sms_webhook_key" text;--> statement-breakpoint
+ALTER TABLE "tenant_projects" ADD CONSTRAINT "tenant_projects_sms_webhook_key_unique" UNIQUE("sms_webhook_key");

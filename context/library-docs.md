@@ -30,6 +30,19 @@
 - Cloudflare Queues guarantees **at-least-once** delivery, never exactly-once — a message can be redelivered even after successful processing (e.g. an ack that doesn't land before a crash). Every consumer must be idempotent by design, not as an afterthought.
 - This is exactly why `findProjectByName()` is called before creating a Neon project: Neon's project-creation endpoint is a `POST` and is explicitly not safe to blindly retry, so redelivery after a partial success (project created, catalog write not yet done) would otherwise spawn a duplicate orphaned Neon project. The current fix stops duplication but does **not** self-heal — a conflict is logged and the tenant stays unprovisioned until a human reconciles via `scripts/provision-tenant.ts` or the Neon console.
 - `wrangler.jsonc` configures `max_batch_size: 5`, `max_retries: 3`, and a `tenant-provisioning-dlq` dead-letter queue — after 3 retries a permanently-failing message lands in the DLQ rather than retrying forever.
+- **One `queue()` handler serves every queue** (`src/worker/index.ts`), so it switches on `batch.queue`: `tenant-provisioning`, `sms-send`, `sms-send-dlq`, `sms-sweep`. A new queue means a new `case` there, a producer binding and consumer block in `wrangler.jsonc`, a typed binding in `types.ts`, and `wrangler queues create <name>` before deploying.
+- `Queue.sendBatch` takes at most 100 messages per call; chunk anything bigger (see `cron/sms-delivery-sweep.ts`).
+
+## NextSMS (SMS provider, spec 0004) — `src/worker/lib/nextsms.ts`
+
+- **Each tenant uses its own NextSMS account.** There is no ArdhiFlow wide token: the API token and webhook verify token live encrypted in that tenant's `sms_settings` row (`encryptSecret`, bound to `<orgId>|<purpose>|<keyId>`). Never log them, never put them in KV, never return the API token (admins see its last 4 characters only). `rotate:keys` re-encrypts them.
+- **v2 API, Bearer auth.** Base URL from the `NEXTSMS_BASE_URL` var (`https://messaging-service.co.tz`), so local development can point at a mock. Always send `Accept: application/json`: without it NextSMS answers validation errors with a redirect instead of JSON.
+- **Go through `createNextSmsClient`, never a raw fetch.** It returns typed results that separate `refused` (401, 422, other 4xx: nothing was sent, safe to fail) from `unknown` (network, timeout, 429, 5xx: it may have landed, never resend blindly).
+- **`messageId` is a 64 bit number** in NextSMS JSON. Parse replies with `parseJsonKeepingIds`, which keeps it as a string; plain `JSON.parse` rounds it.
+- **Limits:** `/text/multi` takes at most 500 messages; `/reports` at most 200 ids; `reference` at most 50 characters, no spaces. NextSMS refuses a whole request whose first message equals the first message of a request in the last 24 hours, which is why identical text goes through `/text/single` with many numbers.
+- **The webhook never retries** and waits only 5 seconds: answer 200 first, do the database work in `waitUntil`, and rely on the 30 minute sweep (`queue/sms-sweep.ts`) for anything missed.
+- **`/test/text/single` validates without sending or charging**; its `messageId`s are not real. It is how sender IDs are checked and how prices are estimated. Whether it returns a real `price`, and the exact `sentSince` format `/v2/logs` expects, were still unconfirmed at build (spec 0004 Follow-up).
+- Map statuses only through `mapSendReplyStatus` (the send reply) and `mapReportStatus` (webhook and sweep). Final statuses (`DELIVERED`, `UNDELIVERED`, `FAILED`, `EXPIRED`) are never overwritten.
 
 ---
 

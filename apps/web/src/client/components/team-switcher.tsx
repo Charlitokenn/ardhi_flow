@@ -1,4 +1,4 @@
-import {useState} from "react"
+import {useEffect, useState} from "react"
 import {OrganizationProfile, useAuth, useOrganization} from "@clerk/react"
 import {useQuery} from "@tanstack/react-query"
 import {Dialog, DialogContent} from "@/components/ui/dialog"
@@ -9,12 +9,17 @@ import {DropdownMenu, DropdownMenuTrigger} from "@/components/ui/dropdown-menu"
 import {SidebarMenu, SidebarMenuButton, SidebarMenuItem} from "@/components/ui/sidebar"
 import {apiClient} from "@/lib/api.ts"
 import OrganizationSettings from "@/components/organization-settings.tsx"
+import {
+    OPEN_ORGANIZATION_SETTINGS_EVENT,
+    type OrganizationSettingsTab,
+} from "@/lib/organization-settings-events.ts"
 
 export function TeamSwitcher() {
     const {organization} = useOrganization()
     const {getToken, has} = useAuth()
     const isAdmin = has?.({role: 'org:admin'})
     const [open, setOpen] = useState(false)
+    const [settingsTab, setSettingsTab] = useState<OrganizationSettingsTab>("branding")
     const api = apiClient(getToken)
 
     // Same tenant-scoped `company_settings` row edited in the Branding page
@@ -30,6 +35,20 @@ export function TeamSwitcher() {
         },
         enabled: !!organization,
     })
+
+    // Other screens open this dialog straight on a settings tab (see
+    // lib/organization-settings-events.ts). The hash lands Clerk's
+    // OrganizationProfile (routing="hash") on the custom Settings page.
+    useEffect(() => {
+        const onOpen = (event: Event) => {
+            if (!isAdmin) return
+            setSettingsTab((event as CustomEvent<OrganizationSettingsTab>).detail)
+            window.location.hash = "/settings"
+            setOpen(true)
+        }
+        window.addEventListener(OPEN_ORGANIZATION_SETTINGS_EVENT, onOpen)
+        return () => window.removeEventListener(OPEN_ORGANIZATION_SETTINGS_EVENT, onOpen)
+    }, [isAdmin])
 
     if (!organization) return null
 
@@ -49,6 +68,7 @@ export function TeamSwitcher() {
                                     })
                                     return
                                 }
+                                setSettingsTab("branding")
                                 setOpen(true)
                             }}
                         >
@@ -89,7 +109,7 @@ export function TeamSwitcher() {
                             url="settings"
                             labelIcon={<SettingsIcon className="size-4"/>}
                         >
-                            <OrganizationSettings/>
+                            <OrganizationSettings defaultTab={settingsTab}/>
                         </OrganizationProfile.Page>
                     </OrganizationProfile>
                 </DialogContent>

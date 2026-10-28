@@ -25,6 +25,7 @@ Read the context files in this exact order before writing any code:
 ## Rules That Never Change
 
 - Never bypass the auth/tenant middleware chain — every authed API route must go through `clerkAuth()` then `tenantResolver()`, and pull the tenant's Drizzle client via `c.get('tenantDb')`. Never open a Neon connection any other way inside a route.
+- The only code that reaches tenant data without that chain is the NextSMS side of spec 0004: the public delivery webhook, the SMS queue consumers and the SMS cron have no Clerk session, so they open a tenant only through `getTenantDbForOrg()` (`apps/web/src/worker/lib/tenant-db.ts`, the same lookup the middleware uses). The catalog is touched outside that lookup only through the three helpers in `apps/web/src/worker/lib/sms-webhook-keys.ts` (also used by the SMS settings route). Keep both exceptions this narrow.
 - Never use hardcoded hex values or arbitrary Tailwind values in client code — always use the CSS variables / mapped Tailwind classes defined in `context/ui-tokens.md`.
 - Never install a new library without checking `context/library-docs.md` first — several libraries here (Clerk, Neon, Hono, Tailwind v4) have project-specific integration notes that differ from generic docs.
 - Never declare a Drizzle-level foreign key on `plots.activeContractId` — it's intentionally left untyped at the schema level to avoid a circular table-init error; the real FK constraint is added in the generated migration SQL only. Follow the same pattern for any other forward-reference you introduce.
@@ -43,6 +44,7 @@ Read the context files in this exact order before writing any code:
 - **Database**: Postgres via Neon serverless driver + Drizzle ORM, split into two scopes — a single **catalog** project (control plane) and one **tenant** Neon project per org
 - **Storage**: Cloudflare R2 for per-tenant file storage, key-prefixed by `tenant.r2Prefix` (binding name is `ardhi_flow_tenant_files` in `apps/web/wrangler.jsonc`)
 - **Async work**: Cloudflare Queues (`TENANT_PROVISION_QUEUE`) — Clerk `organization.created` webhook enqueues, a queue consumer does the actual Neon project creation + schema migration off the request path
+- **SMS**: NextSMS, one account per tenant (token encrypted in that tenant's `sms_settings` row, never an app wide secret). Campaign sending runs on `SMS_SEND_QUEUE` (dead letter queue `sms-send-dlq`); delivery comes by a public webhook, backed by a 30 minute cron that fans out one sweep per tenant onto `SMS_SWEEP_QUEUE`. See spec 0004 and `context/library-docs.md`.
 - **Cache**: Cloudflare KV (`TENANT_CACHE`) — caches resolved `orgId → connection string` for 5 minutes to avoid a catalog DB round trip per request
 - **Analytics/Ops**: PostHog (`posthog-js`) — error tracking, session replay, and a custom conversion funnel on the plot-creation flow, wired to PostHog Self-driving with GitHub issue sync
 - **Deployment**: Cloudflare Workers via Wrangler, from `apps/web` (`pnpm -F @ardhiflow/web deploy` = `npm run build && wrangler deploy`, where build is `tsc -b && vite build`)

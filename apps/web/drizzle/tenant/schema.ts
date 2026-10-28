@@ -806,17 +806,52 @@ export const companySettings = pgTable('company_settings', {
 
 // --- SMS (NextSMS) ---
 
+// The tenant's own NextSMS account (docs/specs/0004-sms-send-flow). At most
+// one row: `singleton` is always true and unique, and the route writes with
+// INSERT ... ON CONFLICT (singleton) DO UPDATE. Both secrets are encrypted
+// with TENANT_CONN_KEYRING (encryptSecret in src/worker/lib/crypto.ts), never
+// stored or returned in plaintext.
+export const smsSettings = pgTable('sms_settings', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    singleton: boolean('singleton').default(true).notNull().unique(),
+    apiTokenEncrypted: text('api_token_encrypted').notNull(),
+    senderId: text('sender_id').notNull(), // exact case as registered with NextSMS
+    // Copy of the catalog's tenant_projects.sms_webhook_key, used only to
+    // show the webhook URL. The catalog copy is the one the webhook looks up.
+    webhookKey: text('webhook_key').notNull(),
+    webhookVerifyTokenEncrypted: text('webhook_verify_token_encrypted').notNull(),
+    updatedBy: text('updated_by'),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
+});
+
 export const smsCampaigns = pgTable('sms_campaigns', {
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
     type: SMS_CAMPAIGN_TYPE('type').notNull(),
-    // Supports placeholders: {clientName}, {plotNumber}, {amountDue}, {dueDate}, etc.
+    // Frozen copy of the text staff wrote or picked; spec 0002 tokens
+    // ({firstName}, {dueItems}, {totalAmount}) are rendered per recipient at send.
     templateBody: text('template_body').notNull(),
-    senderId: text('sender_id'), // NextSMS sender ID used for this campaign
+    senderId: text('sender_id'), // NextSMS sender ID, copied from sms_settings at send
     status: SMS_CAMPAIGN_STATUS('status').default('DRAFT').notNull(),
     scheduledAt: timestamp('scheduled_at', {withTimezone: true}),
     createdBy: text('created_by'),
     recipientCount: integer('recipient_count').default(0).notNull(),
+    // FK to message_templates.id (on delete set null) is declared only in the
+    // migration SQL, not here: message_templates is defined further down, and
+    // forward references follow the same pattern as plots.activeContractId.
+    templateId: uuid('template_id'),
+    // Audience rules, not the list: { segment, reminderTiming,
+    // includeContactIds, excludeContactIds }. Always read through the zod
+    // schema with defaults, so older rows seeded with {} still parse.
+    audience: jsonb('audience')
+        .default(sql`'{"segment":"ALL_CLIENTS","reminderTiming":null,"includeContactIds":[],"excludeContactIds":[]}'::jsonb`)
+        .notNull(),
+    // Skip counts per reason, written once at send.
+    skipped: jsonb('skipped'),
+    sentAt: timestamp('sent_at', {withTimezone: true}),
+    sentBy: text('sent_by'), // Clerk user id of whoever pressed Send
+    isDeleted: boolean('is_deleted').default(false).notNull(),
     createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
@@ -847,6 +882,15 @@ export const smsMessages = pgTable(
         sentAt: timestamp('sent_at', {withTimezone: true}),
         deliveredAt: timestamp('delivered_at', {withTimezone: true}),
 
+        // Chunk this row is sent in, also the NextSMS `reference`.
+        batchRef: text('batch_ref'),
+        // Set just before the chunk is handed to NextSMS. A row with this set
+        // is never submitted again (crash safety, spec 0004 AC-14).
+        submitAttemptedAt: timestamp('submit_attempted_at', {withTimezone: true}),
+        // Last time the delivery sweep asked NextSMS about this message.
+        lastPolledAt: timestamp('last_polled_at', {withTimezone: true}),
+        providerStatus: text('provider_status'), // latest raw NextSMS status name
+
         createdAt: timestamp('created_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [
@@ -855,6 +899,8 @@ export const smsMessages = pgTable(
         index('sms_messages_contract_idx').on(table.contractId),
         index('sms_messages_status_idx').on(table.status),
         index('sms_messages_provider_id_idx').on(table.providerMessageId),
+        index('sms_messages_batch_ref_idx').on(table.batchRef),
+        index('sms_messages_status_last_polled_idx').on(table.status, table.lastPolledAt),
     ],
 );
 
@@ -869,7 +915,8 @@ export const smsDeliveryEvents = pgTable(
             .notNull()
             .references(() => smsMessages.id, {onDelete: 'cascade'}),
         status: text('status').notNull(), // raw status/code exactly as received from NextSMS
-        rawPayload: jsonb('raw_payload'), // full webhook body, for debugging/audit
+        rawPayload: jsonb('raw_payload'), // full webhook body minus the verify token, for debugging/audit
+        source: text('source').default('webhook').notNull(), // 'webhook' or 'poll'
         receivedAt: timestamp('received_at', {withTimezone: true}).defaultNow(),
     },
     (table) => [index('sms_delivery_events_message_idx').on(table.messageId)],
@@ -949,6 +996,8 @@ export type SmsCampaign = typeof smsCampaigns.$inferSelect;
 export type NewSmsCampaign = typeof smsCampaigns.$inferInsert;
 export type SmsMessage = typeof smsMessages.$inferSelect;
 export type NewSmsMessage = typeof smsMessages.$inferInsert;
+export type SmsSetting = typeof smsSettings.$inferSelect;
+export type NewSmsSetting = typeof smsSettings.$inferInsert;
 export type SmsDeliveryEvent = typeof smsDeliveryEvents.$inferSelect;
 export type NewSmsDeliveryEvent = typeof smsDeliveryEvents.$inferInsert;
 export type MessageTemplate = typeof messageTemplates.$inferSelect;

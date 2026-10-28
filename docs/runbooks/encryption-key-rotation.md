@@ -82,6 +82,13 @@ once the key is 335 days old, and `rotate:keys` prints the same warning.
   start refuses, printing the id. Clear it with `npm run rotate:keys -- --abandon-run <id>`, then run again. Only rows still on
   an old key are touched.
 - A `failed` run is never reopened. Fix the cause and run again.
+- **SMS secrets (spec 0004).** The same keyring also protects each tenant's NextSMS API token and webhook verify token, stored
+  in that tenant's own `sms_settings` row. After the connection strings, both `--dry-run` and a real run print an
+  `SMS secrets` section: they open every tenant that has SMS set up (catalog `sms_webhook_key` set) and check, or move, those two
+  values to the current key. A tenant listed with `✗` there still holds SMS secrets on an old key, and the script exits with an
+  error. **Do not remove the old key from the keyring while any tenant is listed.** In an emergency rotation where the old key
+  is lost, those values can't be recovered: the tenant's admin saves a new NextSMS token on the SMS settings page instead. The
+  SMS pass is not counted in `key_rotation_runs`.
 
 ## 1. First time setup
 

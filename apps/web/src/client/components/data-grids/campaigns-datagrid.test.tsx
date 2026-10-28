@@ -249,7 +249,7 @@ describe("CampaignsDataGrid", () => {
             await screen.findByText("October reminders")
 
             // Row actions are icon only: menu trigger, preview (eye), duplicate.
-            const [, previewButton] = within(rowFor("October reminders")).getAllByRole("button")
+            const previewButton = within(rowFor("October reminders")).getByRole("button", {name: "Preview October reminders"})
             await user.click(previewButton)
 
             const dialog = await screen.findByRole("dialog")
@@ -262,7 +262,7 @@ describe("CampaignsDataGrid", () => {
             const {user} = renderGrid()
             await screen.findByText("October reminders")
 
-            const [menuTrigger] = within(rowFor("October reminders")).getAllByRole("button")
+            const menuTrigger = within(rowFor("October reminders")).getByRole("button", {name: "Actions for October reminders"})
             await user.click(menuTrigger)
             await user.click(await screen.findByRole("menuitem", {name: /Edit/}))
 
@@ -273,7 +273,7 @@ describe("CampaignsDataGrid", () => {
             const {user} = renderGrid()
             await screen.findByText("October reminders")
 
-            const [menuTrigger] = within(rowFor("October reminders")).getAllByRole("button")
+            const menuTrigger = within(rowFor("October reminders")).getByRole("button", {name: "Actions for October reminders"})
             await user.click(menuTrigger)
             await user.click(await screen.findByRole("menuitem", {name: /Delete/}))
 
@@ -284,7 +284,7 @@ describe("CampaignsDataGrid", () => {
             const {user} = renderGrid()
             await screen.findByText("October reminders")
 
-            const [menuTrigger] = within(rowFor("October reminders")).getAllByRole("button")
+            const menuTrigger = within(rowFor("October reminders")).getByRole("button", {name: "Actions for October reminders"})
             await user.click(menuTrigger)
             await user.click(await screen.findByRole("menuitem", {name: /Export Data/}))
 

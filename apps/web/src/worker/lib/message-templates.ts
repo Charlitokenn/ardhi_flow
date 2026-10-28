@@ -43,7 +43,22 @@ function daysBetween(a: string, b: string): number {
 const UPCOMING_WINDOW_DAYS = 3 // matches the "Zimebakia siku 3" sample — see spec Follow-up
 
 // Finds the installments that make one client's due-items block for one
-// template's reminderTiming, already grouped and formatted.
+// template's reminderTiming, already grouped and formatted. A thin wrapper
+// over the batched lookup below, which the send flow uses for a whole
+// audience (docs/specs/0004-sms-send-flow).
+export async function findDueItemsForContact(
+    db: TenantDb,
+    contactId: string,
+    reminderTiming: 'UPCOMING' | 'DUE_TODAY' | 'PAST_DUE',
+    today: string = todayDateString(),
+): Promise<DueItemGroup[]> {
+    const byContact = await findDueItemsForContacts(db, [contactId], reminderTiming, today)
+    return byContact.get(contactId) ?? []
+}
+
+// The due-items blocks for many clients at once: two queries for the whole
+// list (contracts, then their unpaid installments), whatever its size.
+// Every requested contact is in the returned map, with [] when nothing is due.
 //
 // Contract scoping is `status IN ('ACTIVE', 'DELINQUENT')`, not `= 'ACTIVE'`
 // — a contract moves to DELINQUENT on a missed installment (see
@@ -53,30 +68,49 @@ const UPCOMING_WINDOW_DAYS = 3 // matches the "Zimebakia siku 3" sample — see 
 // Installment scoping is `status != 'PAID'`, broader than dashboard.ts's own
 // overdue count (`status = 'DUE'` only) — a PARTIAL installment past its due
 // date still owes money and should still surface here.
-export async function findDueItemsForContact(
+export async function findDueItemsForContacts(
     db: TenantDb,
-    contactId: string,
+    contactIds: string[],
     reminderTiming: 'UPCOMING' | 'DUE_TODAY' | 'PAST_DUE',
     today: string = todayDateString(),
-): Promise<DueItemGroup[]> {
+): Promise<Map<string, DueItemGroup[]>> {
+    const result = new Map<string, DueItemGroup[]>(contactIds.map((id) => [id, []]))
+    if (contactIds.length === 0) return result
+
+    // One client keeps the plain `=` the single client lookup always used.
+    const single = contactIds.length === 1
     const contracts = await db.query.plotSaleContracts.findMany({
         where: and(
-            eq(schema.plotSaleContracts.clientContactId, contactId),
+            single
+                ? eq(schema.plotSaleContracts.clientContactId, contactIds[0])
+                : inArray(schema.plotSaleContracts.clientContactId, contactIds),
             inArray(schema.plotSaleContracts.status, ['ACTIVE', 'DELINQUENT']),
         ),
-        with: {project: true},
+        columns: {id: true, clientContactId: true},
+        with: {project: {columns: {projectName: true}}},
     })
-    if (contracts.length === 0) return []
+    if (contracts.length === 0) return result
 
     const contractIds = contracts.map((c) => c.id)
     const projectNameByContractId = new Map(contracts.map((c) => [c.id, c.project.projectName]))
+    const contactIdByContractId = new Map(
+        contracts.map((c) => [c.id, single ? contactIds[0] : (c.clientContactId as string)]),
+    )
 
     const installments = await db.query.contractInstallments.findMany({
         where: and(
             inArray(schema.contractInstallments.contractId, contractIds),
             ne(schema.contractInstallments.status, 'PAID'),
         ),
-        with: {plot: true},
+        columns: {
+            contractId: true,
+            installmentNo: true,
+            dueDate: true,
+            amountDue: true,
+            amountPaid: true,
+            waivedAmount: true,
+        },
+        with: {plot: {columns: {plotNumber: true}}},
     })
 
     // Group by (contractId, installmentNo, dueDate) — this is what correctly
@@ -125,7 +159,7 @@ export async function findDueItemsForContact(
         }
     }
 
-    return Array.from(groups.values()).map((g) => {
+    for (const g of groups.values()) {
         const base: DueItemGroup = {
             contractId: g.contractId,
             installmentNo: g.installmentNo,
@@ -136,8 +170,10 @@ export async function findDueItemsForContact(
         }
         if (reminderTiming === 'PAST_DUE') base.daysOverdue = daysBetween(today, g.dueDate)
         if (reminderTiming === 'UPCOMING') base.daysRemaining = daysBetween(g.dueDate, today)
-        return base
-    })
+        const contactId = contactIdByContractId.get(g.contractId)
+        if (contactId) result.get(contactId)?.push(base)
+    }
+    return result
 }
 
 function addDays(date: string, days: number): string {
@@ -222,11 +258,17 @@ const GSM_7_EXTENDED_CHARACTERS = new Set(['\f', '^', '{', '}', '\\', '[', '~', 
 // segment. Characters from the extension table consume two septets. Any
 // other character switches the whole message to UCS-2, whose limits are 70
 // UTF-16 code units for one segment and 67 per concatenated segment.
-export function computeSmsSegments(text: string): {charCount: number; segmentCount: number} {
-    const characters = Array.from(text)
-    const isGsm7 = characters.every(
+// True when every character fits GSM 7 (basic or extension table), so the
+// message is sent at the 160/153 limits rather than UCS-2's 70/67.
+export function isGsm7Text(text: string): boolean {
+    return Array.from(text).every(
         (character) => GSM_7_BASIC_CHARACTERS.has(character) || GSM_7_EXTENDED_CHARACTERS.has(character),
     )
+}
+
+export function computeSmsSegments(text: string): {charCount: number; segmentCount: number} {
+    const characters = Array.from(text)
+    const isGsm7 = isGsm7Text(text)
     const charCount = isGsm7
         ? characters.reduce(
             (count, character) => count + (GSM_7_EXTENDED_CHARACTERS.has(character) ? 2 : 1),
@@ -239,6 +281,19 @@ export function computeSmsSegments(text: string): {charCount: number; segmentCou
     const concatenatedSegmentLimit = isGsm7 ? 153 : 67
     if (charCount <= singleSegmentLimit) return {charCount, segmentCount: 1}
     return {charCount, segmentCount: Math.ceil(charCount / concatenatedSegmentLimit)}
+}
+
+// Every token renderMessageTemplate fills in. A body using none of them
+// renders the same text for every recipient.
+export const TEMPLATE_TOKENS = ['{firstName}', '{dueItems}', '{totalAmount}'] as const
+
+export function hasPersonalTokens(body: string): boolean {
+    return TEMPLATE_TOKENS.some((token) => body.includes(token))
+}
+
+// The first word of a contact's full name, the same rule the template preview uses.
+export function firstNameOf(fullName: string): string {
+    return fullName.trim().split(/\s+/)[0] || fullName
 }
 
 // Fills in a template's tokens: {firstName}, {dueItems}, {totalAmount}.
