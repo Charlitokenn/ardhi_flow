@@ -273,6 +273,7 @@ export function CampaignsDataGrid({onCreateNew, onOpenDraft}: CampaignsDataGridP
                 ),
                 enableSorting: false,
                 size: 90,
+                meta: {headerClassName: "text-center", cellClassName: "text-center"},
             },
             {
                 accessorKey: "sentCount",
@@ -286,6 +287,7 @@ export function CampaignsDataGrid({onCreateNew, onOpenDraft}: CampaignsDataGridP
                 ),
                 enableSorting: false,
                 size: 90,
+                meta: {headerClassName: "text-center", cellClassName: "text-center"},
             },
             {
                 accessorKey: "deliveredCount",
@@ -299,6 +301,7 @@ export function CampaignsDataGrid({onCreateNew, onOpenDraft}: CampaignsDataGridP
                 ),
                 enableSorting: false,
                 size: 90,
+                meta: {headerClassName: "text-center", cellClassName: "text-center"},
             },
             {
                 id: "actions",

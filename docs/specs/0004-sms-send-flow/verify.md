@@ -60,7 +60,7 @@ Before you start: create the queues once (`npx wrangler queues create sms-send` 
 - [x] `PATCH` or `DELETE /api/campaigns/<sent id>` → 409 `not_draft` → AC-5
 - [x] `POST /api/campaigns` with a `{dueItems}` body and no template → 422 `timing_required`; with a reminder template but `type: "MARKETING"` → 422 `type_mismatch` → AC-6
 - [x] `POST /api/campaigns/audience-preview` twice, changing a contact's number in between → the second result reflects it (worked out at call time) → AC-7
-- [ ] Two parallel `POST /api/campaigns/<draft id>/send` → exactly one 202, the other 409 `not_draft`, and messages are created once → AC-11
+- [x] Two parallel `POST /api/campaigns/<draft id>/send` → exactly one 202, the other 409 `not_draft`, and messages are created once → AC-11
 - [x] While one campaign is SENDING, send another → 409 `another_send_in_progress` → AC-11
 - [ ] An audience above 5,000 → 422 `audience_too_large`; an empty audience → 422 `empty_audience`; balance short → 422 `insufficient_balance` and no rows → AC-10, AC-11
 - [ ] Identical marketing text (no tokens) to more than 500 clients goes out as several `/text/single` chunks, none refused as a duplicate (point `NEXTSMS_BASE_URL` at a mock to count calls) → AC-11, AC-12 (Value sourcing: send mode)
@@ -112,7 +112,7 @@ Before you start: `npx wrangler queues create sms-sweep` before deploying. Local
 
 ## Open after `/check verify` 2026-10-29
 - **Fixed at the API, AC-8:** a hand added client who owes nothing, in a past due reminder, was dropped silently instead of being skipped as "nothing due". After the `sms-audience.ts` fix, `/check verify` 2026-10-29 (second run) on TAJ Homes: `POST /api/campaigns/audience-preview` with Peter Lema hand added → recipients unchanged (Said Massawe, Asha Mdoe), Peter Lema in `skipped` as `nothingDue`, `nothingDue: 1`. Also checked: hand added then removed by hand → gone from both lists; hand adding Asha Mdoe (already due) → no duplicate. Still owed before ticking the AC-8 line: see the skip in the UI audience step, and confirm a send never texts that client.
-- **Not proven, AC-11:** two parallel sends gave one 202 and one 502 `nextsms_unavailable`, and one message. The loser hit NextSMS throttling in the cost check before reaching the claim, so the race itself was not exercised. Rerun when NextSMS is quiet.
+- **Proven, AC-11 race** (`/check verify` 2026-10-29, third run, after the balance throttle fix `3676a5d`): draft `b9687eda` (Marketing, all clients minus everyone but John Juma, `255756658023`) sent twice in parallel → one 409 `not_draft`, one 202 `SENDING`, one `sms_messages` row (`batch_ref = cb9687edab1bd42cb97a5b8dae744c5c0-0`), campaign `SENT`, message `DELIVERED` 8 seconds later. Line ticked.
 - **Partial, AC-10/AC-11:** empty audience → 422 `empty_audience` passed; the 5,000 cap and `insufficient_balance` were not run.
 - **Not run, AC-3:** no Clerk user is in both orgs, so the "no settings" commands could not be called.
-- **Watch:** every preview, test send and send calls NextSMS (balance plus a free price check), and NextSMS throttled with 502s several times in a few minutes of testing. Live staff editing an audience could hit this too.
+- **Fixed, NextSMS throttling:** NextSMS's nginx answers `/v2/balance` with 429 after about two calls in a few seconds. `3676a5d` keeps the last good balance in KV for 2 minutes and uses it when throttled. `/check verify` 2026-10-29: 4 rounds of balance route plus preview back to back, then a parallel pair → all 10 returned 200 (before the fix, every call after the second was 502). The send's balance check can now use a reading up to 2 minutes old when throttled; record that in the spec with `/architect` if you want it on the record.
