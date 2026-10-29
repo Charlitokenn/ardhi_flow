@@ -3,7 +3,7 @@
 > **Agent rule**: Before building any UI element, check here first.
 > After building any UI element, add it here.
 
-Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
+Last updated: 2026-10-29 (NewContractSheet, spec 0005)
 
 ---
 
@@ -126,6 +126,13 @@ Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 - **Purpose**: Feature-specific TanStack Table grids built on the `reui/data-grid` wrapper.
 - **Notes**: `components/data-grids/datagrid-template.tsx` is the copy-from-scratch starting point for a new resource's grid — mirror its structure rather than building a table from raw markup. Follows the pattern noted in `ui-rules.md`.
 
+### NewContractSheet
+- **File**: `components/forms/sales/new-contract-sheet.tsx`
+- **Purpose**: The four step New Contract flow (client and project, plots and agreed prices, terms, commission and review with the full installment schedule), saving one sale through `POST /api/contracts`.
+- **Props**: `trigger: ReactNode` (the button that opens it)
+- **Used in**: `ContractsDataGrid` header ("New Contract")
+- **Notes**: The review uses `buildContractPlan` from `@ardhiflow/shared-schema`, the same function the Worker stores with (spec 0005 AC-7), and the form validates with the server's own `createContractBodySchema`, so errors are keyed like the 422 `fields`. A new contract id (the idempotency key) is made each time the sheet opens; the draft survives closing. A 409 keeps the form, refreshes plots and flags the plots to replace. Its `StepperTrigger`s pass `type="button"` because the sheet body is a `<form>`.
+
 ### MessageTemplatesDataGrid
 - **File**: `components/data-grids/message-templates-datagrid.tsx`
 - **Purpose**: The template list on `/messaging/templates`, with an Active switch and a row actions menu.
@@ -162,7 +169,7 @@ Last updated: 2026-08-17 (contacts edit-form data-seeding removal)
 ### Stepper (+ StepperNav / StepperItem / StepperTrigger / StepperPanel / etc.)
 - **File**: `components/reui/stepper.tsx`
 - **Purpose**: Multi-step form/wizard primitive — horizontal or vertical, controlled or uncontrolled active-step state, per-step `active`/`completed`/`inactive`/`loading` visual states.
-- **Used in**: `AddEditContactForm`
+- **Used in**: `AddEditContactForm`, `NewContractSheet` (with a `StepperNav`)
 - **Notes**: This is the intended primitive for any future multi-step flow (e.g. the contract-creation flow noted as unverified in `progress-tracker.md`) — check here before hand-rolling step state.
 
 ### Combobox

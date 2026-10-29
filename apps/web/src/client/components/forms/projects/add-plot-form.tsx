@@ -16,10 +16,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog.tsx"
 import {Field, FieldError, FieldLabel} from "@/components/ui/field.tsx"
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select.tsx"
 import {PlusIcon, Trash2Icon} from "lucide-react"
-
-type Availability = "AVAILABLE" | "SOLD"
 
 interface PlotLine {
     key: string
@@ -27,7 +24,7 @@ interface PlotLine {
     surveyedPlotNumber: string
     unsurveyedSize: string
     surveyedSize: string
-    availability: Availability
+    pricePerSqm: string
 }
 
 let lineCounter = 0
@@ -39,7 +36,7 @@ function newLine(): PlotLine {
         surveyedPlotNumber: "",
         unsurveyedSize: "",
         surveyedSize: "",
-        availability: "AVAILABLE",
+        pricePerSqm: "",
     }
 }
 
@@ -55,6 +52,11 @@ const lineSchema = z.object({
         .string()
         .trim()
         .refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) >= 0), "Enter a valid size"),
+    // Optional; the New Contract sheet can only sell a plot that has one.
+    pricePerSqm: z
+        .string()
+        .trim()
+        .refine((v) => v === "" || /^[1-9]\d*$/.test(v), "Enter a whole number of shillings above 0"),
 })
 
 interface AddPlotFormProps {
@@ -96,7 +98,7 @@ export function AddPlotForm({projectId, open, onOpenChange, onSuccess}: AddPlotF
                             surveyedPlotNumber: line.surveyedPlotNumber.trim() || null,
                             unsurveyedSize: line.unsurveyedSize.trim(),
                             surveyedSize: line.surveyedSize.trim() || null,
-                            availability: line.availability,
+                            pricePerSqm: line.pricePerSqm.trim() || null,
                         },
                     }).then((res) => {
                         if (!res.ok) throw new Error(`Failed to add plot ${line.plotNumber}`)
@@ -275,22 +277,23 @@ export function AddPlotForm({projectId, open, onOpenChange, onSuccess}: AddPlotF
                                                 errors={lineErrors.surveyedSize ? [{message: lineErrors.surveyedSize}] : undefined}/>
                                         </Field>
 
-                                        <Field>
-                                            <FieldLabel htmlFor={`${idPrefix}-${line.key}-availability`}>
-                                                Availability
+                                        <Field data-invalid={!!lineErrors.pricePerSqm}>
+                                            <FieldLabel htmlFor={`${idPrefix}-${line.key}-pricePerSqm`}>
+                                                Price per sqm (TZS)
                                             </FieldLabel>
-                                            <Select
-                                                value={line.availability}
-                                                onValueChange={(v) => updateLine(line.key, "availability", v as Availability)}
-                                            >
-                                                <SelectTrigger id={`${idPrefix}-${line.key}-availability`} className="w-full">
-                                                    <SelectValue/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="AVAILABLE">Available</SelectItem>
-                                                    <SelectItem value="SOLD">Sold</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <Input
+                                                id={`${idPrefix}-${line.key}-pricePerSqm`}
+                                                type="number"
+                                                inputMode="numeric"
+                                                min={1}
+                                                step={1}
+                                                value={line.pricePerSqm}
+                                                onChange={(e) => updateLine(line.key, "pricePerSqm", e.target.value)}
+                                                placeholder="Optional, e.g. 25000"
+                                                aria-invalid={!!lineErrors.pricePerSqm}
+                                            />
+                                            <FieldError
+                                                errors={lineErrors.pricePerSqm ? [{message: lineErrors.pricePerSqm}] : undefined}/>
                                         </Field>
                                     </div>
                                 </div>

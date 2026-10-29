@@ -64,6 +64,13 @@
       "when": 1793137672798,
       "tag": "0008_sms_send_flow",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793298649104,
+      "tag": "0009_contract_creation",
+      "breakpoints": true
     }
   ]
 }

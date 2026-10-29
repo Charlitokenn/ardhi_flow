@@ -37,6 +37,13 @@ know how to build a feature, use `/develop` and skip `/architect`. You decide wh
 | 18 | Installment reminders and collections | Slice 1    | existing    |
 | 19 | Cached connection string protection   | Hardening  | planned     |
 | 20 | Rotation for other Worker secrets     | Hardening  | planned     |
+| 21 | Bulk set price per sqm                | Slice 1    | planned     |
+| 22 | Contract cancellation                 | Slice 1    | planned     |
+| 23 | Contract status lifecycle             | Slice 1    | planned     |
+| 24 | Statement and letter rate alignment   | Slice 1    | planned     |
+| 25 | Commission and contract defaults      | Slice 2    | planned     |
+| 26 | Lighter contracts list endpoint       | Hardening  | planned     |
+| 27 | Database key on plot active contract  | Hardening  | planned     |
 
 ## Foundations
 
@@ -92,16 +99,26 @@ Land acquisitions tracked as projects, broken into individually sellable plots, 
 availability tracking. List and create are wired to the real API.
 code in `src/worker/routes/projects.ts`, `src/worker/routes/plots.ts`
 
-### 6. Sales / Plot Sale Contracts · in-progress · needs a decision
+### 6. Sales / Plot Sale Contracts · in-progress
 
-Installment contracts against a plot, flat rate or downpayment plans, with a database level one active contract per plot
-constraint. The listing grid is wired to real data and the `POST /contracts` endpoint (pick plot, pick client, set
-terms, generate installment schedule) is fully built. Still missing: the "New Contract" button on the Sales page opens
-an empty sheet, contract creation is not wired to any form yet. **Done when:** a user can open "New Contract", complete
-the multi step flow, and see the new contract and its installment schedule in the grid.
+Installment contracts against one or more plots of a project, flat rate or downpayment plans, with a database level one
+active contract per plot constraint. The listing grid is wired to real data. Contract creation is built to spec 0005: a
+price per sqm on each plot, a four step "New Contract" sheet on the Sales page, and one atomic `POST /contracts` write of
+the contract, installments, commission tranches and plot status (migration applied to both live tenants 2026-10-29).
+Not yet driven end to end in a browser. No existing plot has a rate yet, so nothing can be sold until rates are set
+(feature 21).
+**Done when:** a user can open "New Contract", complete the multi step flow, and see the new contract and its
+installment schedule in the grid.
 
-- [ ] Design the creation flow (spec): `/architect sales contract creation`
-  code in `src/worker/routes/contracts.ts`
+- [x] Design the creation flow (spec): [0005](../specs/0005-sales-contract-creation/index.md)
+- [x] Build it: `/develop sales contract creation`
+    - [x] Price per sqm on plots, default cancellation fee, and plot schema hardening (AC-4)
+    - [x] Shared schedule function and the atomic `POST /contracts` with `GET /commission-settings` (AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14)
+    - [x] Thin New Contract sheet: client, project, plots, terms, save, grid refresh (AC-1, AC-2, AC-3, AC-5)
+    - [x] Commission step and review step with schedule preview and error handling (AC-6, AC-7, AC-10, AC-11, AC-13)
+- [ ] Verify it: `/check verify sales contract creation`
+- [ ] Test it: `/test sales contract creation`
+  code in `src/worker/routes/contracts.ts`, `src/client/components/data-grids/contracts-datagrid.tsx`, `src/client/components/forms/sales/new-contract-sheet.tsx`, `packages/shared-schema/src/types/contracts.ts`
 
 ### 7. Payments and Reconciliation · in-progress · needs a decision
 
@@ -124,6 +141,41 @@ sheet in favor of the dedicated `/messaging/broadcasts` page, once built. Predat
 `/sync` leave the rest of it alone.
 code in `src/client/routes/_authed/_org/finance/reminder.tsx`,
 `src/client/components/data-grids/installments-reminder-datagrid.tsx`, `src/worker/routes/installments.ts`
+
+### 21. Bulk set price per sqm · from spec 0005
+
+Today a rate can only be typed one plot at a time, and no existing plot has one, so no plot can be sold. Let staff set
+one price per sqm on many plots of a project at once from the project's plots grid. **Done when:** staff can select
+plots in a project (or all of them), enter one rate, and every selected plot stores it, with the same whole number check
+the single plot edit uses.
+
+- [ ] Build it: `/develop bulk set price per sqm`
+
+### 22. Contract cancellation · needs a decision · from spec 0005
+
+`DELETE /api/contracts/:id` is gated with 409 because the old delete hard deleted the contract, cascaded its
+installments and payments, and left its plots SOLD. A real cancellation keeps history, applies the cancellation fee,
+records any refund, and frees the plots for resale (`contract_plots.cancelled_at` set, the plot's `active_contract_id`
+cleared). **Done when:** staff can cancel a contract or drop one plot from it, the fee and refund are recorded, the plots
+show AVAILABLE again, and nothing is hard deleted.
+
+- [ ] Design the cancellation flow (spec): `/architect contract cancellation`
+
+### 23. Contract status lifecycle · needs a decision · from spec 0005
+
+Contracts start ACTIVE but nothing moves them to DELINQUENT or COMPLETED yet, and a backdated contract is born with
+installments already overdue. **Done when:** a contract's status follows its payments (delinquent past the threshold,
+completed when fully paid) and backdated contracts are handled by an explicit rule.
+
+- [ ] Design the status rules (spec): `/architect contract status lifecycle`
+
+### 24. Statement and letter rate alignment · needs a decision · from spec 0005
+
+The client statement and the confirmation letter still derive price per sqm as contract value divided by size, which
+drifts from the stored plot rate when a discount was given. **Done when:** both documents show a rate that is decided
+and consistent (the stored rate, the effective rate, or both with the discount shown).
+
+- [ ] Decide which rate the documents show (spec): `/architect statement and letter rate alignment`
 
 ## Slice 2: Commission and expense tracking
 
@@ -149,6 +201,14 @@ the nav.
 
 - [ ] Design the expenses screen (spec): `/architect expenses`
   code in `src/worker/routes/expenses.ts`
+
+### 25. Commission and contract defaults · from spec 0005
+
+The default commission percent, payout months and cancellation fee prefill every new contract but can only be changed in
+the database. Add an admin settings tab for them, next to Branding and SMS. **Done when:** an org admin can view and
+change the three defaults from the settings dialog, and the New Contract sheet picks up the new values.
+
+- [ ] Build it: `/develop commission and contract defaults`
 
 ## Slice 3: Client communication
 
@@ -220,7 +280,7 @@ org's actual plan and invoices, and change or cancel their subscription, from a 
 ### 13. Migration fan out for live tenants · existing
 
 A job that applies a schema change to every already provisioned tenant project, with per org dry run, apply, and schema
-version tracking.
+version tracking. First live run 2026-10-29 (migration `0009_contract_creation`, both tenants, dry run first).
 code in `scripts/migrate-tenants.ts`, `scripts/migrate-tenants-pg.ts`
 
 ### 14. Provisioning lifecycle completeness · needs a decision
@@ -282,6 +342,22 @@ that has been exercised once without breaking sign in, provisioning, or tenant a
 
 - [ ] Design the rotation procedures (spec): `/architect other secrets rotation`
 
+### 26. Lighter contracts list endpoint · needs a decision · from spec 0005
+
+`GET /api/contracts` loads every installment of every contract into the Sales grid, which grows fast once real sales
+exist. **Done when:** the grid loads a paged per contract summary, and full schedules load only when a contract is
+opened.
+
+- [ ] Design the list shape and paging (spec): `/architect lighter contracts list endpoint`
+
+### 27. Database key on plot active contract · needs a decision · from spec 0005
+
+`AGENTS.md` says the real foreign key on `plots.active_contract_id` lives in the migration SQL, but no migration adds it.
+**Done when:** a recorded decision either adds the constraint (with a check that existing rows satisfy it) or removes
+the claim from the docs.
+
+- [ ] Decide on the constraint (spec): `/architect plot active contract foreign key`
+
 ## Deferred
 
 Out of scope for v1, kept so the plan stays honest.
@@ -299,6 +375,8 @@ Out of scope for v1, kept so the plan stays honest.
   spec 0004).
 - **Rate limit the NextSMS delivery webhook** alongside the provisioning webhook abuse item in feature 14 (raised by
   spec 0004).
+- **SMS or confirmation letter on contract creation**: send the client a message or letter when a sale is saved (raised
+  by spec 0005).
 - **Mobile apps**: not part of v1.
 - **Multi currency support**: not part of v1.
 - **Full double entry accounting**: expenses are a cash ledger, not a chart of accounts, for v1.

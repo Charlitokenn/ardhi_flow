@@ -16,6 +16,8 @@ export interface ClientProjectPlot {
     activeContractId: string | null
     unsurveyedSize: string
     surveyedSize: string | null
+    // Whole shillings; null until staff set it (spec 0005).
+    pricePerSqm: string | null
     projectId: string
     contactId: string | null
     isDeleted: boolean

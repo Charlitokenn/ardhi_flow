@@ -44,6 +44,7 @@ import {
     EyeDashedIcon,
     FunnelIcon,
     MoreHorizontalIcon,
+    PlusIcon,
     SearchIcon,
     SquarePenIcon,
     Trash2Icon,
@@ -66,6 +67,7 @@ import {
 import {Skeleton} from "@/components/ui/skeleton.tsx"
 import {ReusableEmpty, SearchCardsIllustration,} from "@/components-reusable/reusable-empty.tsx"
 import {ArchiveIcon} from "@/assets/icons"
+import {NewContractSheet} from "@/components/forms/sales/new-contract-sheet.tsx"
 
 interface IContractPlot {
     id: string
@@ -263,7 +265,12 @@ export function ContractsDataGrid() {
     const deleteContract = useMutation({
         mutationFn: async (id: string) => {
             const res = await api.api.contracts[":id"].$delete({param: {id}})
-            if (!res.ok) throw new Error("Failed to delete contract")
+            // Deleting is gated (409) until the cancellation feature exists; show why.
+            if (!res.ok) {
+                const body: unknown = await res.json().catch(() => null)
+                const message = body && typeof body === "object" && "error" in body ? String(body.error) : null
+                throw new Error(message ?? "Failed to delete contract")
+            }
             return res.json()
         },
     })
@@ -517,13 +524,13 @@ export function ContractsDataGrid() {
                     toast.success(`Deleted contract for ${label}`)
                 }, DELETE_ANIMATION_MS)
             },
-            onError: () => {
+            onError: (error) => {
                 setDeletingIds((prev) => {
                     const next = new Set(prev)
                     next.delete(id)
                     return next
                 })
-                toast.error(`Failed to delete contract for ${label}`)
+                toast.error(`Failed to delete contract for ${label}`, {description: error.message})
             },
         })
     }
@@ -658,7 +665,15 @@ export function ContractsDataGrid() {
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <CardAction/>
+                        <CardAction>
+                            <NewContractSheet
+                                trigger={
+                                    <Button type="button">
+                                        <PlusIcon/> New Contract
+                                    </Button>
+                                }
+                            />
+                        </CardAction>
                     </CardHeader>
                     <CardContent className="p-0.5">
                         <Card className="p-0">

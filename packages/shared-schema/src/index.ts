@@ -1,5 +1,6 @@
 export * from "./types/commissions"
 export * from "./types/contacts"
+export * from "./types/contracts"
 export * from "./types/branding"
 export * from "./types/projects"
 export * from "./types/sms"

@@ -43,7 +43,6 @@ import {Input} from "@/components/ui/input.tsx"
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput} from "@/components/ui/input-group.tsx"
 import {Label} from "@/components/ui/label.tsx"
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover.tsx"
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select.tsx"
 import {ReusableEmpty, SearchCardsIllustration} from "@/components-reusable/reusable-empty.tsx"
 import {ReusableSheet} from "@/components-reusable/reusable-sheet.tsx"
 import {
@@ -89,7 +88,7 @@ interface EditDraft {
     surveyedPlotNumber: string
     unsurveyedSize: string
     surveyedSize: string
-    availability: Availability
+    pricePerSqm: string
 }
 
 function draftFromPlot(plot: ClientProjectPlot): EditDraft {
@@ -98,7 +97,7 @@ function draftFromPlot(plot: ClientProjectPlot): EditDraft {
         surveyedPlotNumber: plot.surveyedPlotNumber ?? "",
         unsurveyedSize: plot.unsurveyedSize,
         surveyedSize: plot.surveyedSize ?? "",
-        availability: plot.availability,
+        pricePerSqm: plot.pricePerSqm ?? "",
     }
 }
 
@@ -117,12 +116,9 @@ const plotFields: CsvFieldConfig<PlotCsvRow>[] = [
     {key: "surveyedPlotNumber", label: "Surveyed Plot Number", type: "string"},
     {key: "unsurveyedSize", label: "Plot Size (m²)", type: "string", required: true},
     {key: "surveyedSize", label: "Surveyed Plot Size (m²)", type: "number"},
-    {
-        key: "availability",
-        label: "Availability",
-        type: "enum",
-        enumValues: ["AVAILABLE", "SOLD"] as const,
-    },
+    // Matched by its key, so a CSV column named `pricePerSqm` maps straight
+    // in. Availability is not importable: only a sale marks a plot SOLD.
+    {key: "pricePerSqm", label: "Price per sqm (TZS)", type: "string"},
 ]
 
 // CSV export column config — mirrors exportColumns in contacts-datagrid.tsx.
@@ -133,6 +129,7 @@ const exportColumns: ExportColumn<ClientProjectPlot>[] = [
     {header: "Surveyed Plot Number", accessor: (d) => d.surveyedPlotNumber},
     {header: "Plot Size (m²)", accessor: (d) => d.unsurveyedSize},
     {header: "Surveyed Plot Size (m²)", accessor: (d) => d.surveyedSize},
+    {header: "Price per sqm (TZS)", accessor: (d) => d.pricePerSqm},
     {header: "Availability", accessor: (d) => d.availability},
     {header: "Current Owner", accessor: (d) => d.contact?.fullName ?? ""},
 ]
@@ -335,6 +332,34 @@ function SurveyedSizeCell({row, table}: PlotCellContext) {
     return <div className="text-foreground font-medium">{formatSize(row.original.surveyedSize)}</div>
 }
 
+function PricePerSqmCell({row, table}: PlotCellContext) {
+    const {editingRowId, editDraft, setEditDraft} = getMeta(table)
+
+    if (editingRowId === row.original.id && editDraft) {
+        return (
+            <Input
+                className="h-8 w-28"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={editDraft.pricePerSqm}
+                onChange={(e) => setEditDraft({...editDraft, pricePerSqm: e.target.value})}
+                placeholder="—"
+                aria-label="Price per sqm"
+            />
+        )
+    }
+    const price = row.original.pricePerSqm
+    return price ? (
+        <div className="text-foreground font-medium">TZS {thousandSeparator(Number(price))}</div>
+    ) : (
+        <div className="text-muted-foreground">Not set</div>
+    )
+}
+
+// Availability is read only here: only a sale marks a plot SOLD (spec 0005).
+// The cell still hosts the surveyed data popover while a row is being edited.
 function AvailabilityCell({row, table}: PlotCellContext) {
     const meta = getMeta(table)
     const {
@@ -351,18 +376,7 @@ function AvailabilityCell({row, table}: PlotCellContext) {
     if (editingRowId === row.original.id && editDraft) {
         return (
             <div className="flex items-center gap-1.5">
-                <Select
-                    value={editDraft.availability}
-                    onValueChange={(v) => setEditDraft({...editDraft, availability: v as Availability})}
-                >
-                    <SelectTrigger className="h-8 w-32">
-                        <SelectValue/>
-                    </SelectTrigger>
-                    <SelectContent container={container}>
-                        <SelectItem value="AVAILABLE">Available</SelectItem>
-                        <SelectItem value="SOLD">Sold</SelectItem>
-                    </SelectContent>
-                </Select>
+                {availabilityBadge(row.original.availability)}
                 {showSurveyedFields && (!hasSurveyedPlotNumber || !hasSurveyedSize) && (
                     <Popover defaultOpen>
                         <PopoverTrigger asChild>
@@ -590,6 +604,11 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
             toast.error("Enter a valid surveyed plot size")
             return
         }
+        const pricePerSqm = editDraft.pricePerSqm.trim()
+        if (pricePerSqm && !/^[1-9]\d*$/.test(pricePerSqm)) {
+            toast.error("Enter the price per sqm as a whole number of shillings above 0")
+            return
+        }
 
         setSavingRowId(plotId)
         updatePlot.mutate({
@@ -599,7 +618,7 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                 surveyedPlotNumber: editDraft.surveyedPlotNumber.trim() || null,
                 unsurveyedSize,
                 surveyedSize: surveyedSize || null,
-                availability: editDraft.availability,
+                pricePerSqm: pricePerSqm || null,
             },
         })
     }
@@ -751,6 +770,14 @@ export function ProjectPlotsDataGrid({projectId, plots}: ProjectPlotsDataGridPro
                     size: 170,
                 } as ColumnDef<DataGridFeatures, ClientProjectPlot>]
                 : []),
+            {
+                accessorKey: "pricePerSqm",
+                id: "pricePerSqm",
+                header: ({column}) => <DataGridColumnHeader title="Price per sqm" visibility column={column}/>,
+                cell: PricePerSqmCell,
+                enableSorting: true,
+                size: 150,
+            },
             {
                 accessorKey: "availability",
                 id: "availability",

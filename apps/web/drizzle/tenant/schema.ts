@@ -217,6 +217,11 @@ export const plots = pgTable(
         unsurveyedSize: numeric('unsurveyed_size').notNull(),
         surveyedSize: numeric('surveyed_size'),
 
+        // Whole shillings per sqm. Nullable: a plot with no rate cannot be sold
+        // (the New Contract sheet disables it). List price = size used × rate,
+        // see docs/specs/0005-sales-contract-creation.
+        pricePerSqm: numeric('price_per_sqm'),
+
         // 🔗 Project → Plot (many plots belong to one project)
         projectId: uuid('project_id')
             .notNull()
@@ -528,6 +533,8 @@ export const commissionSettings = pgTable('commission_settings', {
     id: uuid('id').primaryKey().defaultRandom(),
     defaultCommissionPercent: numeric('default_commission_percent').notNull().default('5'),
     defaultPayoutMonths: integer('default_payout_months').notNull().default(1),
+    // Prefills the New Contract sheet's cancellation fee (spec 0005).
+    defaultCancellationFeePercent: numeric('default_cancellation_fee_percent').notNull().default('10'),
     updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow(),
 });
 

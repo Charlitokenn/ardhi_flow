@@ -18,6 +18,7 @@ import dashboardRoute from "./routes/dashboard";
 import companySettingsRoute from "./routes/company-settings";
 import installmentsRoute from "./routes/installments";
 import commissionsRoute from "./routes/commissions";
+import commissionSettingsRoute from "./routes/commission-settings";
 import messageTemplatesRoute from "./routes/message-templates";
 import campaignsRoute from "./routes/campaigns";
 import smsSettingsRoute from "./routes/sms-settings";
@@ -74,6 +75,7 @@ const authed = new Hono<{ Bindings: Env; Variables: Variables }>()
     .route("/company-settings", companySettingsRoute)
     .route("/installments", installmentsRoute)
     .route("/commissions", commissionsRoute)
+    .route("/commission-settings", commissionSettingsRoute)
     .route("/message-templates", messageTemplatesRoute)
     .route("/campaigns", campaignsRoute)
     .route("/sms-settings", smsSettingsRoute);

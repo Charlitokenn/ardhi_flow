@@ -239,6 +239,7 @@ async function main() {
                 plotNumber: i.toString(),
                 projectId: project.id,
                 unsurveyedSize: randomInt(400, 800).toString(),
+                pricePerSqm: (randomInt(15, 40) * 1000).toString(),
                 availability: 'AVAILABLE',
             })
         }
@@ -249,6 +250,7 @@ async function main() {
     const [commSettings] = await db.insert(schema.commissionSettings).values({
         defaultCommissionPercent: '5',
         defaultPayoutMonths: 3,
+        defaultCancellationFeePercent: '10',
     }).returning()
 
     // --- Company Settings ---

@@ -48,6 +48,8 @@ pnpm -F @ardhiflow/web migrate:tenants       # fan SQL out to live tenants
 - The client imports the Worker **type-only** (`import type {AppType} from '../../worker'`), so no Drizzle/Neon/Clerk-backend runtime code ever reaches the client bundle.
 - `apps/web` exports `./worker` (types only) in `package.json`; that is how `apps/mobile` types its API calls. Keep it.
 - A new resource route = a new file in `src/worker/routes/`, registered in `src/worker/index.ts`, validated with `zValidator` against a `drizzle-zod` schema (from `packages/shared-schema` where shared with mobile).
+- A write that spans several tables goes through one `db.batch()` (Neon HTTP runs it as one transaction). Generate child row ids in the Worker (`crypto.randomUUID()`) so rows can reference each other inside the batch; raw `db.execute(sql\`...\`)` statements are batchable too. Map failures by constraint name read from the error (walk `cause`), as `POST /api/contracts` does (spec 0005).
+- Plot ownership fields (`availability`, `activeContractId`, `contactId`) change only through the sale write in `POST /api/contracts`; the plot create, update and bulk schemas omit them. `DELETE /api/contracts/:id` is gated with 409 until a cancellation feature exists.
 
 ## Gotchas
 
@@ -58,6 +60,8 @@ pnpm -F @ardhiflow/web migrate:tenants       # fan SQL out to live tenants
 - The tsx ops scripts set `NODE_OPTIONS=--dns-result-order=ipv4first` (Neon TLS hangs on IPv6 here); keep it when adding new scripts.
 - On Windows, `pnpm -F @ardhiflow/web migrate:tenants` (and the other `NODE_OPTIONS=...` scripts) fails in cmd on that prefix; run `npx tsx scripts/<name>.ts` from `apps/web` instead. The scripts set IPv4 first themselves.
 - When a catalog migration adds a `tenant_projects` column, apply it (`db:migrate:catalog`) before fanning out tenant migrations: `migrate-tenants.ts` selects every catalog column and fails until the column exists.
+- `drizzle-zod` (0.8 with drizzle-orm 0.45) maps `numeric` columns to a plain string with no number check. Validate money and rate fields explicitly (see `isInvalidPricePerSqm` in `routes/plots.ts`).
+- `zValidator` answers 400 on a schema failure. Routes whose contract is 422 pass a hook (see `POST /api/contracts`).
 - Queues must exist before a deploy that binds them: `wrangler queues create sms-send`, `sms-send-dlq` and `sms-sweep`. Locally the Vite dev server simulates them.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
