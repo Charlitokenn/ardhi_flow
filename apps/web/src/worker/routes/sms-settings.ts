@@ -137,7 +137,7 @@ const smsSettingsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
         const settings = await loadSmsSettings(c.env, c.get('tenantDb'), c.get('keyring'), c.get('orgId'))
         if (!settings) return c.json(SMS_NOT_CONFIGURED, 409)
 
-        const balance = await settings.client.getBalance()
+        const balance = await settings.getBalance()
         if (!balance.ok) {
             return c.json({error: 'nextsms_unavailable', message: 'Could not read the NextSMS balance'}, 502)
         }

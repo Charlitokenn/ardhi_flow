@@ -107,7 +107,7 @@ export type CostEstimate =
 export async function estimateCost(settings: LoadedSmsSettings, resolved: ResolvedAudience): Promise<CostEstimate> {
     const first = resolved.recipients[0]
     const [balance, priceCheck] = await Promise.all([
-        settings.client.getBalance(),
+        settings.getBalance(),
         first
             ? settings.client.sendSingle({from: settings.senderId, to: first.phone, text: first.text, test: true})
             : Promise.resolve(null),
@@ -318,7 +318,7 @@ const campaignsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
         // Price from the free validation endpoint, against the live balance.
         const [priceCheck, balance] = await Promise.all([
             settings.client.sendSingle({from: settings.senderId, to, text: rendered.text, test: true}),
-            settings.client.getBalance(),
+            settings.getBalance(),
         ])
         if (!priceCheck.ok || !balance.ok) {
             return c.json({error: 'nextsms_unavailable', message: 'Could not reach NextSMS, try again'}, 502)
