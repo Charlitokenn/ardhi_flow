@@ -100,7 +100,7 @@ export async function resolveAudience(
             columns: contactColumns,
         })
         : []
-    const extraById = new Map(extraRows.map((row) => [row.id, row]))
+    const rowById = new Map([...segmentRows, ...extraRows].map((row) => [row.id, row]))
 
     // Due items once for everyone who might need them (2 queries in total).
     const usesDueItems = templateBody.includes('{dueItems}') || templateBody.includes('{totalAmount}')
@@ -115,7 +115,14 @@ export async function resolveAudience(
     const fromSegment = audience.segment === 'DUE'
         ? segmentRows.filter((row) => dueFor(row.id).length > 0)
         : segmentRows
-    const fromHand = extraIds.map((id) => extraById.get(id)).filter((row): row is ContactRow => !!row)
+    // Hand added means "not already in the segment after its DUE filter": a
+    // client added to a reminder who owes nothing must still reach the rules
+    // below, so they show up as skipped for "nothing due" (AC-8).
+    const inFilteredSegment = new Set(fromSegment.map((row) => row.id))
+    const fromHand = [...new Set(audience.includeContactIds)]
+        .filter((id) => !inFilteredSegment.has(id))
+        .map((id) => rowById.get(id))
+        .filter((row): row is ContactRow => !!row)
 
     // 3. Drop the hand removed ones.
     const excluded = new Set(audience.excludeContactIds)
