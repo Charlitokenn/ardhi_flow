@@ -305,7 +305,7 @@ Tracer Bullet: Slice A proves the whole thread (settings → NextSMS → a real 
 4. [x] Add `normaliseTzMobile` to `packages/shared-schema` and switch the client's `utils.ts` to it. Add `worker/lib/nextsms.ts`: typed `sendMulti`, `sendSingle` (with a test mode flag), `getBalance`, `getReports`, `getLogs`, and `mapSendReplyStatus` and `mapReportStatus`. Every call sends the `Accept` header and turns NextSMS errors into typed results that separate "refused" (401, 422) from "unknown outcome" (network error, timeout, 429, 5xx). Satisfies **AC-4**, **AC-8**, **AC-12**.
 5. [x] Add the `sms-settings` route (GET, PUT with the token and sender ID checks and the safe catalog key write, balance) and the "SMS" page in the organization settings dialog next to branding (token field, sender ID, webhook URL and verify token with copy buttons, the account changed warning, balance). Satisfies **AC-1**, **AC-2**, **AC-18**.
 6. [x] Add `POST /api/campaigns/test-send` (with the KV rate limit and the balance check) and wire the send step's "Send test" box (TZ placeholder number, result shown inline). Add the "SMS is not set up" notice to the compose flow. Satisfies **AC-3**, **AC-4**.
-7. [ ] Add `POST /api/webhooks/nextsms/:key` (miss caching, verify, 200, then `waitUntil`), then prove it by configuring the webhook on a real NextSMS account and watching a test send reach `DELIVERED`. Satisfies **AC-15**.
+7. [x] Add `POST /api/webhooks/nextsms/:key` (miss caching, verify, 200, then `waitUntil`), then prove it by configuring the webhook on a real NextSMS account and watching a test send reach `DELIVERED`. Satisfies **AC-15**.
 
 **Slice B: campaigns**
 
@@ -318,7 +318,7 @@ Tracer Bullet: Slice A proves the whole thread (settings → NextSMS → a real 
 
 12. [x] Add `GET /api/campaigns/:id` (counts and paged messages) and the campaign detail sheet. Clicking a dashboard row opens the sheet for sent campaigns and the compose flow for drafts. Satisfies **AC-17**.
 13. [x] Add the cron trigger, the `scheduled` export, `worker/cron/sms-delivery-sweep.ts` (lists tenants, enqueues one sweep per tenant), the `sms-sweep` queue, and `worker/queue/sms-sweep.ts` (report polling ordered by `lastPolledAt`, 72 hour expiry, the 10 minute re-enqueue, and the 2 hour `SENDING` cleanup). Satisfies **AC-13**, **AC-16**.
-14. [ ] Add NextSMS integration notes to `context/library-docs.md` (v2 Bearer auth, the `Accept` header, the 500 limit, the 24 hour duplicate rule, no webhook retries), add the `sms-webhook-keys.ts` catalog exception to the root `AGENTS.md` middleware rule, and update `context/ui-registry.md`, `context/progress-tracker.md`, and the route list in `context/architecture.md`. Satisfies **AC-18** (records the secret handling rules for future work).
+14. [x] Add NextSMS integration notes to `context/library-docs.md` (v2 Bearer auth, the `Accept` header, the 500 limit, the 24 hour duplicate rule, no webhook retries), add the `sms-webhook-keys.ts` catalog exception to the root `AGENTS.md` middleware rule, and update `context/ui-registry.md`, `context/progress-tracker.md`, and the route list in `context/architecture.md`. Satisfies **AC-18** (records the secret handling rules for future work).
 
 ## Consequences
 
@@ -359,5 +359,5 @@ Tracer Bullet: Slice A proves the whole thread (settings → NextSMS → a real 
 - [ ] A "regenerate verify token" action for admins, in case the token leaks.
 - [ ] Scheduling (`SCHEDULED`, cron pickup, East Africa Time), and later recurring sends: their own spec.
 - [ ] One off "send with template" from the Reminders page (spec 0002 follow up): reuses this pipeline with `campaignId = null`.
-- [ ] Spec 0003 (key rotation) should mention `sms_settings` in its rotation scope and runbook once step 2 lands.
+- [x] Spec 0003 (key rotation) should mention `sms_settings` in its rotation scope and runbook once step 2 lands. Done: its AC-16.
 - [ ] If you ever want staff limits (an approval step, or a per day cap), that is its own decision.

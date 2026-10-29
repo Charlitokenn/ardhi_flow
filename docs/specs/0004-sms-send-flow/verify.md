@@ -21,6 +21,7 @@ Before you start: apply `drizzle/catalog/migrations/0002_sms_webhook_key.sql` (`
 - [ ] Pick the "Past Due Payment Reminder" template, go to the send step, type a real number as `0712 345 678`, press Send Test → "Sent", and the phone receives the sample client text (James, a past due line) from your sender ID → AC-4 (Value sourcing: test send text, due items, phone)
 - [ ] Type `0222 123 456` (a landline) → "Enter a Tanzanian mobile number" and no NextSMS call → AC-4
 - [ ] Paste the webhook URL and verify token into NextSMS (Customer Profile, Customization, Webhooks). Send another test → within minutes the `sms_messages` row moves to `DELIVERED` with `delivered_at` set, and an `sms_delivery_events` row with `source = 'webhook'` holds the payload without `token` → AC-15 (build plan step 7's proof)
+  - Proven on dev 2026-10-29 (TAJ Homes, through a `cloudflared` tunnel): test send `374065709652649561` was accepted (`ENROUTE (SENT)`, cost 16, 1 segment), and 10 minutes later the webhook moved it to `UNDELIVERED` with an `sms_delivery_events` row (`source = 'webhook'`, no `token` in the payload). The webhook path is proven. NextSMS reported the message `UNDELIVERABLE`, so a real `DELIVERED` is still unseen: check the sender ID is active for that network and the number is right, then send again before you tick this line.
 
 ## Commands
 - [ ] `curl -i -X POST <origin>/api/webhooks/nextsms/not-a-key -d '{}'` → 404 → AC-15

@@ -183,8 +183,8 @@ NextSMS, and its delivery status tracked per message.
     - [x] Verify it: `/check verify connect-broadcast-dashboard`
     - [x] Test it: `/test connect-broadcast-dashboard`
 - [x] Design the send flow and NextSMS integration (spec): [0004](../specs/0004-sms-send-flow/index.md)
-    - [ ] Build it: `/develop sms-send-flow`
-        - [ ] One message end to end: migrations, encrypted SMS settings page, NextSMS client, test send, delivery webhook (AC-1, AC-2, AC-3, AC-4, AC-15, AC-18)
+    - [x] Build it: `/develop sms-send-flow`
+        - [x] One message end to end: migrations, encrypted SMS settings page, NextSMS client, test send, delivery webhook (AC-1, AC-2, AC-3, AC-4, AC-15, AC-18)
         - [x] Campaign drafts and audience: batched due items, segments and skip rules, draft CRUD, preview with cost and balance, real compose flow (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10)
         - [x] Background sending: send endpoint, send queue with crash safety and finalise (AC-11, AC-12, AC-13, AC-14)
         - [x] Delivery tracking: campaign detail sheet, cron and per tenant sweep, docs (AC-13, AC-16, AC-17, AC-18)

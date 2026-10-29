@@ -2,6 +2,8 @@
 
 **Date**: 2026-09-08 **Status**: In Progress
 
+> **Partly superseded by [spec 0004](../0004-sms-send-flow/index.md).** AC-5 and the "no create, update, delete, or send endpoint" boundary below were always meant to hold only until the send flow spec. Spec 0004 now adds those routes on purpose. Everything else here (the dashboard route, the real list, removing the duplicate UI) still stands.
+
 ## Summary
 
 Makes `/messaging/broadcasts` a working page instead of a dead end: it currently renders `BroadcastDashboard` without the callback that component needs to ever reach the compose flow, and its "your campaigns" list is hardcoded to an empty state regardless of what's actually in the database. This connects it to real `sms_campaigns` data, restores dashboard → compose navigation, and removes the Reminder page's now-duplicate copy of the same UI, so there is exactly one honest entry point.
@@ -18,7 +20,7 @@ Makes `/messaging/broadcasts` a working page instead of a dead end: it currently
 - **AC-2**: The dashboard lists real `sms_campaigns` rows (name, type, status, recipient count, created date) when any exist; the existing "you haven't created any campaigns yet" empty state shows only when the list is genuinely empty.
 - **AC-3**: "Create Campaign" (both the header button and the empty-state button) reaches the existing `BroadcastFlow` compose UI in place, with no page navigation; its back action returns to the dashboard — the same in-component toggle already proven in `MessagingPortal`.
 - **AC-4**: The Reminder page no longer has its own "Message Broadcast" button or sheet; `MessagingPortal` is retired (its logic now lives directly in the Broadcasts route) rather than left behind as unused code.
-- **AC-5**: The new campaigns endpoint is read-only (GET) and does not let anything create, update, or send a campaign — that stays out of scope, deferred to the NextSMS send-flow spec.
+- **AC-5**: The new campaigns endpoint is read-only (GET) and does not let anything create, update, or send a campaign — that stays out of scope, deferred to the NextSMS send-flow spec. *(Superseded by spec 0004, which adds create, update, delete, and send routes.)*
 
 ## Decision
 
@@ -32,7 +34,7 @@ Makes `/messaging/broadcasts` a working page instead of a dead end: it currently
 |---|---|---|---|---|---|
 | `/api/campaigns` | GET | — | array of `{id, name, type, status, recipientCount, createdAt}`, newest first | any authenticated staff | — |
 
-No create, update, delete, or send endpoint exists for campaigns after this spec — that is explicitly the NextSMS send-flow spec's job (AC-5).
+No create, update, delete, or send endpoint exists for campaigns after this spec — that is explicitly the NextSMS send-flow spec's job (AC-5). *(Now done: spec 0004 adds `POST`, `PATCH`, `DELETE`, `/:id/send` and a detail `GET /:id`, and the list response gained `failedCount` and other counts.)*
 
 **Value sourcing**:
 
@@ -76,5 +78,5 @@ One slice — nothing here needs to land ahead of the rest of it.
 
 ## Follow-up
 
-- [ ] The NextSMS send-flow spec (scope feature 10's remaining decision) is what makes "Create Campaign" actually persist and send something; this spec only makes the *already-built* dashboard UI reachable and honest about what's already in the database.
+- [x] The NextSMS send-flow spec (scope feature 10's remaining decision, now spec 0004) is what makes "Create Campaign" actually persist and send something; this spec only makes the *already-built* dashboard UI reachable and honest about what's already in the database.
 - [ ] Once real sending exists, decide whether the campaigns list needs pagination or filtering — fetching everything is fine at today's scale and matches every other list endpoint in this codebase, but won't stay true forever.

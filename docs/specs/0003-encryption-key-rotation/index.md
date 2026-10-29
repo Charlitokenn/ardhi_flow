@@ -21,7 +21,7 @@ Every tenant's database address and password is locked with one secret key, and 
 - **AC-2**: Every newly encrypted connection string is stored as `<keyId>:<base64 of IV plus ciphertext>`, encrypted with the keyring's current key using AES GCM, with the org id and key id bound in as additional authenticated data (extra data that must match at decrypt time).
 - **AC-3**: A stored value decrypts with the key its prefix names, as long as that key is in the keyring. A value with no prefix (today's format) decrypts as `k1` with no bound data. A value copied into another tenant's row, or naming a key id that is not in the keyring, fails with a clear error naming the org id and key id, never the value.
 - **AC-4**: During every phase of a scheduled rotation (add the new key, switch the current key, re encrypt the rows, retire the old key), tenant requests that worked before the phase keep working.
-- **AC-5**: `rotate:keys` re encrypts every `tenant_projects` row that is not already on the current key (including unprefixed values), whatever the row's status, one tenant at a time. Before writing, it checks that the new value decrypts back to the original connection string.
+- **AC-5**: `rotate:keys` re encrypts every `tenant_projects` row that is not already on the current key (including unprefixed values), whatever the row's status, one tenant at a time. Before writing, it checks that the new value decrypts back to the original connection string. Tenant SMS secrets are covered separately by AC-16.
 - **AC-6**: Each write only applies if the row still holds the value the script read (compare and swap). A row that changed in the meantime is skipped and reported. Running the script again picks up only rows still on an old key, so an interrupted run resumes cleanly.
 - **AC-7**: Every real run creates a `key_rotation_runs` row that moves from `running` to `completed` or `failed` and records the counts. A second run cannot start while one is `running`. `--abandon-run <id>` marks a stuck run `failed`. A run is `completed` only when every selected row ended on the current key, otherwise it is `failed`.
 - **AC-8**: `--dry-run` prints how many rows use each key id and which orgs would change, and writes nothing, including no run row. It also checks the keyring against the AC-1 rules and decrypts every row to confirm the keyring can read it, listing any row it cannot.
@@ -32,6 +32,7 @@ Every tenant's database address and password is locked with one secret key, and 
 - **AC-13**: `docs/runbooks/encryption-key-rotation.md` exists and covers four procedures: first time setup, scheduled rotation, emergency rotation, and lost key recovery. It also states the backup rule, the 12 month calendar reminder, the 7 day soak, and a short checklist of other secrets to review after an incident.
 - **AC-14**: The scheduled rotation (with a loop of requests running through it), the emergency rotation, and the lost key recovery are each run at least once against throwaway test orgs named `drill-...` on the deployed Worker (the only environment, and nothing is live yet). Before the lost key drill, the key is copied back from the password manager entry and from the offline copy, and `rotate:keys --dry-run` with each shows every row decrypts. The results are written in the runbook's drill log.
 - **AC-15**: `TENANT_CONN_ENCRYPTION_KEY` is gone from the `Env` type, the scripts, and the code. No client code reads `TENANT_CONN_ENCRYPTION_KEY` or `TENANT_CONN_KEYRING`.
+- **AC-16** (added by spec 0004): After the connection strings, both `--dry-run` and a real run open every tenant that has SMS set up (catalog `sms_webhook_key` set) and check, or move, its `sms_settings` API token and webhook verify token to the current key, with the same compare and swap as AC-6. A tenant it cannot reach or decrypt is reported and the script exits non zero. This pass is not counted in `key_rotation_runs`. If the old key is lost, those two values cannot be recovered: the tenant's admin saves a new NextSMS token instead.
 
 ## Decision
 
@@ -46,7 +47,7 @@ Rotation is a script you run yourself, not a feature of the running app. The Wor
 | Tenants affected at first | None live yet, so the first rotation is a rehearsal on test data |
 | Triggers | A 12 month calendar schedule, and emergencies |
 | Downtime | None for a scheduled rotation |
-| Scheduled rotation covers | The encryption key only |
+| Scheduled rotation covers | The encryption key only (it moves connection strings and, since spec 0004, each tenant's SMS secrets) |
 | Emergency rotation covers | The encryption key and every tenant's database password |
 | Key storage | One JSON keyring Worker secret |
 | Version marker | A prefix inside the stored text (`k2:...`) |
@@ -165,7 +166,7 @@ The scheduled path does not touch the KV cache, because the cached value is the 
 
 - Every stored value is `<keyId>:<base64>` once the first run completes, and its key id is in the keyring while any row uses it.
 - `current` always exists in `keys`, and every key is 32 bytes.
-- An old key is only removed from the live keyring when a dry run shows zero rows using it.
+- An old key is only removed from the live keyring when a dry run shows zero rows using it, including every tenant's `sms_settings` secrets (AC-16).
 - At most one `running` run exists, enforced by the partial unique index.
 - A swap never overwrites a value that changed since it was read.
 - Keys, passwords, and connection strings never appear in logs, errors, run notes, or the terminal. Only org ids and key ids do.
@@ -287,4 +288,5 @@ Tracer Bullet (the project default): thread one tenant through the new format an
 - [ ] Add a `pg` variant of `rotate-keys.ts` only if the IPv6 fetch problem that needed `migrate-tenants-pg.ts` blocks the script on your network.
 - [ ] Feature 16 (health checks) can report the current key age and rows per key id.
 - [ ] After the build, `/sync` should update `AGENTS.md`, `context/architecture.md`, `context/build-plan.md`, `context/progress-tracker.md`, and `SCAFFOLD_NOTES.md`, which still name `TENANT_CONN_ENCRYPTION_KEY` and say no rotation strategy exists.
+- [x] Spec 0004 extended `rotate:keys` to re encrypt each tenant's `sms_settings` secrets (AC-16) and noted it in the runbook. This means a rotation now opens every tenant DB with SMS set up, not just the catalog.
 - [ ] Other secrets (`CLERK_SECRET_KEY`, `NEON_API_KEY`, `CATALOG_DATABASE_URL`) have no rotation procedure. They are listed in the runbook checklist only. Give them their own decision if needed.
